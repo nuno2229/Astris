@@ -75,10 +75,28 @@ def test_connection_test(fake_llama):
 
 
 @pytest.mark.parametrize("url", ["http://169.254.169.254", "http://[fe80::1]:8080", "http://0.0.0.0:8080",
-                                 "http://224.0.0.1", "http://no-such-host.invalid"])
+                                 "http://224.0.0.1", "http://no-such-host.invalid",
+                                 "http://100.100.100.200", "http://[fd00:ec2::254]",
+                                 "http://[64:ff9b::a9fe:a9fe]", "http://[2002:a9fe:a9fe::1]",
+                                 "http://[::ffff:169.254.169.254]"])
 def test_blocked_addresses(url):
     o = make_user("o")
     hid = create_household(o)
     body = {"llm_base_url": url, "llm_allow_internet": True}
     assert o.post(f"/api/households/{hid}/settings/llm/test", json=body).status_code == 422
     assert o.put(f"/api/households/{hid}/settings", json=body).status_code == 422
+
+
+def test_pinned_get_connects_to_checked_ip(monkeypatch, fake_llama):
+    """DNS rebinding: resolution happens once; a later different answer is never used."""
+    from app import netcheck
+    calls = []
+    real = netcheck.resolve
+    def fake_resolve(host):
+        calls.append(host)
+        return {"127.0.0.1"} if len(calls) == 1 else {"169.254.169.254"}
+    monkeypatch.setattr(netcheck, "resolve", fake_resolve)
+    port = fake_llama.rsplit(":", 1)[1]
+    code, body = netcheck.pinned_get(f"http://rebind.example:{port}/v1/models")
+    assert code == 200 and b"qwen" in body and len(calls) == 1
+    monkeypatch.setattr(netcheck, "resolve", real)

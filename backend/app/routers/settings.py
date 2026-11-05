@@ -1,8 +1,6 @@
 """Household settings. Local LLM endpoint (llama.cpp, OpenAI-compatible API) is configured here,
 owner only, because it decides where household data is sent (D-2, §2)."""
 import json
-import urllib.error
-import urllib.request
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -10,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from app.deps import DB, User
-from app.netcheck import is_blocked_url, is_local_url
+from app.netcheck import BlockedAddress, is_blocked_url, is_local_url, pinned_get
 from app.routers.households import my_role
 
 router = APIRouter(prefix="/api", tags=["settings"])
@@ -93,11 +91,6 @@ def put_settings(hid: UUID, body: LlmSettings, user: User, db: DB):
 _FAIL = "Couldn't connect to a llama.cpp server at this address. Check the address and port."
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *a, **k):
-        return None
-
-
 @router.post("/households/{hid}/settings/llm/test", response_model=LlmTestOut)
 def test_llm(hid: UUID, body: LlmTestIn, user: User, db: DB):
     """Calls GET {base}/v1/models (llama.cpp server's OpenAI-compatible API). Sends no household data."""
@@ -106,14 +99,14 @@ def test_llm(hid: UUID, body: LlmTestIn, user: User, db: DB):
     if not url:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Enter the server address")
     _check_privacy(url, body.llm_allow_internet)
-    if is_blocked_url(url):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "This address can't be used")
-    opener = urllib.request.build_opener(_NoRedirect)
     try:
-        with opener.open(urllib.request.Request(url + "/v1/models", headers={"Accept": "application/json"}),
-                         timeout=5) as r:
-            data = json.loads(r.read(256 * 1024))
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        code, body_ = pinned_get(url + "/v1/models")  # resolve once + connect to that IP (no DNS rebinding)
+        if code != 200:
+            return LlmTestOut(ok=False, message=_FAIL)
+        data = json.loads(body_)
+    except BlockedAddress:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "This address can't be used")
+    except Exception:  # noqa: BLE001 — any failure gets the same generic message
         # one generic message on purpose: detailed errors would reveal which hosts/ports exist
         return LlmTestOut(ok=False, message=_FAIL)
     if not isinstance(data, dict) or not isinstance(data.get("data"), list):
