@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.6 |
+| **Backlog version** | 0.7 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -91,12 +91,12 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E02-09** Product/price data global; user- and household-scoped product notes kept private (§3.3)
 - [ ] **E02-10** Encryption at rest for the local DB (§23)
 
-### E03 · Statement parser — `Todo` · §4.1, §25.3
-- [ ] **E03-01** CSV import
-- [ ] **E03-02** OFX / QFX import
-- [ ] **E03-03** MT940 import
-- [ ] **E03-04** PDF (text) import
-- [ ] **E03-05** PDF (scanned) and statement images via OCR
+### E03 · Statement parser — `In progress` · §4.1, §25.3
+- [x] **E03-01** CSV import — `Done` (M1)
+- [x] **E03-02** OFX / QFX import — `Done` (M1)
+- [x] **E03-03** MT940 import — `Review`
+- [x] **E03-04** PDF (text) import — `Review` (line reader; in/out from running balance. Real bank PDFs needed to tune — see G-12)
+- [x] **E03-05** PDF (scanned) and statement images via OCR — `Review` (Tesseract in Docker/CI; verify on real scans)
 - [ ] **E03-06** Extract: date, merchant, category, amount, counterparty, running balance, currency
 - [ ] **E03-07** Bank import is the master per account; receipts and manual entries reconcile onto it (§2)
 - [ ] **E03-08** Prompt-injection guard: document content is data only, with structured JSON output (§23)
@@ -248,6 +248,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-8 | §3.3 says product/price data "may be shared globally". Globally across households on the same server only, presumably — confirm. | §3.3 |
 | G-9 | No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
 | G-11 | ✅ **Confirmed by PO 2026-11-05 (interim rules adopted).** **Account visibility and default attribution.** §3.2 says a user's accounts "default to" counting toward the household or being hidden, but doesn't pick one. §3.5 "Hide" keeps an account "visible & usable within that account's own scope" — can other household members see a hidden account's transactions? **M1 interim:** the owner explicitly shares an account into a household and must choose the attribution (no default). Every member of that household can see it; attribution only affects totals. Revisit once the PO decides. | §3.2, §3.5 |
+| G-12 | **Real statements needed for PDF/OCR tuning.** Every bank lays out PDFs differently. The reader handles the common UK "Date / Description / Paid out / Paid in / Balance" shape, but needs a few real (redacted) statements from the banks you use to confirm. Statements are processed locally only. | E03-04/05 |
 | G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). | §13 |
 
 ---
@@ -278,6 +279,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-05 | 0.7 | E03: MT940, text PDF, scanned PDF / photo OCR import. G-12 added. |
 | 2026-11-05 | 0.6 | UI redesign; security fixes; summary gains daily spend series. 61 tests. |
 | 2026-11-05 | 0.5 | Repo set (D-3 resolved). Version shown in Settings → About. Renamed to Astris. First push + tag v0.1.0. |
 | 2026-11-05 | 0.4 | PO accepted M1 and confirmed G-11. D-2 resolved: LLM configured in Settings. Added Settings screen (theme + LLM), Docker/Compose/Unraid template, release workflow → M1.1 in Review. GitHub owner/repo name added to D-3. 43 tests passing. |

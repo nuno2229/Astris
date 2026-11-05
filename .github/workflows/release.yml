@@ -26,6 +26,8 @@ jobs:
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -v owner_pw=ft_owner_dev -v app_pw=ft_app_dev \
                -v dbname=finance_tracker_test -f scripts/bootstrap_db.sql
+      - name: Install OCR engine
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
       - name: Backend tests
         working-directory: backend
         run: pip install -e ".[dev]" && pytest -q

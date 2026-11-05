@@ -42,7 +42,7 @@ export default function Accounts({ ctx, household }: { ctx: Ctx; household: Hous
       {error && <div className="error" role="alert">{error}</div>}
       <h2>Yours</h2>
       <div className="stack">
-        {mine.length === 0 && <div className="empty"><strong>No accounts yet</strong>Add your first account, then import a CSV or OFX statement from your bank.</div>}
+        {mine.length === 0 && <div className="empty"><strong>No accounts yet</strong>Add your first account, then import a statement from your bank.</div>}
         {mine.map((a) => (
           <AccountCard key={a.id} account={a} household={household} share={shareOf(a.id)}
             onShare={(v) => setShare(a.id, v)} onChanged={load} />
@@ -109,15 +109,16 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>{SHARE_HELP[share]}</p>
       </div>
-      <input ref={fileRef} type="file" accept=".csv,.ofx,.qfx,.txt,text/csv" hidden
+      <input ref={fileRef} type="file" accept=".csv,.ofx,.qfx,.txt,.sta,.mt940,.940,.pdf,image/*,text/csv,application/pdf" hidden
         onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
       <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>
-        {busy ? "Importing…" : "Import statement (CSV / OFX)"}
+        {busy ? "Reading statement…" : "Import a statement"}
       </button>
+      <p className="muted small" style={{ marginTop: -6 }}>CSV, OFX, MT940 or PDF from your bank, or a photo of a paper statement.</p>
       {error && <div className="error" role="alert">{error}</div>}
       {result && (
         <div className="callout stack" style={{ gap: 6 }}>
-          <div><strong>{result.rows_new}</strong> new, {result.rows_duplicate} already imported ({result.format.toUpperCase()})</div>
+          <div><strong>{result.rows_new}</strong> new, {result.rows_duplicate} already imported</div>
           {result.warnings.map((w) => <div key={w} className="muted small">⚠ {w}</div>)}
           {result.rows_new > 0 && <button className="btn danger" onClick={undo}>Undo this import</button>}
         </div>
