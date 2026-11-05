@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.5 |
+| **Backlog version** | 0.6 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -36,6 +36,8 @@
 | GitHub Actions: tests on push/PR; multi-arch image to GHCR on `v*` tag | E19-02 | `Review` |
 | Version visible in Settings → About (git tag in release images, `vX.Y.Z-dev` locally) — PO instruction 2026-11-05 | E19-02 | `Review` |
 | Product renamed to **Astris** to match the repo (app title, image, Unraid template) | — | `Review` |
+| UI pass (frontend-design + dataviz skills): night-sky identity, self-hosted fonts (offline), month "constellation" spend chart with tap/keyboard readout + table view, date-grouped activity, plain-language copy | E16, E13-06 (partial) | `Review` |
+| Security hardening from automated review: strict amount parsing; LLM test resolves once and pins the IP (no DNS rebinding), blocks metadata/link-local incl. IPv6-wrapped | §23 | `Done` |
 | Cookies auto-secure: HTTPS-only flag when served over HTTPS, so plain-http LAN login works | E02-06 | `Done` |
 
 ### M1 detail
@@ -276,6 +278,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-05 | 0.6 | UI redesign; security fixes; summary gains daily spend series. 61 tests. |
 | 2026-11-05 | 0.5 | Repo set (D-3 resolved). Version shown in Settings → About. Renamed to Astris. First push + tag v0.1.0. |
 | 2026-11-05 | 0.4 | PO accepted M1 and confirmed G-11. D-2 resolved: LLM configured in Settings. Added Settings screen (theme + LLM), Docker/Compose/Unraid template, release workflow → M1.1 in Review. GitHub owner/repo name added to D-3. 43 tests passing. |
 | 2026-11-05 | 0.3 | M1 build: FastAPI + Postgres row-level security backend, CSV/OFX import, React PWA. 29 backend tests passing (incl. cross-household isolation at the API and DB level) plus a mobile/desktop browser click-through. M1 items moved to Review. G-11 interim rules implemented. |

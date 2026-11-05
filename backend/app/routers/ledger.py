@@ -109,6 +109,12 @@ class CurrencyTotals(BaseModel):
     spent_today: Decimal
 
 
+class DaySpend(BaseModel):
+    currency: str
+    day: date
+    spent: Decimal
+
+
 class Summary(BaseModel):
     household_id: UUID
     period_start: date
@@ -118,6 +124,7 @@ class Summary(BaseModel):
     accounts_included: int
     accounts_excluded: int
     recent: list[TransactionOut]
+    daily: list[DaySpend] = []       # included accounts only, days with spending (§17 time series, M1 scale)
 
 
 @router.get("/households/{hid}/summary", response_model=Summary)
@@ -145,9 +152,18 @@ def household_summary(hid: UUID, user: User, db: DB,
           JOIN accounts a ON a.id = ha.account_id
           JOIN memberships ow ON ow.household_id = ha.household_id AND ow.user_id = a.owner_user_id
          WHERE ha.household_id = :h GROUP BY ha.attribution"""), {"h": hid}).all())
-    recent = household_transactions(hid, user, db, None, 8, 0)
+    daily = db.execute(text("""
+        SELECT t.currency, t.posted_on AS day, SUM(-t.amount) AS spent
+          FROM transactions t
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND ha.attribution = 'include'
+          JOIN accounts a ON a.id = t.account_id
+          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+         WHERE t.posted_on >= :s AND t.posted_on < :e AND t.amount < 0
+         GROUP BY t.currency, t.posted_on ORDER BY t.posted_on"""), {"h": hid, "s": start, "e": end}).all()
+    recent = household_transactions(hid, user, db, None, 12, 0)
     pick = lambda attr: [CurrencyTotals(currency=r.currency, spent=r.spent, received=r.received,
                                         spent_today=r.spent_today) for r in rows if r.attribution == attr]
     return Summary(household_id=hid, period_start=start, period_end=end, included=pick("include"),
                    excluded=pick("hide"), accounts_included=counts.get("include", 0),
-                   accounts_excluded=counts.get("hide", 0), recent=recent)
+                   accounts_excluded=counts.get("hide", 0), recent=recent,
+                   daily=[DaySpend(**r._mapping) for r in daily])

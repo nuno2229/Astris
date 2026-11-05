@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { api, Household } from "../api";
 import type { Ctx } from "../App";
+import { StarMark } from "../icons";
 import { go } from "../router";
 
 export default function Onboarding({ ctx }: { ctx: Ctx }) {
@@ -16,8 +17,9 @@ export default function Onboarding({ ctx }: { ctx: Ctx }) {
 
   return (
     <div className="auth">
-      <div className="card stack">
-        <div className="brand"><img src="/icon.svg" alt="" />Welcome, {ctx.me.display_name}</div>
+      <div className="wordmark"><StarMark className="" /><span>Astris</span></div>
+      <div className="panel stack">
+        <h1 style={{ margin: 0 }}>Welcome, {ctx.me.display_name}</h1>
         <p className="muted small" style={{ margin: 0 }}>Create a household, or join one with an invite code.</p>
         <form className="stack" onSubmit={create}>
           <label>Household name<input value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} placeholder="e.g. Our flat" /></label>
@@ -28,7 +30,7 @@ export default function Onboarding({ ctx }: { ctx: Ctx }) {
           <button className="btn block">Join household</button>
         </form>
         {error && <div className="error" role="alert">{error}</div>}
-        <button className="btn ghost" onClick={ctx.signOut}>Sign out</button>
+        <button className="btn quiet" onClick={ctx.signOut}>Sign out</button>
       </div>
     </div>
   );

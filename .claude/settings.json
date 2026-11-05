@@ -3,6 +3,7 @@
     "superpowers@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
-    "example-skills@anthropic-agent-skills": true
+    "example-skills@anthropic-agent-skills": true,
+    "expo@claude-plugins-official": true
   }
 }

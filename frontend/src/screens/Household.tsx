@@ -46,7 +46,7 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
               </div>
               <span className="pill">{m.role}</span>
               {canRemove && (
-                <button className="btn ghost danger" onClick={() => confirm(`Remove ${m.display_name}? They lose access immediately.`)
+                <button className="btn danger" onClick={() => confirm(`Remove ${m.display_name}? They lose access immediately.`)
                   && act(async () => { await api.del(`/api/households/${household.id}/members/${m.user_id}`); await load(); })}>Remove</button>
               )}
             </li>
@@ -57,7 +57,7 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
       {manager && (
         <>
           <h2>Invite someone</h2>
-          <form className="card stack" onSubmit={invite}>
+          <form className="panel stack" onSubmit={invite}>
             <label>Email (optional, restricts who can use it)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
             {household.role === "owner" && (
               <label>Role<select value={role} onChange={(e) => setRole(e.target.value as "member" | "admin")}>
@@ -66,7 +66,7 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
             )}
             <button className="btn primary">Create invite</button>
             {fresh?.code && (
-              <div className="notice stack" style={{ gap: 8 }}>
+              <div className="callout stack" style={{ gap: 8 }}>
                 <div>Share this link or code. It's shown <strong>only once</strong>, works once, and expires {new Date(fresh.expires_at).toLocaleDateString()}.</div>
                 <div className="code">{link}</div>
                 <div className="row">
@@ -83,8 +83,8 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
                 {pending.map((i) => (
                   <li key={i.id}>
                     <div className="main"><div className="title">{i.email ?? "Anyone with the code"}</div>
-                      <div className="meta">{i.role} · expires {new Date(i.expires_at).toLocaleDateString()}</div></div>
-                    <button className="btn ghost danger" onClick={() => act(async () => {
+                      <div className="meta">{i.role === "admin" ? "Admin" : "Member"}, expires {new Date(i.expires_at).toLocaleDateString()}</div></div>
+                    <button className="btn danger" onClick={() => act(async () => {
                       await api.del(`/api/households/${household.id}/invites/${i.id}`); await load(); })}>Revoke</button>
                   </li>
                 ))}
@@ -95,7 +95,7 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
       )}
 
       <h2>You</h2>
-      <div className="card stack">
+      <div className="panel stack">
         <div><strong>{ctx.me.display_name}</strong> <span className="muted small">{ctx.me.email}</span></div>
         <form className="row" style={{ flexWrap: "nowrap" }} onSubmit={(e) => { e.preventDefault(); act(async () => {
           const h = await api.post<Household>("/api/households", { name: newName }); setNewName(""); await ctx.reloadHouseholds(h.id); }); }}>
@@ -108,7 +108,7 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
             Leave {household.name}
           </button>
         )}
-        <button className="btn ghost" onClick={ctx.signOut}>Sign out</button>
+        <button className="btn quiet" onClick={ctx.signOut}>Sign out</button>
       </div>
     </>
   );

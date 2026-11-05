@@ -11,7 +11,7 @@ export function getThemePref(): ThemePref {
 function apply(pref: ThemePref) {
   const resolved = pref === "system" ? (mq().matches ? "light" : "dark") : pref;
   document.documentElement.dataset.theme = resolved;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "light" ? "#f6f7f9" : "#0f1115");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved === "light" ? "#eef1f8" : "#121733");
 }
 
 export function setThemePref(pref: ThemePref) {

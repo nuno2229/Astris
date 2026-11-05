@@ -93,6 +93,7 @@ def test_summary_respects_attribution():
     assert Decimal(s["excluded"][0]["spent"]) == Decimal("99.99")
     assert (s["accounts_included"], s["accounts_excluded"]) == (1, 1)
     assert len(a.get(f"/api/households/{hid}/transactions").json()) == 3  # access not stripped
+    assert [(d["day"], Decimal(d["spent"])) for d in s["daily"]] == [("2026-11-01", Decimal(10))]  # hidden excluded
 
 
 def test_attribution_requires_explicit_choice():

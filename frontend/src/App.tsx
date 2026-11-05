@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, Household, Me } from "./api";
 import { go, store, useRoute } from "./router";
-import { GearIcon, HomeIcon, ListIcon, UsersIcon, WalletIcon } from "./icons";
+import { ChevronDown, GearIcon, HomeIcon, ListIcon, StarMark, UsersIcon, WalletIcon } from "./icons";
 import AuthScreen from "./screens/Auth";
 import Dashboard from "./screens/Dashboard";
 import Activity from "./screens/Activity";
@@ -69,10 +69,15 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <select id="hh" aria-label="Household" value={hid ?? ""}
-          onChange={(e) => { setHid(e.target.value); store("household:" + me.id, e.target.value); }}>
-          {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-        </select>
+        <StarMark />
+        <label className="switcher">
+          <span>{household?.name}</span><ChevronDown />
+          <select aria-label="Switch household" value={hid ?? ""}
+            onChange={(e) => { setHid(e.target.value); store("household:" + me.id, e.target.value); }}>
+            {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+        </label>
+        <span className="spacer" />
         <a className="iconbtn" href="#/settings" aria-label="Settings" aria-current={tab === "settings" ? "page" : undefined}><GearIcon /></a>
       </header>
       <nav className="bottomnav" aria-label="Main">

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { api } from "../api";
+import { StarMark } from "../icons";
 
 export default function AuthScreen({ onDone }: { onDone: () => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -22,9 +23,9 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="auth">
-      <form className="card stack" onSubmit={submit}>
-        <div className="brand"><img src="/icon.svg" alt="" />Astris</div>
-        <p className="muted small" style={{ margin: 0 }}>Private household finances. Your data stays on your home server.</p>
+      <div className="wordmark"><StarMark className="" /><span>Astris</span></div>
+      <p className="tagline">Your household's money, kept at home.</p>
+      <form className="panel stack" onSubmit={submit}>
         <div className="seg" role="group" aria-label="Sign in or create account">
           <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")}>Sign in</button>
           <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")}>Create account</button>
@@ -37,7 +38,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
             minLength={mode === "register" ? 10 : undefined} autoComplete={mode === "login" ? "current-password" : "new-password"} />
         </label>
-        {mode === "register" && <span className="muted small">At least 10 characters.</span>}
+        {mode === "register" && <span className="muted small">Use at least 10 characters.</span>}
         {error && <div className="error" role="alert">{error}</div>}
         <button className="btn primary block" disabled={busy}>{mode === "login" ? "Sign in" : "Create account"}</button>
       </form>

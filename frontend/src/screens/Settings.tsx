@@ -16,7 +16,7 @@ export default function Settings({ household }: { household: Household }) {
     <>
       <h1>Settings</h1>
       <h2>Appearance</h2>
-      <div className="card stack">
+      <div className="panel stack">
         <div className="seg" role="group" aria-label="Theme">
           {(["dark", "light", "system"] as const).map((t) => (
             <button key={t} aria-pressed={theme === t} onClick={() => pickTheme(t)}>
@@ -73,7 +73,7 @@ function AiSettings({ household }: { household: Household }) {
   return (
     <>
       <h2>AI assistant: local LLM ({household.name})</h2>
-      <form className="card stack" onSubmit={save}>
+      <form className="panel stack" onSubmit={save}>
         <p className="muted small" style={{ margin: 0 }}>
           Connect your own llama.cpp server for AI categorisation and the in-app assistant. Without it, the app uses
           simple rules instead and everything still works.
@@ -104,7 +104,7 @@ function AiSettings({ household }: { household: Household }) {
           Use AI for this household
         </label>
         {s.llm_is_local === false && (
-          <div className="notice"><strong>Uses internet.</strong> The saved address is outside your home network.</div>
+          <div className="callout"><strong>Uses internet.</strong> The saved address is outside your home network.</div>
         )}
         <label className="check">
           <input type="checkbox" checked={allowNet} onChange={(e) => setAllowNet(e.target.checked)} disabled={ro} />
@@ -124,7 +124,7 @@ function About() {
   return (
     <>
       <h2>About</h2>
-      <div className="card stack" style={{ gap: 6 }}>
+      <div className="panel stack" style={{ gap: 6 }}>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <span>Astris</span>
           <span className="pill" style={{ fontSize: 14, color: "var(--text)" }} data-testid="version">{v?.version ?? "…"}</span>
