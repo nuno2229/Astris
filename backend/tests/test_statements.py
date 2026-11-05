@@ -155,3 +155,29 @@ def test_image_bomb_rejected():
     bomb = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IEND", b"")
     r = upload(a, acc, "bomb.png", bomb)
     assert r.status_code == 422
+
+
+def test_mt940_never_reads_server_files(tmp_path):
+    """A 'statement' whose content is a file path must not make the server open that file."""
+    secret = tmp_path / "secret.sta"
+    secret.write_bytes(MT940)
+    a = make_user("a")
+    acc = create_account(a)
+    r = upload(a, acc, "x.sta", str(secret).encode())
+    assert r.status_code == 422
+
+
+def test_damaged_pdf_fails_cleanly():
+    a = make_user("a")
+    acc = create_account(a)
+    r = upload(a, acc, "x.pdf", b"%PDF-1.7\n" + b"\x00garbage" * 1000)
+    assert r.status_code == 422
+
+
+def test_worker_timeout_is_reported(monkeypatch):
+    from app.importers import pdf_import
+    monkeypatch.setattr(pdf_import, "WORKER_TIMEOUT_S", 0.001)
+    a = make_user("a")
+    acc = create_account(a)
+    r = upload(a, acc, "statement.pdf", make_pdf(UK_PDF_LINES))
+    assert r.status_code == 422 and "too long" in r.json()["detail"]

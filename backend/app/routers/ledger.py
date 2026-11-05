@@ -4,6 +4,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from decimal import Decimal
 from sqlalchemy import text
@@ -30,7 +31,8 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
     if len(raw) > limit:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File too large")
     try:
-        parsed = parse_statement(file.filename or "upload", raw)
+        # parsing can be slow (PDF/OCR): keep it off the event loop so other requests aren't blocked
+        parsed = await run_in_threadpool(parse_statement, file.filename or "upload", raw)
         for t in parsed.transactions:  # every parser goes through the same gate
             t.amount = check_amount(t.amount)
             t.running_balance = check_amount(t.running_balance, "balance")

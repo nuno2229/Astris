@@ -8,7 +8,9 @@ from app.importers.base import ImportError_, ParsedTx, ParseResult, decode
 
 def parse_mt940(raw: bytes) -> ParseResult:
     try:
-        stmts = mt940.parse(decode(raw))
+        # Transactions().parse() takes text only; mt940.parse() would treat a path-like string as a file to open
+        stmts = mt940.models.Transactions()
+        stmts.parse(decode(raw))
     except Exception as e:  # library raises varied errors on malformed input
         raise ImportError_(f"Couldn't read this MT940 file ({type(e).__name__})")
     result = ParseResult(format="mt940", transactions=[])
