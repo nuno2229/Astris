@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from app.deps import DB, User
-from app.netcheck import is_local_url
+from app.netcheck import is_blocked_url, is_local_url
 from app.routers.households import my_role
 
 router = APIRouter(prefix="/api", tags=["settings"])
@@ -77,6 +77,8 @@ def put_settings(hid: UUID, body: LlmSettings, user: User, db: DB):
     if body.llm_enabled and not body.llm_base_url:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Set the server address before enabling AI")
     _check_privacy(body.llm_base_url, body.llm_allow_internet)
+    if body.llm_base_url and is_blocked_url(body.llm_base_url):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "This address can't be used")
     db.execute(text("""
         INSERT INTO household_settings (household_id, llm_enabled, llm_base_url, llm_model, llm_allow_internet, updated_by)
         VALUES (:h, :e, :u, :m, :ai, :by)
@@ -86,6 +88,9 @@ def put_settings(hid: UUID, body: LlmSettings, user: User, db: DB):
         {"h": hid, "e": body.llm_enabled, "u": body.llm_base_url, "m": (body.llm_model or "").strip() or None,
          "ai": body.llm_allow_internet, "by": user.id})
     return get_settings_(hid, user, db)
+
+
+_FAIL = "Couldn't connect to a llama.cpp server at this address. Check the address and port."
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -101,17 +106,17 @@ def test_llm(hid: UUID, body: LlmTestIn, user: User, db: DB):
     if not url:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Enter the server address")
     _check_privacy(url, body.llm_allow_internet)
+    if is_blocked_url(url):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "This address can't be used")
     opener = urllib.request.build_opener(_NoRedirect)
     try:
         with opener.open(urllib.request.Request(url + "/v1/models", headers={"Accept": "application/json"}),
                          timeout=5) as r:
             data = json.loads(r.read(256 * 1024))
-    except urllib.error.HTTPError as e:
-        return LlmTestOut(ok=False, message=f"Server answered HTTP {e.code}. Is this a llama.cpp server?")
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        reason = getattr(e, "reason", e)
-        return LlmTestOut(ok=False, message=f"Couldn't reach the server ({reason})")
-    except ValueError:
-        return LlmTestOut(ok=False, message="Server replied, but not with JSON. Is this a llama.cpp server?")
-    models = [m.get("id", "") for m in data.get("data", []) if isinstance(m, dict)] if isinstance(data, dict) else []
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        # one generic message on purpose: detailed errors would reveal which hosts/ports exist
+        return LlmTestOut(ok=False, message=_FAIL)
+    if not isinstance(data, dict) or not isinstance(data.get("data"), list):
+        return LlmTestOut(ok=False, message=_FAIL)
+    models = [str(m.get("id", ""))[:200] for m in data["data"][:100] if isinstance(m, dict)]
     return LlmTestOut(ok=True, message=f"Connected. {len(models)} model(s) available.", models=[m for m in models if m])

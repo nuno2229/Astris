@@ -28,6 +28,18 @@ class ParseResult:
     warnings: list[str] = field(default_factory=list)
 
 
+MAX_ABS = Decimal("1e14")  # numeric(18,4)
+
+
+def check_amount(v: Decimal | None, what: str = "amount") -> Decimal | None:
+    """Reject NaN/Infinity and values that don't fit numeric(18,4); round to 4 dp."""
+    if v is None:
+        return None
+    if not v.is_finite() or abs(v) >= MAX_ABS:
+        raise ImportError_(f"File contains an invalid {what}")
+    return v.quantize(Decimal("0.0001"))
+
+
 def normalise_desc(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
 

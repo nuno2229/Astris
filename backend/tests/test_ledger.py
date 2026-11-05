@@ -100,3 +100,15 @@ def test_attribution_requires_explicit_choice():
     hid = create_household(a)
     acc = create_account(a)
     assert a.put(f"/api/households/{hid}/accounts/{acc}", json={}).status_code == 422
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("amount", ["NaN", "Infinity", "-inf", "1E+400", "1e5", "123456789012345.00", "1.23456"])
+def test_rejects_non_numeric_or_huge_amounts(amount):
+    a = make_user("a")
+    acc = create_account(a)
+    r = upload(a, acc, "x.csv", f"Date,Description,Amount\n2026-11-01,Shop,{amount}\n".encode())
+    assert r.status_code == 422, (amount, r.text)
+    assert a.get(f"/api/accounts/{acc}/transactions").json() == []

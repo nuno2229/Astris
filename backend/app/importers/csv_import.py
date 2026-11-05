@@ -4,7 +4,7 @@ import csv
 import io
 import re
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from app.importers.base import ImportError_, ParsedTx, ParseResult, decode
 
@@ -43,10 +43,10 @@ def parse_amount(s: str) -> Decimal | None:
         neg, s = not neg, s[1:]
     elif s.startswith("+"):
         s = s[1:]
-    try:
-        v = Decimal(s)
-    except InvalidOperation:
-        raise ImportError_(f"Couldn't read amount '{s}'")
+    # strict: plain digits only, so NaN / Infinity / exponents can never reach the ledger
+    if not re.fullmatch(r"\d{1,14}(\.\d{1,4})?", s):
+        raise ImportError_(f"Couldn't read amount '{s[:20]}'")
+    v = Decimal(s)
     return -v if neg else v
 
 

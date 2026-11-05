@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.deps import DB, User, not_found
-from app.importers.base import ImportError_, assign_fingerprints
+from app.importers.base import ImportError_, assign_fingerprints, check_amount
 from app.importers.detect import parse_statement
 from app.routers.accounts import require_own_account
 from app.routers.households import my_role
@@ -31,6 +31,9 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File too large")
     try:
         parsed = parse_statement(file.filename or "upload", raw)
+        for t in parsed.transactions:  # every parser goes through the same gate
+            t.amount = check_amount(t.amount)
+            t.running_balance = check_amount(t.running_balance, "balance")
     except ImportError_ as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     if parsed.currency and parsed.currency != acc.currency:

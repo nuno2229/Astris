@@ -71,4 +71,14 @@ def test_connection_test(fake_llama):
     r = o.post(f"/api/households/{hid}/settings/llm/test", json={"llm_base_url": fake_llama}).json()
     assert r["ok"] and r["models"] == ["qwen2.5-7b-instruct"]
     r = o.post(f"/api/households/{hid}/settings/llm/test", json={"llm_base_url": "http://127.0.0.1:1"}).json()
-    assert not r["ok"] and "Couldn't reach" in r["message"]
+    assert not r["ok"] and r["message"].startswith("Couldn't connect")
+
+
+@pytest.mark.parametrize("url", ["http://169.254.169.254", "http://[fe80::1]:8080", "http://0.0.0.0:8080",
+                                 "http://224.0.0.1", "http://no-such-host.invalid"])
+def test_blocked_addresses(url):
+    o = make_user("o")
+    hid = create_household(o)
+    body = {"llm_base_url": url, "llm_allow_internet": True}
+    assert o.post(f"/api/households/{hid}/settings/llm/test", json=body).status_code == 422
+    assert o.put(f"/api/households/{hid}/settings", json=body).status_code == 422
