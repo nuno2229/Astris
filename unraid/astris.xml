@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!-- Unraid Docker template. Requires a PostgreSQL container (e.g. official "postgres" from Community Apps).
+     Install: copy to /boot/config/plugins/dockerMan/templates-user/my-astris.xml, then Docker > Add Container > select "astris". -->
+<Container version="2">
+  <Name>astris</Name>
+  <Repository>ghcr.io/nuno2229/astris:latest</Repository>
+  <Registry>https://github.com/nuno2229/Astris/pkgs/container/astris</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/nuno2229/Astris/issues</Support>
+  <Project>https://github.com/nuno2229/Astris</Project>
+  <Overview>Private, self-hosted household finance hub. Import bank statements, share accounts within households, everything stays on your server. Needs a PostgreSQL container.</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8000]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/nuno2229/Astris/main/frontend/public/icon.svg</Icon>
+  <Config Name="Web UI port" Target="8000" Default="8484" Mode="tcp" Description="Port for the web app" Type="Port" Display="always" Required="true">8484</Config>
+  <Config Name="Postgres host" Target="DB_HOST" Default="" Description="IP or container name of your PostgreSQL server" Type="Variable" Display="always" Required="true"/>
+  <Config Name="Postgres port" Target="DB_PORT" Default="5432" Type="Variable" Display="advanced" Required="true">5432</Config>
+  <Config Name="Database name" Target="DB_NAME" Default="finance_tracker" Type="Variable" Display="advanced" Required="true">finance_tracker</Config>
+  <Config Name="Postgres admin URL (first run)" Target="DB_ADMIN_URL" Default="" Description="postgresql://postgres:PASSWORD@HOST:5432/postgres. Used only at startup to create the app's roles and database. Can be removed after the first successful start." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="App DB password" Target="DB_APP_PASSWORD" Default="" Description="Password for the ft_app role (long random string)" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Owner DB password" Target="DB_OWNER_PASSWORD" Default="" Description="Password for the ft_owner role (long random string)" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Allow new sign-ups" Target="ALLOW_REGISTRATION" Default="true|false" Description="Turn off once everyone in your home has an account" Type="Variable" Display="always" Required="false">true</Config>
+  <Config Name="Timezone" Target="TZ" Default="Europe/London" Type="Variable" Display="advanced" Required="false">Europe/London</Config>
+</Container>

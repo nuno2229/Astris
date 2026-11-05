@@ -1,0 +1,283 @@
+# Astris (Finance Tracker / Home Dashboard) — Backlog
+
+> **Live document.** Updated as work progresses. Source of truth for scope = *High-Level Requirements & Summary v0.4* (PO spec, 2026-11-05).
+> Every item traces back to a spec section (`§n`). Nothing here goes beyond the spec except in **§P Proposed** — and those are **not in scope until the PO approves them**.
+
+| | |
+|---|---|
+| **Backlog version** | 0.5 |
+| **Spec version** | v0.4 (DRAFT) |
+| **Last updated** | 2026-11-05 |
+| **Owner** | PO |
+
+## How this document works
+
+1. **Scope changes need PO approval.** Claude may suggest new requirements or improvements, but only by adding them to [§P Proposed](#p-proposed--awaiting-po-approval) with status `Awaiting approval`. They move into an epic only after the PO says yes.
+2. **Gaps are flagged, not filled.** Where the spec is ambiguous or contradictory, the item goes into [§G Gaps](#g-gaps--ambiguities-in-the-spec), not into a guess.
+3. **Blocked items** point to the decision (`D-n`) blocking them.
+4. **Every change** gets a line in the [Changelog](#changelog).
+
+**Status legend:** `Todo` · `In progress` · `Review` · `Done` · `Blocked (D-n)`
+**Priority:** taken from the spec. The order follows the spec's §25 handoff order. Items marked **Low** are low priority per the spec. Everything else is unranked until the PO sets priorities.
+
+---
+
+## M. Milestones
+
+### M1 · MVP — ✅ `Accepted by PO 2026-11-05` (P-11). Packaging below is in Review.
+
+### M1.1 · Settings + Unraid packaging — `Review`
+
+| Item | Covers | Status |
+|---|---|---|
+| Settings screen: theme Dark / Light / Match device (dark default) | E16-02 | `Review` |
+| Local LLM server configured in Settings (household owner only; test connection; non-LAN address needs explicit opt-in) — PO instruction 2026-11-05 | E05-00 (new), §2 | `Review` |
+| Docker image (frontend + backend, non-root, healthcheck), first-run DB setup, Compose file, Unraid template | E19-01 | `Review` (**not built yet**: no Docker on the dev Mac; startup sequence verified without a container) |
+| GitHub Actions: tests on push/PR; multi-arch image to GHCR on `v*` tag | E19-02 | `Review` |
+| Version visible in Settings → About (git tag in release images, `vX.Y.Z-dev` locally) — PO instruction 2026-11-05 | E19-02 | `Review` |
+| Product renamed to **Astris** to match the repo (app title, image, Unraid template) | — | `Review` |
+| Cookies auto-secure: HTTPS-only flag when served over HTTPS, so plain-http LAN login works | E02-06 | `Done` |
+
+### M1 detail
+Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-first dashboard.
+
+| Item | Covers | Status |
+|---|---|---|
+| Architecture + stack | E01-01, E01-03 | `Review` (docs/architecture.md) |
+| Schema + DB-level tenant isolation (row-level security) | E02-01, E02-02, E02-03 (ledger part), E02-05 | `Review` |
+| Per-user login, sessions, self-registration | E02-06, E02-08, E19-04 (partial) | `Review` |
+| Households, invites, revocation, roles | E02-07 | `Review` |
+| Accounts + per-household attribution | E02-02, E02-04 | `Review` |
+| CSV + OFX/QFX import into the ledger, with dedupe + undo | E03-01, E03-02, E03-06 (partial), E09-04 (single import) | `Review` |
+| Mobile-first dashboard shell, dark mode, household switcher, PWA | E16-02, E16-03, E16-04, E16-05 (partial) | `Review` |
+| **Remaining before M1 is done:** PO review/acceptance; Docker image (E19-01) so it runs on Unraid | | `Todo` |
+
+---
+
+## D. Decisions needed (from spec §24)
+
+| ID | Decision | Proposed answer (from spec) | Blocks | Status |
+|---|---|---|---|---|
+| D-1 | Core offline vs online modules | Core offline by default; online modules explicitly gated, toggleable, never auto-on | E18, E17, E14-07 | ✅ **Confirmed 2026-11-05** |
+| D-2 | What/where is "Jev" (LLM model/host on Unraid)? | A llama.cpp server. URL and model are entered by the household owner in **Settings** (PO, 2026-11-05) | — | ✅ **Resolved 2026-11-05** |
+| D-3 | Spec sync between Mac (Claude) and Unraid (PO) | Repo: **github.com/nuno2229/Astris** (public). Image: `ghcr.io/nuno2229/astris`. BACKLOG.md lives in the repo | — | ✅ **Resolved 2026-11-05** |
+| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | Research: auto-update script + in-app banner + rollback; owner/admin vs member | E19 | **Open** |
+| D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
+| D-6 | Geography / retailer scope | UK implied | E18 | **Open** |
+| D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Accept device-local alerting | E08, E12b | **Open** |
+| D-8 | Offline FX rate cache source | — | E08 | **Open** |
+| D-9 | Copilot may mutate data (scoped) vs read-only first | — | E15-04 | **Open** |
+
+---
+
+## E. Epics & stories
+
+### E01 · Scope lock & architecture — `Todo` · §1, §2, §25.1
+- [ ] **E01-01** Architecture diagram: offline core, optional network modules, multi-tenant data model, inventory
+- [ ] **E01-02** Scope lock sign-off by PO (resolve D-1, D-5)
+- [ ] **E01-03** Document golden rules (§2) as checkable architectural constraints
+
+### E02 · Data model, auth & tenant scoping — `Todo` · §3, §23, §25.2
+- [ ] **E02-01** Schema: users, sessions, households, memberships (roles: owner/admin/member)
+- [ ] **E02-02** Schema: accounts (bank / card / cash / subscription / goal) with `owner_user_id`
+- [ ] **E02-03** Schema: ledger, products, stock, budgets, shopping lists, goals
+- [ ] **E02-04** Per-account household attribution: `Include` / `Hide (separate)`. Affects aggregation only, never access (§3.5)
+- [ ] **E02-05** Two-layer scoping (user → household) enforced on every query layer: ledger, products, budgets, shopping list, stats, favourites, stock (§3.3)
+- [ ] **E02-06** Distinct per-user login and sessions; a session never spans users (§2, §3.4)
+- [ ] **E02-07** Invitations: link / email / code; explicit and revocable; revocation takes effect immediately (§3.2)
+- [ ] **E02-08** Per-user preferences and defaults stored under the user only (§3.4)
+- [ ] **E02-09** Product/price data global; user- and household-scoped product notes kept private (§3.3)
+- [ ] **E02-10** Encryption at rest for the local DB (§23)
+
+### E03 · Statement parser — `Todo` · §4.1, §25.3
+- [ ] **E03-01** CSV import
+- [ ] **E03-02** OFX / QFX import
+- [ ] **E03-03** MT940 import
+- [ ] **E03-04** PDF (text) import
+- [ ] **E03-05** PDF (scanned) and statement images via OCR
+- [ ] **E03-06** Extract: date, merchant, category, amount, counterparty, running balance, currency
+- [ ] **E03-07** Bank import is the master per account; receipts and manual entries reconcile onto it (§2)
+- [ ] **E03-08** Prompt-injection guard: document content is data only, with structured JSON output (§23)
+
+### E04 · Receipt scanner & unit price — `Todo` · §4.2, §25.4
+- [ ] **E04-01** Photo upload, single and batch; multiple receipts per image
+- [ ] **E04-02** Line-item extraction: name, brand, weight/unit, UoM, line price
+- [ ] **E04-03** Normalised unit price (e.g. per 100 g) across SKUs
+- [ ] **E04-04** Promotions/discounts handled explicitly; loyalty discounts missing from the receipt flagged as a known limitation
+- [ ] **E04-05** Receipt products reconcile onto the bank transaction (§2)
+- [ ] **E04-06** Capture expiry date where readable (§15.2)
+
+### E05 · AI categorisation pipeline — `Todo` · §4.1, §22, §25.5
+- [x] **E05-00** LLM server address/model configured in Settings, owner only (PO instruction 2026-11-05) — `Review`
+- [ ] **E05-01** Local LLM integration (llama.cpp / Ollama), run as a background queue so the UI stays responsive
+- [ ] **E05-02** Merchant/alias dictionary with fuzzy matching
+- [ ] **E05-03** Confidence score; uncertain items flagged rather than silently guessed
+- [ ] **E05-04** Rules-based fallback when no model is configured (§22)
+
+### E06 · Recurring & scheduled transactions — `Todo` · §5, §25.6
+- [ ] **E06-01** Auto-detect recurring charges (rent, subscriptions, standing orders, dividends) and scheduled income
+- [ ] **E06-02** Store pattern (daily/weekly/monthly/yearly), next occurrence and expected amount; update when they drift
+- [ ] **E06-03** Missed-payment detection (expected charge didn't appear)
+- [ ] **E06-04** Upcoming due dates surfaced
+
+### E07 · Subscription registry — `Todo` · §11, §25.7
+- [ ] **E07-01** Registry separate from the ledger: provider, cost, cycle, renewal date, next renewal, auto-renew, status
+- [ ] **E07-02** Cancellation tracking
+- [ ] **E07-03** Unused-trial detection
+- [ ] **E07-04** Upcoming-renewal alerts
+- [ ] **E07-05** Feeds recurring transactions (E06) and budgets (E12)
+
+### E08 · Cash wallet & multi-currency — `Todo` · §8, §9, §25.8
+- [ ] **E08-01** Cash as a first-class account type, owned per user (§3)
+- [ ] **E08-02** Opening/closing balances, deposits, withdrawals
+- [ ] **E08-03** Optional reconciliation against card/statement
+- [ ] **E08-04** Base currency per account; multi-currency transactions
+- [ ] **E08-05** Offline FX cache fallback — `Blocked (D-8)`
+- [ ] **E08-06** Live FX rates as an opt-in add-on (`uses internet`) — `Blocked (D-1)`
+- [ ] **E08-07** Display in the user's home currency; flag conversions when cards are used abroad
+
+### E09 · Bulk import wizard — `Todo` · §10, §25.9
+- [ ] **E09-01** Multi-file ingest with format detection
+- [ ] **E09-02** Dry run: dedupe, balance-mismatch vs statement, mapping preview
+- [ ] **E09-03** Conflict view; proceed or adjust per-account rules
+- [ ] **E09-04** Rollback/cancel of a bulk run without touching existing data
+
+### E10 · Change-log & audit trail — `Todo` · §13, §25.10
+- [ ] **E10-01** Log who/when/why for manual edits, imports/reconciles, stock changes and shopping-list mutations
+- [ ] **E10-02** Tamper-evident local log
+- [ ] **E10-03** Owner can view and reverse changes
+
+### E11 · Savings goals — `Todo` · §6, §25.11
+- [ ] **E11-01** Named goals with a target amount and optional deadline
+- [ ] **E11-02** Per-member contributions vs the household goal
+- [ ] **E11-03** Progress: %, days remaining and projected completion, auto-updated from the ledger
+
+### E12 · Budgets, alerts & spending limits — `Todo` · §7, §12, §25.12
+- [ ] **E12-01** Monthly caps per category and per merchant
+- [ ] **E12-02** Alert thresholds (% or amount): approaching / hit / exceeded
+- [ ] **E12-03** Daily spend summary
+- [ ] **E12-04** Shared (household) and personal budgets
+- [ ] **E12-05** Recompute when recurring transactions fire
+- [ ] **E12-06** Per-card and per-merchant thresholds (daily/weekly/monthly) — **E12b**, `Blocked (D-7)`
+- [ ] **E12-07** UI states plainly that there is no server-side blocking; the app never claims to block (§12)
+
+### E13 · Consumption analytics — `Todo` · §17, §25.13
+- [ ] **E13-01** Weekly average per household (e.g. 2.0 L milk/week) and monthly rollups
+- [ ] **E13-02** Seasonality detection and surfacing
+- [ ] **E13-03** Budget vs actual with % over/under and colour-blind-safe thresholds
+- [ ] **E13-04** Top spenders and top stores
+- [ ] **E13-05** Attribution-aware rollups plus an optional "excluded accounts" breakdown
+- [ ] **E13-06** Charts render on mobile and desktop
+
+### E14 · Inventory, barcode & expiry — `Todo` · §15, §25.14
+- [ ] **E14-01** Household stock table: product, quantity on hand, restock threshold
+- [ ] **E14-02** On-device offline barcode decoder; scan to add/increment
+- [ ] **E14-03** Multiple barcodes per scan, batch scans, dedupe/merge on the same barcode, unknown SKU → create or skip
+- [ ] **E14-04** Record who scanned and when (audit, E10)
+- [ ] **E14-05** Expiry date and days remaining; expiring-soon alerts; auto-expire on/after the date
+- [ ] **E14-06** Unit standardisation (g/kg/l/ml → household unit); flag items with no barcode/expiry
+- [ ] **E14-07** Low-stock weekly shop engine: suggested list, configurable trigger (e.g. Sunday), history of generated lists; cheapest-store cross-reference — `Blocked (D-1)` for the price part
+- [ ] **E14-08** Tenant-scoped stock queries (§15.4)
+
+### E15 · In-app AI copilot — `Todo` · §14, §23, §25.15
+- [ ] **E15-01** Floating, collapsible chat available app-wide (mobile included)
+- [ ] **E15-02** Grounded answers mapped onto the real data model; each number cites its account/date/category
+- [ ] **E15-03** Scope enforcement: reads nothing outside the acting user's households/accounts
+- [ ] **E15-04** Scoped actions (add to list, set budget) — `Blocked (D-9)`
+- [ ] **E15-05** Local streaming, < ~2 s typical; graceful fallback (canned answers) when no LLM is available
+- [ ] **E15-06** Optional online augmentation only when explicitly enabled
+
+### E16 · Web UI, mobile shell & PWA — `Todo` · §21, §2, §25.16
+- [ ] **E16-01** Dashboard grid of widgets: spend today, budget burn, cheapest item, milk trend, list count, upcoming recipes, household selector, low-stock and expiring-soon
+- [ ] **E16-02** Dark mode by default, plus a light theme
+- [ ] **E16-03** Separate mobile shell (bottom nav, thumb-sized targets) and desktop shell
+- [ ] **E16-04** PWA; no mandatory install
+- [ ] **E16-05** Household switcher with isolated context per screen
+- [ ] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds
+- [ ] **E16-07** Every flow works on mobile from day one: scanning, barcode, chat, budgets, goals, wallet, import review
+
+### E17 · Shopping list & product intelligence — `Todo` · §16, §18
+- [ ] **E17-01** Household list by default, personal list optional
+- [ ] **E17-02** Add from receipts, manually, from Cookidoo carry-over and from low-stock suggestions
+- [ ] **E17-03** Per-item checkbox, notes, qty, expiry
+- [ ] **E17-04** Share/notify household members (local-first)
+- [ ] **E17-05** Favourites (user/household scoped); filter the list by favourites
+- [ ] **E17-06** "Buy cheapest" store tagging — `Blocked (D-1)`
+
+### E18 · Price comparison (opt-in online) — `Blocked (D-1, D-6)` · §16, §25.18
+- [ ] **E18-01** Cheapest store per product this week (UK grocer sources TBD)
+- [ ] **E18-02** "Is it worth it?" side-by-side view
+- [ ] **E18-03** Disclaimer on data freshness and scraping ethics; `uses internet` label and toggle
+
+### E19 · Platform, release & ops — `Todo` · §20, §25.19
+- [ ] **E19-01** Dockerfile and Unraid template
+- [ ] **E19-02** GitHub source, release-tagged images, one-command upgrade
+- [ ] **E19-03** Research: native-feeling Unraid updates (auto-update vs in-app banner, rollback) — `Blocked (D-4)`
+- [ ] **E19-04** Multi-user self-service registration and role separation (owner/admin vs member)
+- [ ] **E19-05** Full DB export/import, backup and restore
+- [ ] **E19-06** No telemetry leaving the home by default (§23)
+
+### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
+- [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
+- [ ] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions; deduct/estimate ingredients from stock
+- [ ] **E20-03** Rate limiting, aggressive caching and opt-in warnings about reverse-engineered APIs
+
+### E21 · Non-functional targets — `Todo` · §22
+- [ ] **E21-01** Define the cold-parse target for a 5k-line PDF (spec says "~X s") — see G-2
+- [ ] **E21-02** Barcode decode under 1 s offline
+- [ ] **E21-03** Receipt scan under 15–20 s per image, perceived (batched, with progress)
+- [ ] **E21-04** Indexing by account / date / store / user; performance holds at multi-year scale
+
+---
+
+## G. Gaps & ambiguities in the spec
+
+*These are flags, not new requirements. The PO decides how each is resolved.*
+
+| ID | Gap | Where |
+|---|---|---|
+| G-1 | **Cross-references are stale.** E.g. "§5 isolation" (§5 is now Recurring; isolation is in §3), "§15 attribution" (it's §3.5), "§12 AI scope" (copilot is §14), "§17 data model" (§17 is analytics), "§18 research note" (it's §20), "§21 privacy" (it's §23), and "respects §5 attribution" in §15.3/§17. | Throughout |
+| G-2 | NFR "cold parse of 5k-line PDF under ~X s" has no number. | §22 |
+| G-3 | **Notifications are required** (§7, §11, §15.2, §18) **but there's no delivery channel.** Standard PWA web push goes through Apple/Google push servers, which conflicts with "no data leaves home". | §2 vs §7 |
+| G-4 | **Camera/barcode scanning in a PWA needs HTTPS** (secure context). Plain `http://unraid-ip:port` on the LAN won't allow camera access. A local TLS strategy is needed. | §15.1, §21 |
+| G-5 | "Scheduled income/known bills from calendar or recurring-ofx blocks": which calendar? None is defined as a data source. | §5 |
+| G-6 | Goals are listed as an account type in §25.2 but defined as targets in §6. Is a goal an account or a view over accounts? | §6, §25.2 |
+| G-7 | "Mirror to client device" (§2) implies offline client storage/sync, but §23 says sharing is server-local. What is cached on the device, and is it encrypted? | §2, §23 |
+| G-8 | §3.3 says product/price data "may be shared globally". Globally across households on the same server only, presumably — confirm. | §3.3 |
+| G-9 | No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
+| G-11 | ✅ **Confirmed by PO 2026-11-05 (interim rules adopted).** **Account visibility and default attribution.** §3.2 says a user's accounts "default to" counting toward the household or being hidden, but doesn't pick one. §3.5 "Hide" keeps an account "visible & usable within that account's own scope" — can other household members see a hidden account's transactions? **M1 interim:** the owner explicitly shares an account into a household and must choose the attribution (no default). Every member of that household can see it; attribution only affects totals. Revisit once the PO decides. | §3.2, §3.5 |
+| G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). | §13 |
+
+---
+
+## P. Proposed — awaiting PO approval
+
+*Claude's suggestions. **Not in scope.** Reply approve / reject / modify per ID.*
+
+| ID | Proposal | Why | Status |
+|---|---|---|---|
+| P-1 | **Internal transfer detection** between a household's own accounts (e.g. current → savings, card repayment) | Without it, transfers double-count as spend and inflate budgets and analytics | Awaiting approval |
+| P-2 | **Refunds/returns** linked to the original transaction | Otherwise refunds skew category spend and budgets | Awaiting approval |
+| P-3 | **Split transactions** (one payment across several categories or members) | Needed for "who paid for what" (§14) and per-member goal contributions | Awaiting approval |
+| P-4 | **Settle-up between household members** (who owes whom) | Natural follow-on to P-3 for partners/roommates | Awaiting approval |
+| P-5 | **Self-hosted notification channel** (in-app inbox plus optional ntfy/Gotify/Unraid notifications) | Resolves G-3 without breaking privacy | Awaiting approval |
+| P-6 | **Local TLS** (e.g. reverse proxy with internal CA, or Tailscale/HTTPS cert) | Resolves G-4 so camera scanning works on phones | Awaiting approval |
+| P-7 | **Offline product database seed** (import an Open Food Facts dump locally) | Barcode scans can resolve product names/brands offline without an internet lookup | Awaiting approval |
+| P-8 | **Tenant-isolation test suite as a CI gate** (automated cross-household leakage tests on every query/AI path) | §2 says leakage = defect; this makes it enforceable | Awaiting approval |
+| P-9 | **Scheduled automatic backups** to an Unraid share, with a periodic restore check | §20 has export/restore but no schedule; financial data loss is costly | Awaiting approval |
+| P-10 | **Encryption-key management** (where the at-rest key lives, rotation, recovery) | §23 requires encryption at rest but doesn't say how keys are handled | Awaiting approval |
+| P-11 | **MVP slice / milestones** (e.g. M1 = auth + households + CSV/OFX import + ledger + basic dashboard on mobile) | The handoff order is long; an early usable release reduces risk | ✅ **Approved 2026-11-05** → see M1 |
+| P-12 | **Tech-stack ADR** (language, DB, frontend, OCR engine, barcode lib) before E02 | Locks foundational choices with PO sign-off | ✅ **Approved 2026-11-05**: Python/FastAPI + React/Vite PWA + PostgreSQL with row-level security → `docs/architecture.md` |
+| P-13 | **Data deletion / account removal** (GDPR-style "delete my data" for a user leaving) | Pairs with G-9 | Awaiting approval |
+
+---
+
+## Changelog
+
+| Date | Version | Change |
+|---|---|---|
+| 2026-11-05 | 0.5 | Repo set (D-3 resolved). Version shown in Settings → About. Renamed to Astris. First push + tag v0.1.0. |
+| 2026-11-05 | 0.4 | PO accepted M1 and confirmed G-11. D-2 resolved: LLM configured in Settings. Added Settings screen (theme + LLM), Docker/Compose/Unraid template, release workflow → M1.1 in Review. GitHub owner/repo name added to D-3. 43 tests passing. |
+| 2026-11-05 | 0.3 | M1 build: FastAPI + Postgres row-level security backend, CSV/OFX import, React PWA. 29 backend tests passing (incl. cross-household isolation at the API and DB level) plus a mobile/desktop browser click-through. M1 items moved to Review. G-11 interim rules implemented. |
+| 2026-11-05 | 0.2 | D-1 and D-5 confirmed; D-2 partly answered (llama.cpp). P-11 (MVP) and P-12 (stack) approved. Added M1 milestone and G-11. Work started on M1. |
+| 2026-11-05 | 0.1 | Initial backlog created from spec v0.4: 21 epics, 9 decisions, 10 gaps, 13 proposals awaiting approval. |

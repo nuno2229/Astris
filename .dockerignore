@@ -1,0 +1,10 @@
+**/.venv
+**/node_modules
+**/__pycache__
+**/.env
+frontend/dist
+.git
+.claude
+docs
+*.md
+!README.md
