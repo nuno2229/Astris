@@ -134,3 +134,28 @@ def test_pinned_request_total_deadline():
         pinned_request(f"http://127.0.0.1:{port}/v1/models", timeout=1.5)
     assert time.monotonic() - t0 < 4
     srv.close()
+
+
+def test_pinned_request_deadline_covers_slow_headers():
+    """Dripping the status line/headers byte by byte must not outlive the total deadline."""
+    import socket as s_
+    import time
+    from app.netcheck import pinned_request
+    srv = s_.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1)
+    port = srv.getsockname()[1]
+
+    def drip():
+        c, _ = srv.accept()
+        c.recv(65536)
+        try:
+            for ch in b"HTTP/1.1 200 OK\r\nX-Slow: " + b"a" * 200:
+                c.sendall(bytes([ch])); time.sleep(0.1)
+        except OSError:
+            pass
+        c.close()
+    threading.Thread(target=drip, daemon=True).start()
+    t0 = time.monotonic()
+    with pytest.raises((TimeoutError, OSError)):
+        pinned_request(f"http://127.0.0.1:{port}/v1/models", timeout=1.5)
+    assert time.monotonic() - t0 < 3
+    srv.close()

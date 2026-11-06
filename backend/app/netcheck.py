@@ -120,6 +120,21 @@ def pinned_request(url: str, method: str = "GET", body: bytes | None = None, tim
                 self.sock = socket.create_connection((ip, port), remaining())
                 held.append(self.sock)
         conn = _Conn(host, port, timeout=timeout)
+    import threading
+
+    def _kill():  # watchdog: the deadline holds even while http.client is blocked reading headers
+        for sk in held:
+            try:
+                sk.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                sk.close()
+            except OSError:
+                pass
+    dog = threading.Timer(timeout, _kill)
+    dog.daemon = True
+    dog.start()
     try:
         conn.request(method, path, body=body, headers={"Accept": "application/json", **(headers or {})})
         held[0].settimeout(remaining())
@@ -131,8 +146,15 @@ def pinned_request(url: str, method: str = "GET", body: bytes | None = None, tim
             if not chunk:
                 break
             buf += chunk
+        if time.monotonic() >= deadline:
+            raise TimeoutError("deadline exceeded")
         return r.status, bytes(buf)
+    except OSError:
+        if time.monotonic() >= deadline:
+            raise TimeoutError("deadline exceeded")
+        raise
     finally:
+        dog.cancel()
         conn.close()
 
 
