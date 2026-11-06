@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.22 |
+| **Backlog version** | 0.23 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -101,13 +101,18 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E03-07** Bank import is the master per account; receipts and manual entries reconcile onto it (§2)
 - [x] **E03-08** Prompt-injection guard: document content is data only, with structured JSON output (§23) — `Review` (JSON data payload, schema-constrained reply, allowlist validation, tested)
 
-### E04 · Receipt scanner & unit price — `Todo` · §4.2, §25.4
-- [ ] **E04-01** Photo upload, single and batch; multiple receipts per image
-- [ ] **E04-02** Line-item extraction: name, brand, weight/unit, UoM, line price
-- [ ] **E04-03** Normalised unit price (e.g. per 100 g) across SKUs
-- [ ] **E04-04** Promotions/discounts handled explicitly; loyalty discounts missing from the receipt flagged as a known limitation
-- [ ] **E04-05** Receipt products reconcile onto the bank transaction (§2)
-- [ ] **E04-06** Capture expiry date where readable (§15.2)
+### E04 · Receipt scanner & unit price — `Review` · §4.2, §25.4
+- [x] **E04-01** Photo upload, single and batch; multiple receipts per image — `Review` (OCR in the sandbox; several receipts in one photo split at TOTAL lines, best effort)
+- [x] **E04-02** Line-item extraction: name, brand, weight/unit, UoM, line price — `Review` (quantity lines, weighed produce, pack sizes; brand not detected; optional local-AI pass, validated, prices must appear on the receipt)
+- [x] **E04-03** Normalised unit price (e.g. per 100 g) across SKUs — `Review` (per 100 g / 100 ml / each, after discounts)
+- [x] **E04-04** Promotions/discounts handled explicitly; loyalty discounts missing from the receipt flagged as a known limitation — `Review`
+- [x] **E04-05** Receipt products reconcile onto the bank transaction (§2) — `Review` (suggested by amount ±5p, ±3 days, shop; one receipt per payment)
+- [ ] **E04-06** Capture expiry date where readable (§15.2) — `Todo` (UK receipts don't print use-by dates; set them in the pantry)
+
+### E23 · Keep original files (opt-in) — `Review` · **PO request 2026-11-06**
+- [x] **E23-01** Optional "keep a copy" for receipt photos (visible to the household) and statement files (owner only) — `Review`
+- [x] **E23-02** Download as attachment only (never rendered in the app), delete any time, 1 GB per person — `Review`
+- [ ] **E23-03** Included in backup/export (E19-05) — `Todo`; stored unencrypted until E02-10
 
 ### E05 · AI categorisation pipeline — `Review` · §4.1, §22, §25.5
 - [x] **E05-00** LLM server address/model configured in Settings, owner only (PO instruction 2026-11-05) — `Review`
@@ -290,6 +295,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.23 | E04 receipts (OCR, unit prices, discounts, payment matching, pantry/list). E23 kept originals (PO request). |
 | 2026-11-06 | 0.22 | E17 shopping lists (shared + personal, favourites, from pantry, done-shopping → pantry, notifications); assistant can add to the list. Nav tab Pantry → Shopping (List / Pantry). |
 | 2026-11-06 | 0.21 | E15 assistant (grounded answers with sources, confirmed actions, rules fallback). D-9 resolved. Same-day statement order preserved for balances. |
 | 2026-11-06 | 0.20 | E14 pantry: products, batches with use-by, offline barcode scanning (camera/photo/typed), weekly shop suggestions, expiry alerts. Nav: Home, Activity, Bills, Pantry, More. |

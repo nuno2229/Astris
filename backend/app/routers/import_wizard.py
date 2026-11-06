@@ -75,6 +75,7 @@ class AdjustIn(BaseModel):
 
 class CommitIn(BaseModel):
     preview_ids: list[UUID] = Field(min_length=1, max_length=MAX_FILES)
+    keep_originals: bool = False     # keep a copy of each statement file (owner-only)
 
 
 class RunFile(BaseModel):
@@ -234,7 +235,10 @@ async def commit(body: CommitIn, user: User, db: DB):
     details, total_new = [], 0
     for p, res in zip(previews, parsed):
         acc = require_own_account(db, user, p.account_id)
-        _, total, new = save_parsed(db, user.id, acc, p.filename, res, run_id)
+        batch_id, total, new = save_parsed(db, user.id, acc, p.filename, res, run_id)
+        if body.keep_originals:
+            from app.documents import keep
+            keep(db, user.id, "statement", p.filename, bytes(p.raw), account_id=p.account_id, import_batch_id=batch_id)
         details.append(RunFile(filename=p.filename, rows_new=new, rows_duplicate=total - new))
         total_new += new
     db.execute(text("UPDATE import_runs SET rows_new = :n WHERE id = :id"), {"n": total_new, "id": run_id})

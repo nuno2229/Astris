@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from decimal import Decimal
@@ -86,7 +86,8 @@ def after_import(db: DB, user_id: UUID, account_ids) -> None:
 
 
 @router.post("/accounts/{aid}/imports", response_model=ImportResult, status_code=201)
-async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[UploadFile, File()]):
+async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[UploadFile, File()],
+                           keep_original: Annotated[bool, Form()] = False):
     acc = require_own_account(db, user, aid)  # bank import is the account master (§2): owner imports
     limit = get_settings().max_upload_bytes
     raw = await file.read(limit + 1)
@@ -98,6 +99,9 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
     except ImportError_ as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     batch_id, total, new = save_parsed(db, user.id, acc, file.filename or "upload", parsed)
+    if keep_original:   # opt-in (PO 2026-11-06); statements are visible to their owner only
+        from app.documents import keep
+        keep(db, user.id, "statement", file.filename or "statement", raw, account_id=aid, import_batch_id=batch_id)
     after_import(db, user.id, [aid])
     audit.log(db, user.id, "import.batch", "import", f"Imported {file.filename or 'a statement'}: {new} new",
               entity_id=batch_id, account_id=aid, after={"batch_id": batch_id, "rows_new": new})

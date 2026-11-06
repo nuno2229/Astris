@@ -24,6 +24,8 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
   const [done, setDone] = useState<Run | null>(null);
   const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState("");
+  const [keep, setKeep] = useState(false);
+  const [kept, setKept] = useState<{ id: string; filename: string; size: number; created_at: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
     });
     api.get<Run[]>("/api/import-runs").then(setRuns);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (target) api.get<typeof kept>(`/api/accounts/${target}/documents`).then(setKept); }, [target, done]);
 
   const name = (id: string) => accounts.find((a) => a.id === id)?.name ?? "account";
   const cur = (id: string) => accounts.find((a) => a.id === id)?.currency ?? "GBP";
@@ -54,7 +57,7 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
   const commit = async () => {
     setBusy(true); setError("");
     try {
-      setDone(await api.post<Run>("/api/import-runs", { preview_ids: ready.map((p) => p.id) }));
+      setDone(await api.post<Run>("/api/import-runs", { preview_ids: ready.map((p) => p.id), keep_originals: keep }));
       setPreviews(previews.filter((p) => !p.ok));
       api.get<Run[]>("/api/import-runs").then(setRuns);
     } catch (e) { setError((e as Error).message); }
@@ -81,6 +84,8 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
         <button className="btn" disabled={busy || !target} onClick={() => fileRef.current?.click()}>
           {busy && !previews.length ? "Reading files…" : previews.length ? "Add more files" : "Choose files"}</button>
         <p className="muted small">CSV, OFX, MT940, PDF or photos. Nothing is saved until you confirm.</p>
+        <label className="check"><input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} />
+          <span>Keep a copy of each statement file <span className="muted small">(only you can see it)</span></span></label>
       </div>
       {error && <div className="error" role="alert" style={{ marginTop: 12 }}>{error}</div>}
 
@@ -152,6 +157,19 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
           <strong>Imported {done.rows_new} transaction{done.rows_new === 1 ? "" : "s"} from {done.files} file{done.files === 1 ? "" : "s"}.</strong>
           <div className="row"><a className="btn" href="#/activity">See activity</a><button className="btn danger" onClick={() => undo(done.id)}>Undo this import</button></div>
         </div>
+      )}
+
+      {kept.length > 0 && (
+        <>
+          <h2>Kept statements</h2>
+          <ul className="list">{kept.map((d) => (
+            <li key={d.id}><div className="main"><div className="title">{d.filename}</div>
+              <div className="meta">{new Date(d.created_at).toLocaleDateString()}, {Math.round(d.size / 1024)} KB, only you can see this</div></div>
+              <a className="btn quiet" href={`/api/documents/${d.id}`}>Download</a>
+              <button className="iconbtn" aria-label={`Delete ${d.filename}`} onClick={() => api.del(`/api/documents/${d.id}`).then(() => setKept(kept.filter((x) => x.id !== d.id)))}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg></button></li>))}
+          </ul>
+        </>
       )}
 
       {runs.length > 0 && (

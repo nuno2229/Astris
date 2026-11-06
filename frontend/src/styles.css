@@ -316,3 +316,6 @@ dialog.sheet.chat { height: 88dvh; }
 .shoplist .main { display: grid; min-width: 0; }
 .star { font-size: 20px; color: var(--muted); }
 .star.on { color: var(--accent); }
+.ritem { align-items: flex-start; }
+.ritem input { min-height: 40px; padding: 6px 10px; }
+.ritem .price { width: 84px; text-align: right; font-variant-numeric: tabular-nums; }

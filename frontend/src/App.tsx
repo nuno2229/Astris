@@ -96,7 +96,7 @@ export default function App() {
       </header>
       <nav className="bottomnav" aria-label="Main">
         {tabs.map((t) => (
-          <a key={t.path} href={"#/" + t.path} aria-current={tab === t.path || (t.path === "more" && MORE_PAGES.includes(tab)) || (t.path === "list" && tab === "pantry") ? "page" : undefined}>
+          <a key={t.path} href={"#/" + t.path} aria-current={tab === t.path || (t.path === "more" && MORE_PAGES.includes(tab)) || (t.path === "list" && (tab === "pantry" || tab === "receipts")) ? "page" : undefined}>
             {t.icon}<span>{t.label}</span>
           </a>
         ))}
@@ -113,7 +113,7 @@ export default function App() {
         {household && tab === "goals" && <Goals household={household} currency={me.home_currency} />}
         {household && tab === "budgets" && <Budgets household={household} currency={me.home_currency} />}
         {household && tab === "insights" && <Insights household={household} />}
-        {household && (tab === "list" || tab === "pantry") && <Shopping household={household} initial={tab === "pantry" ? "pantry" : "list"} />}
+        {household && (tab === "list" || tab === "pantry" || tab === "receipts") && <Shopping household={household} initial={tab === "pantry" ? "pantry" : tab === "receipts" ? "receipts" : "list"} />}
         {household && tab === "more" && <More ctx={ctx} />}
         {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
