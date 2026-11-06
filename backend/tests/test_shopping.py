@@ -96,3 +96,15 @@ def test_isolation():
     iid = items(a, lst["id"])["Milk"]["id"]
     assert x.patch(f"/api/shopping-items/{iid}", json={"checked": True}).status_code == 404
     assert x.get(f"/api/households/{hid}/favourites").status_code == 404
+
+
+def test_personal_list_items_never_notify_others(monkeypatch):
+    sent = []
+    monkeypatch.setattr(channels, "pinned_request", lambda url, method="GET", body=None, **k: (sent.append(json.loads(body)), (204, b""))[1])
+    a, b, hid, _ = setup()
+    b.post("/api/me/notifications/channels", json={"kind": "discord", "allow_internet": True, "include_details": True,
+           "config": {"webhook_url": "https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz_ABCDEF-123"}})
+    p = a.post(f"/api/households/{hid}/shopping-lists", json={"name": "Surprise", "scope": "personal"}).json()
+    a.post(f"/api/shopping-lists/{p['id']}/items", json={"name": "Birthday cake"})
+    worker.run_notifications()
+    assert not any("cake" in m["content"].lower() for m in sent)

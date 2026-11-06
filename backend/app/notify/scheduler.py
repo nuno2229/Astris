@@ -74,7 +74,8 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
             rows = db.execute(text("""
                 SELECT l.id AS list_id, l.name AS list_name, i.id, i.name, u.display_name AS who FROM shopping_items i
                   JOIN shopping_lists l ON l.id = i.list_id JOIN users u ON u.id = i.added_by
-                 WHERE l.household_id = :h AND i.added_by <> :me AND NOT i.checked AND i.added_at > now() - interval '1 day'
+                 WHERE l.household_id = :h AND (l.scope = 'household' OR l.owner_user_id = :me)   -- also enforced by RLS
+                   AND i.added_by <> :me AND NOT i.checked AND i.added_at > now() - interval '1 day'
                  ORDER BY i.added_at"""), {"h": h.id, "me": user}).all()
             by_list: dict = {}
             for r in rows:
