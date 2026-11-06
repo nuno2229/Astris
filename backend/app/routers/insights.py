@@ -49,6 +49,15 @@ class Seasonal(BaseModel):
     ratio: Decimal
 
 
+class Consumption(BaseModel):
+    product: str
+    unit: str                      # "l" | "kg" | "items"
+    weekly_avg: Decimal
+    total: Decimal
+    purchases: int
+    weeks: list[Decimal]           # oldest -> newest, 12 weeks ending this week / end of the month
+
+
 class Insights(BaseModel):
     currency: str
     month: str
@@ -60,6 +69,7 @@ class Insights(BaseModel):
     seasonal: list[Seasonal]
     excluded: list[Named]          # 'separate' accounts: spending this month, not in the totals above
     unconverted: list[str]
+    consumption: list[Consumption] = []   # quantities from scanned receipts (E13-01): e.g. litres of milk a week
 
 
 def _month_start(d: date, back: int = 0) -> date:
@@ -168,10 +178,56 @@ def compute(db: Session, hid: UUID, home: str, month: date) -> Insights:
                 seasonal.append(Seasonal(category=cat, month=_key(_month_start(target, -12)), last_year=ly.quantize(Q),
                                          typical=typical.quantize(Q), ratio=(ly / typical).quantize(Decimal("0.01"))))
     seasonal.sort(key=lambda s: (s.month, -s.ratio))
+    consumption = quantities(db, hid, min(end, date.today() + timedelta(days=1)))
     return Insights(currency=home, month=_key(start), total=sum(this.values(), Decimal(0)).quantize(Q), categories=cats,
                     trend=trend, top_shops=ranked("coalesce(t.merchant, initcap(t.merchant_key), t.description)"),
                     by_member=ranked("u.display_name"), seasonal=seasonal[:6],
-                    excluded=ranked("a.name || ' (' || u.display_name || ')'", attr="hide"), unconverted=sorted(missing))
+                    excluded=ranked("a.name || ' (' || u.display_name || ')'", attr="hide"), unconverted=sorted(missing),
+                    consumption=consumption)
+
+
+WEEKS = 12
+
+
+def quantities(db: Session, hid: UUID, end: date) -> list[Consumption]:
+    """How much of each product the household goes through per week, from saved receipts. Volumes in litres,
+    weights in kg, otherwise items. Averages use the weeks since the first receipt in the window (at least 4)."""
+    from app.routers.prices import product_key
+    start = end - timedelta(weeks=WEEKS)
+    rows = db.execute(text("""
+        SELECT i.name, i.quantity, i.size_qty, i.size_unit, coalesce(r.purchased_on, r.created_at::date) AS d
+          FROM receipt_items i JOIN receipts r ON r.id = i.receipt_id
+         WHERE r.household_id = :h AND r.status = 'saved'
+           AND coalesce(r.purchased_on, r.created_at::date) >= :s AND coalesce(r.purchased_on, r.created_at::date) < :e"""),
+        {"h": hid, "s": start, "e": end}).all()
+    if not rows:
+        return []
+    first = min(r.d for r in rows)
+    span = max(4, -(-(end - first).days // 7))
+    span = min(span, WEEKS)
+    groups: dict[tuple[str, str], dict] = {}
+    for r in rows:
+        key = product_key(r.name)
+        if not key:
+            continue
+        q = Decimal(r.quantity)
+        if r.size_unit in ("ml", "l") and r.size_qty:
+            unit, amount = "l", q * Decimal(r.size_qty) / (1000 if r.size_unit == "ml" else 1)
+        elif r.size_unit in ("g", "kg") and r.size_qty:
+            unit, amount = "kg", q * Decimal(r.size_qty) / (1000 if r.size_unit == "g" else 1)
+        elif r.size_unit == "item" and r.size_qty:
+            unit, amount = "items", q * Decimal(r.size_qty)
+        else:
+            unit, amount = "items", q
+        g = groups.setdefault((key, unit), {"weeks": [Decimal(0)] * WEEKS, "total": Decimal(0), "n": 0})
+        w = min(WEEKS - 1, max(0, (r.d - start).days // 7))
+        g["weeks"][w] += amount
+        g["total"] += amount
+        g["n"] += 1
+    out = [Consumption(product=k[:1].upper() + k[1:], unit=u, total=g["total"].quantize(Decimal("0.01")), purchases=g["n"],
+                       weekly_avg=(g["total"] / span).quantize(Decimal("0.01")), weeks=[x.quantize(Decimal("0.01")) for x in g["weeks"]])
+           for (k, u), g in groups.items() if g["n"] >= 2]          # bought at least twice: a habit, not a one-off
+    return sorted(out, key=lambda c: (-c.purchases, -c.total))[:12]
 
 
 @router.get("/households/{hid}/insights", response_model=Insights)

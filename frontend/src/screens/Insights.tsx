@@ -6,7 +6,8 @@ interface Ins { currency: string; month: string; total: string;
   trend: { month: string; spent: string; received: string }[];
   top_shops: { name: string; spent: string; count: number }[]; by_member: { name: string; spent: string; count: number }[];
   seasonal: { category: string; month: string; last_year: string; typical: string; ratio: string }[];
-  excluded: { name: string; spent: string; count: number }[]; unconverted: string[] }
+  excluded: { name: string; spent: string; count: number }[]; unconverted: string[];
+  consumption: { product: string; unit: "l" | "kg" | "items"; weekly_avg: string; total: string; purchases: number; weeks: string[] }[] }
 
 const monthName = (k: string, short = false) => new Date(k + "-01T00:00:00").toLocaleDateString(undefined, { month: short ? "short" : "long", ...(short ? {} : { year: "numeric" }) });
 const shift = (k: string, n: number) => { const [y, m] = k.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
@@ -101,7 +102,31 @@ export default function Insights({ household }: { household: Household }) {
           <p className="muted small" style={{ margin: "0 4px 8px" }}>Accounts set to “Separate”: not in the totals above.</p>
           <Ranked rows={d.excluded} c={c} empty="" /></section>
       )}
-      <p className="muted small" style={{ marginTop: 16 }}>Quantity trends (like litres of milk a week) need receipt scanning, which isn't built yet.</p>
+      <h2>What you go through</h2>
+      {d.consumption.length === 0 ? (
+        <div className="empty">Scan a few receipts (Shopping → Receipts) and you'll see things like how much milk you get through a week.</div>
+      ) : (
+        <ul className="list">
+          {d.consumption.map((x) => {
+            const u = { l: "L", kg: "kg", items: "" }[x.unit];
+            const amt = (v: string | number) => `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })}${u ? " " + u : ""}`;
+            const max = Math.max(...x.weeks.map(Number), 0.0001);
+            return (
+              <li key={x.product + x.unit}>
+                <div className="main stack" style={{ gap: 6 }}>
+                  <div className="acct-head"><span className="title">{x.product}</span>
+                    <span className="amt">{amt(x.weekly_avg)}{x.unit === "items" ? "" : ""} a week</span></div>
+                  <div className="spark" role="img" aria-label={`${x.product}, last 12 weeks: ${x.weeks.map(amt).join(", ")}`}>
+                    {x.weeks.map((w, i) => <span key={i} style={{ height: `${Math.max((Number(w) / max) * 100, Number(w) > 0 ? 8 : 2)}%` }} className={Number(w) > 0 ? "" : "zero"} />)}
+                  </div>
+                  <span className="meta">{amt(x.total)} over {x.purchases} purchases, from your receipts</span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="muted small" style={{ margin: "6px 4px 0" }}>Last 12 weeks, newest on the right. Same product from different shops is counted together.</p>
     </>
   );
 }

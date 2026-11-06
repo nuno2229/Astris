@@ -67,3 +67,21 @@ def test_month_param_and_isolation():
     assert Decimal(r["total"]) == Decimal("40.00")
     x = make_user("x")
     assert x.get(f"/api/households/{hid}/insights").status_code == 404
+
+
+def test_quantity_trends_from_receipts():
+    from datetime import timedelta
+    a, b, hid, *_ = setup()
+    for k, (store, line) in enumerate([("TESCO", "TESCO SEMI SKIMMED MILK 2L 1.65"), ("ALDI STORES", "ALDI SEMI SKIMMED MILK 4 PINTS 1.45"),
+                                       ("TESCO", "TESCO SEMI SKIMMED MILK 2L 1.65"), ("TESCO", "BANANAS 0.20\nTESCO SEMI SKIMMED MILK 2L 1.65")]):
+        d = T - timedelta(days=7 * k + 1)
+        total = "1.85" if "BANANAS" in line else line.split()[-1]
+        body = f"{store}\n{line}\nTOTAL {total}\n{d.strftime('%d/%m/%Y')}\n".encode()
+        r = a.post(f"/api/households/{hid}/receipts", files=[("files", ("r.txt", body))]).json()[0]
+        a.post(f"/api/receipts/{r['id']}/save", json={})
+    c = {x["product"]: x for x in a.get(f"/api/households/{hid}/insights").json()["consumption"]}
+    milk = c["Semi skimmed milk"]
+    assert milk["unit"] == "l" and milk["purchases"] == 4
+    assert Decimal(milk["total"]) == Decimal("8.27")                 # 3 x 2 L + 2.272 L (4 pints), Tesco + Aldi together
+    assert Decimal(milk["weekly_avg"]) > Decimal("1.5") and len(milk["weeks"]) == 12
+    assert "Bananas" not in c                                        # bought once: not a habit yet

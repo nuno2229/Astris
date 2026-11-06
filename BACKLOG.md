@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.26 |
+| **Backlog version** | 0.27 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -168,8 +168,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E12-06** Per-card and per-merchant thresholds (daily/weekly/monthly) — **E12b**, `Blocked (D-7)`
 - [x] **E12-07** UI states plainly that there is no server-side blocking; the app never claims to block (§12)
 
-### E13 · Consumption analytics — `Review` (quantity trends depend on E04) · §17, §25.13
-- [x] **E13-01** Weekly average per household (e.g. 2.0 L milk/week) and monthly rollups — `Review` for spending (weekly avg per category, 12-month trend). Quantities (litres/week) need receipt line items: `Blocked (E04)`
+### E13 · Consumption analytics — `Review` · §17, §25.13
+- [x] **E13-01** Weekly average per household (e.g. 2.0 L milk/week) and monthly rollups — `Review` (spending: weekly avg per category + 12-month trend; quantities: litres/kg/items a week per product from scanned receipts, 12-week chart)
 - [x] **E13-02** Seasonality detection and surfacing — `Review` (same month last year ≥25% and ≥£20 above that category's usual → heads-up for this and next month; needs a year of history)
 - [x] **E13-03** Budget vs actual with % over/under and colour-blind-safe thresholds — `Review` (Insights + Budgets; status always in words, not colour alone)
 - [x] **E13-04** Top spenders and top stores — `Review`
@@ -296,6 +296,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.27 | Quantity trends from receipts (E13-01 complete). v0.1.3 image published. |
 | 2026-11-06 | 0.26 | E18 price comparison (receipts + opt-in Open Prices, UK); cheapest-shop tags on the list. Security: ADMIN_EMAIL only claims admin while none exists; CLI set-admin. G-17. |
 | 2026-11-06 | 0.25 | PO: every section is its own tab (no More page; phone tab bar scrolls). Security: backups no longer downloadable in the app; ADMIN_EMAIL decides the server admin. Released **v0.1.3**. |
 | 2026-11-06 | 0.24 | E19 platform: backups (daily, pre-upgrade, encrypted option, restore CLI), server admin + sign-ups switch, opt-in update banner, personal export. D-4 built as proposed. |

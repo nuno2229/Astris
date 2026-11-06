@@ -331,3 +331,6 @@ table.compare { width: calc(100% - 24px); margin: 0 12px 12px; border-collapse: 
 table.compare th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px; }
 table.compare td { padding: 8px 6px; border-top: 1px solid var(--line); vertical-align: top; font-variant-numeric: tabular-nums; }
 table.compare tr.best-row td:first-child { font-weight: 600; }
+.spark { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; height: 28px; align-items: end; }
+.spark span { background: var(--chart); border-radius: 2px 2px 0 0; min-height: 2px; }
+.spark span.zero { background: var(--surface-2); }
