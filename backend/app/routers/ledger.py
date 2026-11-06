@@ -31,33 +31,27 @@ _TX_COLS = "t.id, t.account_id, t.posted_on, t.amount, t.currency, t.description
            "t.original_amount, t.original_currency, t.transfer_group"
 
 
-@router.post("/accounts/{aid}/imports", response_model=ImportResult, status_code=201)
-async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[UploadFile, File()]):
-    acc = require_own_account(db, user, aid)  # bank import is the account master (§2): owner imports
-    limit = get_settings().max_upload_bytes
-    raw = await file.read(limit + 1)
-    if len(raw) > limit:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File too large")
-    try:
-        # parsing can be slow (PDF/OCR): keep it off the event loop so other requests aren't blocked
-        parsed = await run_in_threadpool(parse_statement, file.filename or "upload", raw)
-        for t in parsed.transactions:  # every parser goes through the same gate
-            t.amount = check_amount(t.amount)
-            t.running_balance = check_amount(t.running_balance, "balance")
-            t.original_amount = check_amount(t.original_amount, "foreign amount")
-    except ImportError_ as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+def parse_checked(filename: str, raw: bytes, options: dict | None = None):
+    """Parse + the shared validation gate every importer goes through. Raises ImportError_."""
+    parsed = parse_statement(filename, raw, options)
+    for t in parsed.transactions:
+        t.amount = check_amount(t.amount)
+        t.running_balance = check_amount(t.running_balance, "balance")
+        t.original_amount = check_amount(t.original_amount, "foreign amount")
+    return parsed
+
+
+def save_parsed(db: DB, user_id: UUID, acc, filename: str, parsed, run_id: UUID | None = None) -> tuple[UUID, int, int]:
+    """Insert a parsed statement as one batch; duplicates are skipped by fingerprint. Returns (batch, total, new)."""
     if parsed.currency and parsed.currency != acc.currency:
         parsed.warnings.append(
             f"Statement currency {parsed.currency} differs from account currency {acc.currency}; "
-            f"amounts were stored as {acc.currency}. Multi-currency support is E08.")
-
-    batch_id = db.execute(text("""INSERT INTO import_batches (account_id, imported_by, filename, format)
-                                  VALUES (:a, :u, :f, :fmt) RETURNING id"""),
-                          {"a": aid, "u": user.id, "f": (file.filename or "upload")[:255],
-                           "fmt": parsed.format}).scalar_one()
+            f"amounts were stored as {acc.currency}.")
+    batch_id = db.execute(text("""INSERT INTO import_batches (account_id, imported_by, filename, format, run_id)
+                                  VALUES (:a, :u, :f, :fmt, :r) RETURNING id"""),
+                          {"a": acc.id, "u": user_id, "f": filename[:255], "fmt": parsed.format, "r": run_id}).scalar_one()
     rows = [{
-        "a": aid, "b": batch_id, "d": t.posted_on, "amt": t.amount, "c": acc.currency,
+        "a": acc.id, "b": batch_id, "d": t.posted_on, "amt": t.amount, "c": acc.currency,
         "desc": t.description[:500], "cp": (t.counterparty or None) and t.counterparty[:200],
         "bal": t.running_balance, "fp": fp,
         "oa": t.original_amount if t.original_currency and t.original_currency != acc.currency else None,
@@ -71,11 +65,32 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
             VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp, :oa, :oc)
             ON CONFLICT (account_id, fingerprint) DO NOTHING"""), r).rowcount
     total = len(rows)
-    apply_rules(db, user.id, batch_id)  # instant offline categories; the LLM refines in the background
-    detect_recurring(db, user.id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
-    worker.wake()
     db.execute(text("UPDATE import_batches SET rows_total = :t, rows_new = :n, rows_duplicate = :d WHERE id = :b"),
                {"t": total, "n": new, "d": total - new, "b": batch_id})
+    return batch_id, total, new
+
+
+def after_import(db: DB, user_id: UUID, account_ids) -> None:
+    apply_rules(db, user_id)              # instant offline categories; the LLM refines in the background
+    for aid in set(account_ids):
+        detect_recurring(db, user_id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
+    worker.wake()
+
+
+@router.post("/accounts/{aid}/imports", response_model=ImportResult, status_code=201)
+async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[UploadFile, File()]):
+    acc = require_own_account(db, user, aid)  # bank import is the account master (§2): owner imports
+    limit = get_settings().max_upload_bytes
+    raw = await file.read(limit + 1)
+    if len(raw) > limit:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File too large")
+    try:
+        # parsing can be slow (PDF/OCR): keep it off the event loop so other requests aren't blocked
+        parsed = await run_in_threadpool(parse_checked, file.filename or "upload", raw)
+    except ImportError_ as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+    batch_id, total, new = save_parsed(db, user.id, acc, file.filename or "upload", parsed)
+    after_import(db, user.id, [aid])
     return ImportResult(batch_id=batch_id, format=parsed.format, rows_total=total, rows_new=new,
                         rows_duplicate=total - new, warnings=parsed.warnings)
 

@@ -248,3 +248,10 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
 .hero .figure .per { font-size: 0.35em; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; font-stretch: 100%; }
 .channel { padding: 14px; border-radius: 16px; background: var(--bg); }
 .amt .fx { font-weight: 400; text-align: right; font-size: 13px; }
+.facts-row { display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-size: 15px; }
+.facts-row strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.maprow { grid-template-columns: 9em 1fr; align-items: center; display: grid; }
+.commit-bar { position: sticky; bottom: calc(var(--nav-h) + var(--safe-b) + 8px); margin-top: 16px; display: grid; gap: 6px;
+  padding: 12px; border-radius: var(--r-sheet); background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(12px); box-shadow: 0 -1px 0 var(--line); z-index: 5; }
+@media (min-width: 900px) { .commit-bar { bottom: 16px; } }

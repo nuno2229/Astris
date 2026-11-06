@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.13 |
+| **Backlog version** | 0.14 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -138,11 +138,11 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E08-06** Live FX rates as an opt-in add-on (`uses internet`) — `Review` (daily ECB file, owner opt-in, off by default)
 - [x] **E08-07** Display in the user's home currency; flag conversions when cards are used abroad — `Review` (converted totals; currencies without a rate listed separately, never guessed)
 
-### E09 · Bulk import wizard — `Todo` · §10, §25.9
-- [ ] **E09-01** Multi-file ingest with format detection
-- [ ] **E09-02** Dry run: dedupe, balance-mismatch vs statement, mapping preview
-- [ ] **E09-03** Conflict view; proceed or adjust per-account rules
-- [ ] **E09-04** Rollback/cancel of a bulk run without touching existing data
+### E09 · Bulk import wizard — `Review` · §10, §25.9
+- [x] **E09-01** Multi-file ingest with format detection — `Review` (up to 20 files)
+- [x] **E09-02** Dry run: dedupe, balance-mismatch vs statement, mapping preview — `Review` (also flags duplicates across files and gaps vs earlier imports)
+- [x] **E09-03** Conflict view; proceed or adjust per-account rules — `Review` (interpreted as per-file target account, date order and column mapping — G-16)
+- [x] **E09-04** Rollback/cancel of a bulk run without touching existing data — `Review`
 
 ### E10 · Change-log & audit trail — `Todo` · §13, §25.10
 - [ ] **E10-01** Log who/when/why for manual edits, imports/reconciles, stock changes and shopping-list mutations
@@ -259,6 +259,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-13 | **No category list in the spec.** Interim list: Groceries, Eating out, Transport, Bills, Housing, Shopping, Entertainment, Subscriptions, Health, Personal care, Travel, Kids, Pets, Gifts & donations, Cash, Transfers, Income, Fees & charges, Other. The "Transfers" label doesn't change totals (that's P-1). Custom per-household categories are not built. | E05, E07, E12 |
 | G-14 | **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
 | G-15 | **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
+| G-16 | **"Adjust per-account rules" (E09-03) interpretation.** Built as per-file choice of target account, day/month order and CSV column mapping, applied before import. Saved per-bank import profiles (remembering a mapping for next time) aren't built. | E09 |
 | G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). | §13 |
 
 ---
@@ -289,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.14 | E09 bulk import wizard (dry run, balance checks, adjust, whole-run rollback). G-16. |
 | 2026-11-06 | 0.13 | D-8 resolved (ECB). E08-05/06 done. |
 | 2026-11-06 | 0.12 | E08 cash wallet + multi-currency (manual rates). Security fixes for ntfy. 124 tests. |
 | 2026-11-06 | 0.11 | E22 notifications (Discord/Telegram/ntfy, minimal by default, once per alert). Released **v0.1.1**. |

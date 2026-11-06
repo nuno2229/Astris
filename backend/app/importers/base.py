@@ -28,6 +28,9 @@ class ParseResult:
     transactions: list[ParsedTx]
     currency: str | None = None
     warnings: list[str] = field(default_factory=list)
+    headers: list[str] | None = None          # CSV only: header row, for the mapping preview (E09-02)
+    columns: dict[str, str | None] | None = None   # role -> header actually used
+    day_first: bool | None = None
 
 
 MAX_ABS = Decimal("1e14")  # numeric(18,4)

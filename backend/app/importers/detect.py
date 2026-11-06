@@ -7,7 +7,9 @@ from app.importers.pdf_import import parse_image, parse_pdf
 _IMAGE_MAGIC = (b"\xff\xd8\xff", b"\x89PNG", b"II*\x00", b"MM\x00*")
 
 
-def parse_statement(filename: str, raw: bytes) -> ParseResult:
+def parse_statement(filename: str, raw: bytes, options: dict | None = None) -> ParseResult:
+    """options (CSV only): {"mapping": {role: header}, "day_first": bool}"""
+    options = options or {}
     head = raw[:2048].lstrip()
     up = head.upper()
     name = filename.lower()
@@ -20,5 +22,5 @@ def parse_statement(filename: str, raw: bytes) -> ParseResult:
     if name.endswith((".sta", ".mt940", ".940")) or head.startswith((b":20:", b"{1:")) or b"\n:61:" in head:
         return parse_mt940(raw)
     if name.endswith((".csv", ".txt", ".tsv")) or b"," in head or b";" in head:
-        return parse_csv(raw)
+        return parse_csv(raw, options.get("mapping"), options.get("day_first"))
     raise ImportError_("Unsupported file. Use CSV, OFX/QFX, MT940, PDF, or a photo of a statement.")

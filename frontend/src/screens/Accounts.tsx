@@ -1,5 +1,5 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { Account, api, Household, HouseholdAccount, ImportResult, money } from "../api";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Account, api, Household, HouseholdAccount, money } from "../api";
 import type { Ctx } from "../App";
 import CashWallet from "./CashWallet";
 
@@ -75,23 +75,6 @@ export default function Accounts({ ctx, household }: { ctx: Ctx; household: Hous
 function AccountCard({ account: a, household, share, onShare, onChanged }: {
   account: Account; household: Household; share: Share; onShare: (v: Share) => void; onChanged: () => void;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [result, setResult] = useState<ImportResult | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const upload = async (f: File) => {
-    setBusy(true); setError(""); setResult(null);
-    const fd = new FormData(); fd.append("file", f);
-    try { setResult(await api.post<ImportResult>(`/api/accounts/${a.id}/imports`, fd)); onChanged(); }
-    catch (e) { setError((e as Error).message); }
-    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ""; }
-  };
-  const undo = async () => {
-    if (!result) return;
-    await api.del(`/api/imports/${result.batch_id}`); setResult(null); onChanged();
-  };
-
   return (
     <div className="panel stack">
       <div className="acct-head">
@@ -111,20 +94,8 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
         <p className="muted small" style={{ marginTop: 8 }}>{SHARE_HELP[share]}</p>
       </div>
       {a.type === "cash" ? <CashWallet a={a} onChanged={onChanged} /> : <>
-      <input ref={fileRef} type="file" accept=".csv,.ofx,.qfx,.txt,.sta,.mt940,.940,.pdf,image/*,text/csv,application/pdf" hidden
-        onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-      <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>
-        {busy ? "Reading statement…" : "Import a statement"}
-      </button>
+      <a className="btn" href={`#/import/${a.id}`}>Import statements</a>
       <p className="muted small" style={{ marginTop: -6 }}>CSV, OFX, MT940 or PDF from your bank, or a photo of a paper statement.</p>
-      {error && <div className="error" role="alert">{error}</div>}
-      {result && (
-        <div className="callout stack" style={{ gap: 6 }}>
-          <div><strong>{result.rows_new}</strong> new, {result.rows_duplicate} already imported</div>
-          {result.warnings.map((w) => <div key={w} className="muted small">⚠ {w}</div>)}
-          {result.rows_new > 0 && <button className="btn danger" onClick={undo}>Undo this import</button>}
-        </div>
-      )}
       </>}
     </div>
   );

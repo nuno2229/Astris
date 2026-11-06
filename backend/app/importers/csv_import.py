@@ -52,7 +52,7 @@ def parse_amount(s: str) -> Decimal | None:
     return -v if neg else v
 
 
-def _date_parser(samples: list[str]):
+def _date_parser(samples: list[str], force_day_first: bool | None = None):
     """ISO first; for slashed dates decide day-first vs month-first from the data.
     Ambiguous files default to day-first (UK, D-6) and say so."""
     # ignore junk rows (footers, notes); they are skipped and reported later
@@ -65,7 +65,9 @@ def _date_parser(samples: list[str]):
     if samples and len(slashed) >= 0.8 * len(samples):
         first_gt12 = any(int(p[0]) > 12 for p in parts)
         second_gt12 = any(int(p[1]) > 12 for p in parts)
-        if second_gt12 and not first_gt12:
+        if force_day_first is not None:
+            day_first, warn = force_day_first, None
+        elif second_gt12 and not first_gt12:
             day_first, warn = False, None
         else:
             day_first = True
@@ -75,6 +77,7 @@ def _date_parser(samples: list[str]):
             a, b, c = (int(x) for x in re.split(r"[/.\-]", s.strip()))
             y = c + 2000 if c < 100 else c
             return date(y, b, a) if day_first else date(y, a, b)
+        p.day_first = day_first  # type: ignore[attr-defined]
         return p, warn
     for fmt in ("%d %b %Y", "%d %B %Y", "%d-%b-%Y", "%b %d, %Y"):
         try:
@@ -86,7 +89,11 @@ def _date_parser(samples: list[str]):
     raise ImportError_("Couldn't recognise the date format in this file")
 
 
-def parse_csv(raw: bytes) -> ParseResult:
+ROLES = ("date", "description", "amount", "out", "in", "balance")
+
+
+def parse_csv(raw: bytes, mapping: dict[str, str | None] | None = None, day_first: bool | None = None) -> ParseResult:
+    """mapping: role -> header name chosen by the user (overrides detection). day_first forces date order."""
     text_ = decode(raw)
     try:
         dialect = csv.Sniffer().sniff(text_[:4096], delimiters=",;\t|")
@@ -94,7 +101,11 @@ def parse_csv(raw: bytes) -> ParseResult:
         dialect = csv.excel
     rows = [r for r in csv.reader(io.StringIO(text_), dialect) if any(c.strip() for c in r)]
     # Some banks put preamble lines before the header: take the first row that has a date column
-    hdr_idx = next((i for i, r in enumerate(rows[:15]) if _find(r, DATE) is not None), None)
+    want = (mapping or {}).get("date")
+    if want:  # the user told us which column is the date: find the row that has it
+        hdr_idx = next((i for i, r in enumerate(rows[:15]) if want.strip().lower() in [c.strip().lower() for c in r]), None)
+    else:
+        hdr_idx = next((i for i, r in enumerate(rows[:15]) if _find(r, DATE) is not None), None)
     if hdr_idx is None:
         raise ImportError_("No header row with a date column found. Headers seen: "
                            + ", ".join(rows[0] if rows else []))
@@ -102,6 +113,22 @@ def parse_csv(raw: bytes) -> ParseResult:
     di, de = _find(headers, DATE), _find(headers, DESC)
     ai, oi, ii = _find(headers, AMOUNT), _find(headers, OUT), _find(headers, IN)
     bi = _find(headers, BALANCE)
+    if mapping:
+        norm = [h.strip().lower() for h in headers]
+
+        def pick(role, cur):
+            if role not in mapping:
+                return cur
+            v = mapping[role]
+            if v is None or v == "":
+                return None
+            if v.strip().lower() not in norm:
+                raise ImportError_(f"Column '{v}' isn't in this file")
+            return norm.index(v.strip().lower())
+        di, de, ai = pick("date", di), pick("description", de), pick("amount", ai)
+        oi, ii, bi = pick("out", oi), pick("in", ii), pick("balance", bi)
+        if di is None:
+            raise ImportError_("Choose which column holds the date")
     ci = _find(headers, COUNTERPARTY)
     oai, oci = _find(headers, ORIG_AMOUNT), _find(headers, ORIG_CCY)
     if ci == de:
@@ -109,8 +136,12 @@ def parse_csv(raw: bytes) -> ParseResult:
     if de is None or (ai is None and oi is None and ii is None):
         raise ImportError_("Couldn't find description/amount columns. Headers seen: " + ", ".join(headers))
 
-    parse_date, warn = _date_parser([r[di] for r in body if len(r) > di])
-    result = ParseResult(format="csv", transactions=[])
+    parse_date, warn = _date_parser([r[di] for r in body if len(r) > di], day_first)
+    hdr = lambda i: headers[i].strip() if i is not None else None  # noqa: E731
+    result = ParseResult(format="csv", transactions=[], headers=[h.strip() for h in headers],
+                         columns={"date": hdr(di), "description": hdr(de), "amount": hdr(ai), "out": hdr(oi),
+                                  "in": hdr(ii), "balance": hdr(bi)},
+                         day_first=getattr(parse_date, "day_first", None))
     if warn:
         result.warnings.append(warn)
     skipped = 0

@@ -11,6 +11,7 @@ import Onboarding from "./screens/Onboarding";
 import Join from "./screens/Join";
 import Settings from "./screens/Settings";
 import Bills from "./screens/Bills";
+import ImportWizard from "./screens/ImportWizard";
 
 export interface Ctx {
   me: Me;
@@ -98,6 +99,7 @@ export default function App() {
         {household && tab === "accounts" && <Accounts ctx={ctx} household={household} />}
         {household && tab === "household" && <HouseholdScreen ctx={ctx} household={household} />}
         {household && tab === "settings" && <Settings household={household} />}
+        {household && tab === "import" && <ImportWizard accountId={route[1]} />}
         {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
     </div>
