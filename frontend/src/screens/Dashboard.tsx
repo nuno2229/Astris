@@ -5,6 +5,7 @@ import Constellation from "./Constellation";
 import TxList from "./TxList";
 import { RecurringRow } from "./Recurring";
 import { Meter } from "./Goals";
+import { BudgetBar } from "./Budgets";
 
 type SummaryWithDaily = Summary & { daily: { currency: string; day: string; spent: string }[] };
 
@@ -91,6 +92,22 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
           Counts {s.accounts_included} shared account{s.accounts_included === 1 ? "" : "s"}. Transfers between your own accounts
           currently count as spending.
         </p>
+      )}
+
+      <h2>Budgets</h2>
+      {s.budgets.length === 0 ? (
+        <p className="note" style={{ marginTop: 0 }}>Want a heads-up before you overspend? <a href="#/budgets">Set a budget</a>.</p>
+      ) : (
+        <a className="panel goal-card stack" href="#/budgets" style={{ gap: 14 }}>
+          {s.budgets.slice(0, 4).map((b) => (
+            <div key={b.id} className="stack" style={{ gap: 6 }}>
+              <div className="acct-head"><span style={{ fontWeight: 600 }}>{b.label}{b.scope === "personal" ? " (you)" : ""}</span>
+                <span className="small muted">{money(b.spent, b.currency)} of {money(b.amount, b.currency)}</span></div>
+              <BudgetBar b={b} />
+              {b.level !== "ok" && <span className="small flag">{b.message}</span>}
+            </div>
+          ))}
+        </a>
       )}
 
       <h2>Savings goals</h2>

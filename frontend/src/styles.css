@@ -264,3 +264,11 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
 .goal-card { display: grid; gap: 10px; text-align: left; border: 0; cursor: pointer; color: var(--text); text-decoration: none; width: 100%; font: inherit; }
 .goal-line strong { font-family: var(--font-display); font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .member-row { display: grid; grid-template-columns: 6em 1fr auto; gap: 10px; align-items: center; font-size: 14px; }
+
+/* ---------- budget bars: spent solid, still-due striped, limit marked; level also in words ---------- */
+.bbar { position: relative; display: flex; height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bbar-spent { height: 100%; background: var(--chart); }
+.bbar-due { height: 100%; background: repeating-linear-gradient(135deg, var(--chart) 0 3px, transparent 3px 6px); opacity: .7; }
+.bbar-limit { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--text); }
+.bbar.lvl-over .bbar-spent { background: var(--danger); }
+.budget-row { align-items: flex-start; }

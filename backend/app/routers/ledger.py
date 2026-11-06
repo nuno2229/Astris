@@ -183,7 +183,8 @@ class Summary(BaseModel):
     missed: list[RecurringOut] = []    # expected but never arrived (E06-03)
     converted: Converted | None = None
     subscription_alerts: list[dict] = []
-    goals: list[dict] = []          # active savings goals, for the Home widget (E11)  # trial ending/converted, charged after cancel, renewing soon (E07-04)
+    goals: list[dict] = []          # active savings goals, for the Home widget (E11)
+    budgets: list[dict] = []        # budgets you can see, most urgent first (E12)  # trial ending/converted, charged after cancel, renewing soon (E07-04)
 
 
 @router.get("/households/{hid}/summary", response_model=Summary)
@@ -248,7 +249,10 @@ def household_summary(hid: UUID, user: User, db: DB,
     from app.routers.goals import household_goals
     goal_cards = [g.model_dump(include={"id", "name", "target", "currency", "saved", "progress", "achieved", "deadline",
                                         "on_track", "projected_date"}) for g in household_goals(db, hid, user.id)]
-    return Summary(household_id=hid, converted=converted, goals=goal_cards, period_start=start, period_end=end, included=pick("include"),
+    from app.routers.budgets import visible_budgets
+    budget_cards = [b.model_dump(include={"id", "label", "scope", "period", "amount", "currency", "spent", "committed",
+                                          "used", "level", "message"}) for b in visible_budgets(db, hid, user.id)]
+    return Summary(household_id=hid, converted=converted, goals=goal_cards, budgets=budget_cards, period_start=start, period_end=end, included=pick("include"),
                    excluded=pick("hide"), accounts_included=counts.get("include", 0),
                    accounts_excluded=counts.get("hide", 0), recent=recent,
                    daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count,

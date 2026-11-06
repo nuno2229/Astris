@@ -1,7 +1,7 @@
 """Works out which alerts each user should get and sends each one once (E22-03, E22-04).
 Runs as each user (RLS): a user only ever hears about households they belong to."""
 import logging
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID
 
 from sqlalchemy import text
@@ -29,7 +29,8 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
     today = today or date.today()
     p = db.execute(text("SELECT * FROM notification_prefs WHERE user_id = :u"), {"u": user}).first()
     renew_days = p.renew_days if p else 3
-    want = {k: (getattr(p, k) if p else True) for k in ("renewals", "trials", "cancelled_charges", "missed_payments")}
+    want = {k: (getattr(p, k) if p else True) for k in ("renewals", "trials", "cancelled_charges", "missed_payments", "budgets")}
+    want["daily_summary"] = bool(p.daily_summary) if p else False
     out = []
     for h in db.execute(text("""SELECT h.id, h.name FROM households h JOIN memberships m ON m.household_id = h.id
                                  WHERE m.user_id = :u"""), {"u": user}):
@@ -49,6 +50,31 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
                 elif a.kind == "charged_after_cancel" and want["cancelled_charges"]:
                     out.append({"key": f"cac:{s.id}:{s.cancelled_on}",
                                 "minimal": "A cancelled subscription charged you again.", "detailed": f"{s.provider}: {a.text}"})
+        if want["budgets"]:
+            from app.routers.budgets import visible_budgets
+            for b in visible_budgets(db, h.id, user):
+                if b.level == "ok":
+                    continue
+                key = f"budget:{b.id}:{b.period_start}:{b.level}"   # once per budget, period and level
+                minimal = {"warning": "A budget is nearly used up.", "at_risk": "Upcoming bills will take a budget over.",
+                           "over": "A budget has gone over."}[b.level]
+                out.append({"key": key, "minimal": minimal,
+                            "detailed": f"{b.label} ({'you' if b.scope == 'personal' else h.name}): {b.message}. "
+                                        f"{_money(b.spent, b.currency)} of {_money(b.amount, b.currency)} this "
+                                        f"{ {'daily': 'day', 'weekly': 'week', 'monthly': 'month'}[b.period] }."})
+        if want["daily_summary"]:
+            from datetime import datetime
+            if datetime.now().hour >= 8:   # send in the morning, about yesterday
+                y = today - timedelta(days=1)
+                row = db.execute(text("""
+                    SELECT t.currency, count(*) AS n, sum(-t.amount) AS spent FROM transactions t
+                      JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+                       AND ha.attribution = 'include'
+                     WHERE t.amount < 0 AND t.transfer_group IS NULL AND t.posted_on = :y
+                     GROUP BY t.currency ORDER BY spent DESC LIMIT 1"""), {"h": h.id, "y": y}).first()
+                out.append({"key": f"daily:{h.id}:{y}", "minimal": "Yesterday's spending summary is ready in Astris.",
+                            "detailed": (f"{h.name} yesterday: {_money(row.spent, row.currency)} across {row.n} payment"
+                                         f"{'' if row.n == 1 else 's'}." if row else f"{h.name}: no spending recorded yesterday.")})
         if want["missed_payments"]:
             for r in household_recurring(db, h.id):
                 if r.status == "missed":

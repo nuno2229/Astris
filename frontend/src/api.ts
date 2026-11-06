@@ -51,6 +51,8 @@ export interface Summary { household_id: string; period_start: string; period_en
   upcoming: Recurring[]; missed: Recurring[];
   goals: { id: string; name: string; target: string; currency: string; saved: string; progress: string; achieved: boolean;
     deadline: string | null; on_track: boolean | null; projected_date: string | null }[];
+  budgets: { id: string; label: string; scope: string; period: "daily" | "weekly" | "monthly"; amount: string; currency: string;
+    spent: string; committed: string; used: string; level: "ok" | "warning" | "at_risk" | "over"; message: string }[];
   converted: { currency: string; spent: string; received: string; spent_today: string; missing: string[];
     daily: { currency: string; day: string; spent: string }[] } | null; subscription_alerts: (SubAlert & { subscription_id: string; provider: string })[] }
 export interface ImportResult { batch_id: string; format: string; rows_total: number; rows_new: number;

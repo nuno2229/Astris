@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.17 |
+| **Backlog version** | 0.18 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -66,7 +66,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | Research: auto-update script + in-app banner + rollback; owner/admin vs member | E19 | **Open** |
 | D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
 | D-6 | Geography / retailer scope | UK implied | E18 | **Open** |
-| D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Accept device-local alerting | E08, E12b | **Open** |
+| D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Alerts only, never blocking (PO "ahead", 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-8 | Offline FX rate cache source | (b) Opt-in daily ECB reference rates, cached locally (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-9 | Copilot may mutate data (scoped) vs read-only first | — | E15-04 | **Open** |
 
@@ -154,14 +154,14 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E11-02** Per-member contributions vs the household goal — `Review` (who put in what + share; you only add/remove your own)
 - [x] **E11-03** Progress: %, days remaining and projected completion, auto-updated from the ledger — `Review` (count a statement transfer toward a goal; "always" rule auto-counts future ones on import; pace over the last 90 days, min 30)
 
-### E12 · Budgets, alerts & spending limits — `Todo` · §7, §12, §25.12
-- [ ] **E12-01** Monthly caps per category and per merchant
-- [ ] **E12-02** Alert thresholds (% or amount): approaching / hit / exceeded
-- [ ] **E12-03** Daily spend summary
-- [ ] **E12-04** Shared (household) and personal budgets
-- [ ] **E12-05** Recompute when recurring transactions fire
-- [ ] **E12-06** Per-card and per-merchant thresholds (daily/weekly/monthly) — **E12b**, `Blocked (D-7)`
-- [ ] **E12-07** UI states plainly that there is no server-side blocking; the app never claims to block (§12)
+### E12 · Budgets, alerts & spending limits — `Review` · §7, §12, §25.12
+- [x] **E12-01** Monthly caps per category and per merchant
+- [x] **E12-02** Alert thresholds (% or amount): approaching / hit / exceeded
+- [x] **E12-03** Daily spend summary
+- [x] **E12-04** Shared (household) and personal budgets
+- [x] **E12-05** Recompute when recurring transactions fire
+- [x] **E12-06** Per-card and per-merchant thresholds (daily/weekly/monthly) — **E12b**, `Blocked (D-7)`
+- [x] **E12-07** UI states plainly that there is no server-side blocking; the app never claims to block (§12)
 
 ### E13 · Consumption analytics — `Todo` · §17, §25.13
 - [ ] **E13-01** Weekly average per household (e.g. 2.0 L milk/week) and monthly rollups
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.18 | E12 budgets/limits/alerts + daily summary. Goal & budget edit permissions hardened. D-7 resolved. |
 | 2026-11-06 | 0.17 | E11 savings goals. v0.1.2 image published. G-6 interim. |
 | 2026-11-06 | 0.16 | E10 audit trail (append-only, hash-chained, History screen with undo). G-10 interim answer. |
 | 2026-11-06 | 0.15 | v0.1.1 image build cancelled (stalled; tag kept, no image). Released **v0.1.2** from main (E08, ECB rates, E09, security fixes, faster build). |

@@ -4,7 +4,8 @@ import { api } from "../api";
 type Kind = "discord" | "telegram" | "ntfy";
 interface Channel { id: string; kind: Kind; label: string; hint: string; uses_internet: boolean; include_details: boolean;
   enabled: boolean; last_sent_at: string | null; last_error: string | null }
-interface Prefs { renew_days: 1 | 3 | 7; renewals: boolean; trials: boolean; cancelled_charges: boolean; missed_payments: boolean }
+interface Prefs { renew_days: 1 | 3 | 7; renewals: boolean; trials: boolean; cancelled_charges: boolean; missed_payments: boolean;
+  budgets: boolean; daily_summary: boolean }
 
 const KIND_LABEL: Record<Kind, string> = { discord: "Discord", telegram: "Telegram", ntfy: "ntfy" };
 
@@ -69,6 +70,8 @@ export default function Notifications() {
           {toggle("trials", "Free trials ending or turning paid")}
           {toggle("cancelled_charges", "Charges after I cancelled")}
           {toggle("missed_payments", "Regular payments that didn't arrive")}
+          {toggle("budgets", "Budgets nearly used or over")}
+          {toggle("daily_summary", "A short summary of yesterday's spending, each morning")}
         </div>
       </div>
     </>

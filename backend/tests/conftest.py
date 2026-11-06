@@ -42,7 +42,7 @@ def clean(owner_engine):
     yield
     with owner_engine.begin() as c:
         c.execute(text("TRUNCATE users, households, sessions, memberships, invitations, accounts, "
-                       "household_accounts, import_batches, transactions, household_settings, merchant_rules, recurring_series, subscriptions, notification_channels, notification_prefs, notification_log, fx_rates, import_previews, import_runs, audit_log, goals, goal_contributions, goal_rules CASCADE"))
+                       "household_accounts, import_batches, transactions, household_settings, merchant_rules, recurring_series, subscriptions, notification_channels, notification_prefs, notification_log, fx_rates, import_previews, import_runs, audit_log, goals, goal_contributions, goal_rules, budgets CASCADE"))
 
 
 def make_user(name: str = "user") -> TestClient:

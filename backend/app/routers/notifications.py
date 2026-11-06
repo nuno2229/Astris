@@ -22,6 +22,8 @@ class Prefs(BaseModel):
     trials: bool = True
     cancelled_charges: bool = True
     missed_payments: bool = True
+    budgets: bool = True
+    daily_summary: bool = False
 
 
 class ChannelIn(BaseModel):
@@ -85,12 +87,14 @@ def get_notifications(user: User, db: DB):
 @router.put("/prefs", response_model=Prefs)
 def put_prefs(body: Prefs, user: User, db: DB):
     db.execute(text("""
-        INSERT INTO notification_prefs (user_id, renew_days, renewals, trials, cancelled_charges, missed_payments)
-        VALUES (:u, :rd, :r, :t, :c, :m)
+        INSERT INTO notification_prefs (user_id, renew_days, renewals, trials, cancelled_charges, missed_payments,
+                                        budgets, daily_summary)
+        VALUES (:u, :rd, :r, :t, :c, :m, :b, :ds)
         ON CONFLICT (user_id) DO UPDATE SET renew_days = EXCLUDED.renew_days, renewals = EXCLUDED.renewals,
-            trials = EXCLUDED.trials, cancelled_charges = EXCLUDED.cancelled_charges, missed_payments = EXCLUDED.missed_payments"""),
+            trials = EXCLUDED.trials, cancelled_charges = EXCLUDED.cancelled_charges, missed_payments = EXCLUDED.missed_payments,
+            budgets = EXCLUDED.budgets, daily_summary = EXCLUDED.daily_summary"""),
         {"u": user.id, "rd": body.renew_days, "r": body.renewals, "t": body.trials, "c": body.cancelled_charges,
-         "m": body.missed_payments})
+         "m": body.missed_payments, "b": body.budgets, "ds": body.daily_summary})
     return body
 
 
