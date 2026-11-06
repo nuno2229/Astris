@@ -62,12 +62,39 @@ class BlockedAddress(Exception):
     pass
 
 
+def origin_only(url: str) -> str | None:
+    """Normalise to scheme://host[:port]. None if the URL carries a path, query, fragment or credentials —
+    the LLM endpoint is a server, not an arbitrary URL (limits blind POSTs into the LAN)."""
+    try:
+        p = urlsplit(url.strip())
+        port = p.port
+    except ValueError:
+        return None
+    if p.scheme not in ("http", "https") or not p.hostname or p.username or p.password:
+        return None
+    if p.path not in ("", "/") or p.query or p.fragment:
+        return None
+    host = f"[{p.hostname}]" if ":" in p.hostname else p.hostname
+    return f"{p.scheme}://{host}" + (f":{port}" if port else "")
+
+
 def pinned_request(url: str, method: str = "GET", body: bytes | None = None, timeout: float = 5,
                    max_bytes: int = 256 * 1024, headers: dict | None = None) -> tuple[int, bytes]:
     """HTTP without DNS-rebinding: resolve ONCE, refuse if any address is blocked, then connect to that
-    exact IP (Host header + TLS SNI/cert check still use the hostname). Never follows redirects."""
+    exact IP (Host header + TLS SNI/cert check still use the hostname). Never follows redirects.
+    `timeout` is a TOTAL wall-clock deadline for the whole exchange, not per socket read."""
     import http.client
     import ssl
+    import time
+
+    deadline = time.monotonic() + timeout
+    held: list = []  # our own socket reference: http.client drops conn.sock after reading headers
+
+    def remaining() -> float:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("deadline exceeded")
+        return left
 
     parts = urlsplit(url)
     host = parts.hostname or ""
@@ -83,18 +110,28 @@ def pinned_request(url: str, method: str = "GET", body: bytes | None = None, tim
 
         class _Conn(http.client.HTTPSConnection):
             def connect(self):
-                raw = socket.create_connection((ip, port), timeout)
+                raw = socket.create_connection((ip, port), remaining())
                 self.sock = ctx.wrap_socket(raw, server_hostname=host)
+                held.append(self.sock)
         conn = _Conn(host, port, timeout=timeout, context=ctx)
     else:
         class _Conn(http.client.HTTPConnection):  # type: ignore[no-redef]
             def connect(self):
-                self.sock = socket.create_connection((ip, port), timeout)
+                self.sock = socket.create_connection((ip, port), remaining())
+                held.append(self.sock)
         conn = _Conn(host, port, timeout=timeout)
     try:
         conn.request(method, path, body=body, headers={"Accept": "application/json", **(headers or {})})
+        held[0].settimeout(remaining())
         r = conn.getresponse()
-        return r.status, r.read(max_bytes)
+        buf = bytearray()
+        while len(buf) < max_bytes:
+            held[0].settimeout(remaining())  # a server trickling bytes can't extend the deadline
+            chunk = r.read1(min(65536, max_bytes - len(buf)))
+            if not chunk:
+                break
+            buf += chunk
+        return r.status, bytes(buf)
     finally:
         conn.close()
 

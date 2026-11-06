@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
 from app.deps import DB, User
-from app.netcheck import BlockedAddress, is_blocked_url, is_local_url, pinned_get
+from app.netcheck import BlockedAddress, is_blocked_url, is_local_url, origin_only, pinned_get
 from app.routers.households import my_role
 
 router = APIRouter(prefix="/api", tags=["settings"])
@@ -25,10 +25,10 @@ class LlmSettings(BaseModel):
     def check_url(cls, v: str | None) -> str | None:
         if v is None or not v.strip():
             return None
-        v = v.strip().rstrip("/")
-        if not v.startswith(("http://", "https://")):
-            raise ValueError("Must start with http:// or https://")
-        return v
+        o = origin_only(v)
+        if o is None:
+            raise ValueError("Use just the server address, like http://192.168.1.50:8080 (no path)")
+        return o
 
 
 class SettingsOut(LlmSettings):

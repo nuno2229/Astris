@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from app.categorise.rules import CATEGORIES
-from app.netcheck import is_local_url, pinned_request
+from app.netcheck import is_local_url, origin_only, pinned_request
 
 SYSTEM = (
     "You label household bank transactions with a spending category.\n"
@@ -48,9 +48,12 @@ class LlmLabel:
 
 
 def label_batch(base_url: str, model: str | None, allow_internet: bool,
-                items: list[tuple[str, Decimal]], timeout: float = 90) -> dict[int, LlmLabel]:
+                items: list[tuple[str, Decimal]], timeout: float = 60) -> dict[int, LlmLabel]:
     """items: (description, amount). Returns index -> label for items the model answered validly."""
-    if not allow_internet and not is_local_url(base_url):  # re-check at call time (§2)
+    base = origin_only(base_url)  # re-validate stored value at call time
+    if base is None:
+        raise LlmError("invalid LLM address")
+    if not allow_internet and not is_local_url(base):  # re-check at call time (§2)
         raise LlmError("LLM address is outside the home network and internet use isn't allowed")
     data = [{"i": k, "description": d[:200], "direction": "in" if a > 0 else "out"} for k, (d, a) in enumerate(items)]
     body = {
@@ -62,7 +65,7 @@ def label_batch(base_url: str, model: str | None, allow_internet: bool,
         "response_format": {"type": "json_object", "schema": SCHEMA},
     }
     try:
-        code, raw = pinned_request(base_url.rstrip("/") + "/v1/chat/completions", "POST",
+        code, raw = pinned_request(base + "/v1/chat/completions", "POST",
                                    json.dumps(body).encode(), timeout=timeout, max_bytes=512 * 1024,
                                    headers={"Content-Type": "application/json"})
     except Exception as e:  # network, blocked address, timeout

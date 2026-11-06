@@ -43,8 +43,11 @@ def apply_rules(db: Session, owner: UUID, batch_id: UUID | None = None) -> int:
     return len(rows)
 
 
-def run_ai_for_owner(db: Session, owner: UUID, limit: int = 200) -> int:
-    """Background pass for one owner (caller has bound app.user_id = owner)."""
+def run_ai_for_owner(db: Session, owner: UUID, limit: int = 60, budget_s: float = 120) -> int:
+    """Background pass for one owner (caller has bound app.user_id = owner). Bounded per round (rows and
+    wall-clock budget) so one slow LLM endpoint can't starve other households; leftovers stay pending."""
+    import time
+    started = time.monotonic()
     apply_rules(db, owner)
     rows = db.execute(text("""
         SELECT t.id, t.account_id, t.description, t.amount, t.category_confidence
@@ -75,6 +78,8 @@ def run_ai_for_owner(db: Session, owner: UUID, limit: int = 200) -> int:
         base, model, allow = conf
         for k in range(0, len(items), BATCH):
             chunk = items[k:k + BATCH]
+            if time.monotonic() - started > budget_s:
+                break  # rest stays 'pending' for the next round
             try:
                 labels = label_batch(base, model, allow, [(r.description, Decimal(r.amount)) for r in chunk])
             except LlmError as e:

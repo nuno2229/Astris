@@ -100,3 +100,37 @@ def test_pinned_get_connects_to_checked_ip(monkeypatch, fake_llama):
     code, body = netcheck.pinned_get(f"http://rebind.example:{port}/v1/models")
     assert code == 200 and b"qwen" in body and len(calls) == 1
     monkeypatch.setattr(netcheck, "resolve", real)
+
+
+@pytest.mark.parametrize("url", ["http://192.168.1.5:8080/cgi-bin/reboot", "http://192.168.1.5/?x=1",
+                                 "http://user:pw@192.168.1.5", "http://192.168.1.5/#frag", "http://192.168.1.5:99999"])
+def test_llm_address_must_be_origin_only(url):
+    o = make_user("o")
+    hid = create_household(o)
+    assert o.put(f"/api/households/{hid}/settings", json={"llm_base_url": url}).status_code == 422
+
+
+def test_pinned_request_total_deadline():
+    """A server that trickles bytes forever is cut off by the total deadline, not kept alive per read."""
+    import socket as s_
+    import time
+    from app.netcheck import pinned_request
+    srv = s_.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(1)
+    port = srv.getsockname()[1]
+
+    def slowloris():
+        c, _ = srv.accept()
+        c.recv(65536)
+        c.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 100000\r\n\r\n")
+        try:
+            for _ in range(100):
+                c.sendall(b"x"); time.sleep(0.2)
+        except OSError:
+            pass
+        c.close()
+    threading.Thread(target=slowloris, daemon=True).start()
+    t0 = time.monotonic()
+    with pytest.raises((TimeoutError, OSError)):
+        pinned_request(f"http://127.0.0.1:{port}/v1/models", timeout=1.5)
+    assert time.monotonic() - t0 < 4
+    srv.close()
