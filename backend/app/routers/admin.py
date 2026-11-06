@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -29,6 +29,7 @@ class ServerOut(BaseModel):
     checked_at: datetime | None
     backups: list[dict] = []
     backups_encrypted: bool = False
+    backup_location: str = ""   # backups stay on the server: full-database dumps are never served over the app (isolation)
 
 
 class ServerIn(BaseModel):
@@ -62,7 +63,8 @@ def server(user: User, db: DB):
     return ServerOut(is_admin=admin, version=app_version(), registration_open=s.registration_open, update_check=s.update_check,
                      latest_version=s.latest_version, latest_url=s.latest_url, checked_at=s.checked_at,
                      update_available=s.update_check and newer(s.latest_version, app_version()),
-                     backups=backup.list_backups() if admin else [], backups_encrypted=bool(get_settings().backup_passphrase))
+                     backups=backup.list_backups() if admin else [], backups_encrypted=bool(get_settings().backup_passphrase),
+                     backup_location=str(backup.backup_dir()) if admin else "")
 
 
 @router.put("/server", response_model=ServerOut)
@@ -87,17 +89,6 @@ async def backup_now(user: User, db: DB):
     from app import audit
     audit.log(db, user.id, "server.backup", "server", f"Backup created: {p.name}")
     return {"name": p.name}
-
-
-@router.get("/server/backups/{name}")
-def download_backup(name: str, user: User, db: DB):
-    _require_admin(db, user)
-    try:
-        p = backup.resolve(name)
-    except FileNotFoundError:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Backup not found")
-    return FileResponse(p, media_type="application/octet-stream", filename=p.name,
-                        headers={"Cache-Control": "private, no-store"})
 
 
 def check_for_update(db_factory) -> str | None:

@@ -31,5 +31,6 @@ services:
       DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD}
       DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}                   # this account becomes server admin (recommended)
       TZ: ${TZ:-Europe/London}
       BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}      # set to encrypt backups; keep it safe, it can't be recovered

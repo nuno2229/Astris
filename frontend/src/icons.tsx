@@ -14,3 +14,7 @@ export const ChevronDown = () => <svg viewBox="0 0 24 24" {...p}><path d="M6 9l6
 export const BillsIcon = () => <svg viewBox="0 0 24 24" {...p}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>;
 export const PantryIcon = () => <svg viewBox="0 0 24 24" {...p}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M4 9h16M4 15h16M9 6h1M9 12h1M9 18h1" /></svg>;
 export const MoreIcon = () => <svg viewBox="0 0 24 24" {...p}><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>;
+export const BudgetIcon = () => <svg viewBox="0 0 24 24" {...p}><circle cx="12" cy="12" r="9" /><path d="M12 12V3M12 12l6.4 6.4" /></svg>;
+export const GoalIcon = () => <svg viewBox="0 0 24 24" {...p}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></svg>;
+export const InsightsIcon = () => <svg viewBox="0 0 24 24" {...p}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>;
+export const HistoryIcon = () => <svg viewBox="0 0 24 24" {...p}><path d="M3 12a9 9 0 103-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></svg>;

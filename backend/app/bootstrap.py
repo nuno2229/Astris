@@ -40,6 +40,9 @@ def _ensure_role(cur, name: str, password: str, extra: str) -> None:
 
 def main() -> None:
     s = get_settings()
+    if not s.admin_email:
+        print("[bootstrap] WARNING: ADMIN_EMAIL is not set, so the FIRST account registered becomes server admin. "
+              "Set ADMIN_EMAIL to your own address in the container settings.", file=sys.stderr)
     if not s.db_admin_url:
         _wait(s.owner_db_url)
         print("[bootstrap] no DB_ADMIN_URL; assuming roles exist")

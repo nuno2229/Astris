@@ -79,12 +79,16 @@ p { margin: 0; }
 main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 4px 16px calc(var(--nav-h) + var(--safe-b) + 96px); }  /* room to scroll past the assistant button */
 
 .bottomnav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; overflow-x: auto; scroll-snap-type: x proximity;
+  scrollbar-width: none; overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent);
   height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line);
 }
+.bottomnav::-webkit-scrollbar { display: none; }
 .bottomnav a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  flex: 0 0 76px; scroll-snap-align: start;
   color: var(--muted); text-decoration: none; font-size: 12px; font-weight: 500; min-height: 48px; }
 .bottomnav svg { width: 24px; height: 24px; }
 .bottomnav a[aria-current="page"] { color: var(--text); }
@@ -97,7 +101,9 @@ main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 4px 16px
   .shell { display: grid; grid-template-columns: 232px 1fr; grid-template-rows: auto 1fr; }
   .topbar { grid-column: 1 / -1; padding-left: 24px; padding-right: 24px; }
   .bottomnav { position: sticky; top: 64px; align-self: start; height: auto; min-height: calc(100dvh - 64px);
-    display: flex; flex-direction: column; gap: 2px; padding: 12px; background: transparent; backdrop-filter: none; border-top: 0; }
+    display: flex; flex-direction: column; gap: 2px; padding: 12px; background: transparent; backdrop-filter: none; border-top: 0;
+    overflow: visible; -webkit-mask-image: none; mask-image: none; }
+  .bottomnav a { flex: none; }
   .bottomnav a { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 14px; font-size: 15px; border-radius: var(--r-ctl); }
   .bottomnav a[aria-current="page"] { background: var(--surface); }
   .bottomnav a[aria-current="page"]::before { top: 50%; left: -2px; transform: translateY(-50%); }

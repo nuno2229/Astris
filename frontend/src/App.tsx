@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, Household, Me } from "./api";
 import { go, store, useRoute } from "./router";
-import { BillsIcon, ChevronDown, GearIcon, HomeIcon, ListIcon, MoreIcon, PantryIcon, StarMark } from "./icons";
+import { BillsIcon, BudgetIcon, ChevronDown, GearIcon, GoalIcon, HistoryIcon, HomeIcon, InsightsIcon, ListIcon, PantryIcon, StarMark, UsersIcon, WalletIcon } from "./icons";
 import AuthScreen from "./screens/Auth";
 import Dashboard from "./screens/Dashboard";
 import Activity from "./screens/Activity";
@@ -17,7 +17,6 @@ import Goals from "./screens/Goals";
 import Budgets from "./screens/Budgets";
 import Insights from "./screens/Insights";
 import Shopping from "./screens/Shopping";
-import More from "./screens/More";
 import Copilot from "./screens/Copilot";
 
 export interface Ctx {
@@ -28,12 +27,15 @@ export interface Ctx {
   signOut: () => Promise<void>;
 }
 
-const MORE_PAGES = ["accounts", "budgets", "goals", "insights", "household", "history", "settings", "import"];
-
 export default function App() {
   const route = useRoute();
   const routeKey = route.join("/");
-  useEffect(() => { scrollTo(0, 0); }, [routeKey]); // each tab opens at the top
+  useEffect(() => {
+    scrollTo(0, 0); // each tab opens at the top
+    // phones: the tab bar scrolls sideways; keep the current tab visible
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.bottomnav a[aria-current="page"]')
+      ?.scrollIntoView({ inline: "center", block: "nearest" }));
+  }, [routeKey]);
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [households, setHouseholds] = useState<Household[]>([]);
   const [hid, setHid] = useState<string | null>(null);
@@ -76,9 +78,17 @@ export default function App() {
     { path: "", label: "Home", icon: <HomeIcon /> },
     { path: "activity", label: "Activity", icon: <ListIcon /> },
     { path: "bills", label: "Bills", icon: <BillsIcon /> },
+    { path: "budgets", label: "Budgets", icon: <BudgetIcon /> },
+    { path: "goals", label: "Goals", icon: <GoalIcon /> },
+    { path: "insights", label: "Insights", icon: <InsightsIcon /> },
     { path: "list", label: "Shopping", icon: <PantryIcon /> },
-    { path: "more", label: "More", icon: <MoreIcon /> },
+    { path: "accounts", label: "Accounts", icon: <WalletIcon /> },
+    { path: "household", label: "Household", icon: <UsersIcon /> },
+    { path: "history", label: "History", icon: <HistoryIcon /> },
   ];
+  const ALIASES: Record<string, string> = { pantry: "list", receipts: "list", recurring: "bills", import: "accounts" };
+  const activeTab = ALIASES[tab] ?? tab;
+
 
   return (
     <div className="shell">
@@ -96,7 +106,7 @@ export default function App() {
       </header>
       <nav className="bottomnav" aria-label="Main">
         {tabs.map((t) => (
-          <a key={t.path} href={"#/" + t.path} aria-current={tab === t.path || (t.path === "more" && MORE_PAGES.includes(tab)) || (t.path === "list" && (tab === "pantry" || tab === "receipts")) ? "page" : undefined}>
+          <a key={t.path} href={"#/" + t.path} aria-current={activeTab === t.path ? "page" : undefined}>
             {t.icon}<span>{t.label}</span>
           </a>
         ))}
@@ -114,7 +124,6 @@ export default function App() {
         {household && tab === "budgets" && <Budgets household={household} currency={me.home_currency} />}
         {household && tab === "insights" && <Insights household={household} />}
         {household && (tab === "list" || tab === "pantry" || tab === "receipts") && <Shopping household={household} initial={tab === "pantry" ? "pantry" : tab === "receipts" ? "receipts" : "list"} />}
-        {household && tab === "more" && <More ctx={ctx} />}
         {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
       {household && <Copilot household={household} />}

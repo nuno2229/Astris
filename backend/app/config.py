@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     backup_hour: int = 3                   # local hour for the daily backup
     backup_passphrase: str = ""            # set to encrypt backups (keep it somewhere safe!)
     github_repo: str = "nuno2229/Astris"   # for the opt-in update check
+    admin_email: str = ""                  # this address (only) becomes server admin; unset = first account
     app_version: str = ""  # set by the Docker build from the git tag; else the package version
 
     def _url(self, role: str, pw: str) -> str:

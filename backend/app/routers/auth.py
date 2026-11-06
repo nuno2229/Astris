@@ -40,8 +40,9 @@ def register(body: RegisterIn, db: DB, request: Request, response: Response):
     try:
         with db.begin_nested():
             uid = db.execute(
-                text("SELECT auth_register_user(:e, :n, :h)"),
-                {"e": body.email, "n": body.display_name.strip(), "h": hash_password(body.password)},
+                text("SELECT auth_register_user(:e, :n, :h, :admin)"),
+                {"e": body.email, "n": body.display_name.strip(), "h": hash_password(body.password),
+                 "admin": get_settings().admin_email.strip() or None},
             ).scalar_one()
     except IntegrityError:
         raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists")

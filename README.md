@@ -2,6 +2,9 @@
 
 Private, self-hosted household money hub. Scope and status are tracked in [BACKLOG.md](BACKLOG.md); design in [docs/architecture.md](docs/architecture.md).
 
+**Navigation:** Home, Activity, Bills, Budgets, Goals, Insights, Shopping (list, pantry, receipts), Accounts, Household,
+History, and Settings (gear). On phones the tab bar scrolls sideways.
+
 ## Local development (macOS)
 
 Prereqs: PostgreSQL 15+, Python 3.13+, Node 20+.
@@ -35,7 +38,7 @@ The image is published to GHCR when a `v*` tag is pushed (`.github/workflows/rel
 **Option B — template + existing Postgres container:**
 1. Copy `unraid/astris.xml` to `/boot/config/plugins/dockerMan/templates-user/my-astris.xml`.
 2. Docker → Add Container → pick *astris*.
-3. Fill in the Postgres host, the admin URL (first run only) and two new random passwords.
+3. Fill in the Postgres host, the admin URL (first run only), two new random passwords and **Admin email** (your address).
 4. Open `http://<unraid-ip>:8484` and create the first account. Turn off *Allow new sign-ups* once everyone has one.
 
 On every start the container waits for Postgres, creates roles and the database if needed, applies migrations, then starts. `/api/health` reports the DB state and version.
@@ -46,7 +49,9 @@ On every start the container waits for Postgres, creates roles and the database 
   can also turn on Settings → Server → "Tell me when an update is available" (checks GitHub once a day; off by default).
 - **Automatic safety net:** when a new version changes the database, the container takes a `pre-migrate` backup before
   applying the change. Daily backups are kept for 14 days (`BACKUP_KEEP`) in the *Backups* folder of the template.
-- **Back up now / download:** Settings → Server (server admin = the first account created).
+- **Back up now:** Settings → Server (server admin = the account with `ADMIN_EMAIL`, or the first account if unset).
+  Backups contain everyone's data and credentials, so they're never downloadable through the app: copy them from the
+  *Backups* share on the server.
 - **Encrypted backups:** set `BACKUP_PASSPHRASE`. Without it, an encrypted backup can't be restored.
 - **Roll back to an older version:**
   1. In the Unraid template, change the image tag from `:latest` to the previous version, e.g. `ghcr.io/nuno2229/astris:0.1.2`.

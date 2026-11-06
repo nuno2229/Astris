@@ -3,7 +3,7 @@ import { api } from "../api";
 
 interface Server { is_admin: boolean; version: string; registration_open: boolean; update_check: boolean; latest_version: string | null;
   latest_url: string | null; update_available: boolean; checked_at: string | null;
-  backups: { name: string; size: number; created_at: string; encrypted: boolean }[]; backups_encrypted: boolean }
+  backups: { name: string; size: number; created_at: string; encrypted: boolean }[]; backups_encrypted: boolean; backup_location: string }
 
 export function useServer() {
   const [s, setS] = useState<Server | null>(null);
@@ -34,7 +34,7 @@ export default function ServerSettings() {
         <>
           <h2>Server</h2>
           <div className="panel stack">
-            <span className="muted small">You're the server admin (the first account on this server).</span>
+            <span className="muted small">You're the server admin.</span>
             {s.update_available && (
               <div className="callout"><strong>Astris {s.latest_version} is available.</strong> On Unraid, open the Docker tab and apply the
                 update. A backup is taken automatically first. {s.latest_url && <a href={s.latest_url} target="_blank" rel="noreferrer">What's new</a>}</div>
@@ -55,11 +55,13 @@ export default function ServerSettings() {
                 {s.backups.slice(0, 10).map((b) => (
                   <li key={b.name}><div className="main"><div className="title code">{b.name}</div>
                     <div className="meta">{new Date(b.created_at).toLocaleString()}, {Math.max(1, Math.round(b.size / 1024))} KB{b.encrypted ? ", encrypted" : ""}</div></div>
-                    <a className="btn quiet" href={`/api/server/backups/${encodeURIComponent(b.name)}`}>Download</a></li>
+                  </li>
                 ))}
               </ul>
             )}
-            <span className="muted small">Restoring replaces all data, so it's done from the server: see the README (“Rolling back”).</span>
+            <span className="muted small">Backups contain everyone's data, so they stay on the server and can't be downloaded here.
+              Find them in <span className="code">{s.backup_location}</span> (your Unraid backups share). Restoring replaces all data and is
+              done from the server: see the README (“Rolling back”).</span>
           </div>
         </>
       )}

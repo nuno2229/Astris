@@ -51,9 +51,10 @@ def test_backup_and_restore_round_trip():
     assert r.status_code == 201
     name = r.json()["name"]
     assert b.post("/api/server/backups").status_code == 403
-    dl = a.get(f"/api/server/backups/{name}")
-    assert dl.status_code == 200 and zipfile.ZipFile(io.BytesIO(dl.content)).read("manifest.json")
+    # full-database dumps are never downloadable through the app, not even by the admin
+    assert a.get(f"/api/server/backups/{name}").status_code == 404
     assert a.get("/api/server/backups/..%2F..%2Fetc%2Fpasswd").status_code == 404
+    assert zipfile.ZipFile(backup.resolve(name)).read("manifest.json")
     # disaster: data changes after the backup
     a.delete(f"/api/accounts/{acc}")
     assert a.get("/api/accounts").json() == []
@@ -117,3 +118,20 @@ def test_personal_export_only_contains_what_you_can_see():
     assert sorted(t["description"] for t in txs) == ["TESCO", "ZORBLAX"]
     assert "SECRET" not in z.read("transactions.json").decode()
     assert json.loads(z.read("me.json"))["email"] == a.me["email"]
+
+
+def test_admin_email_decides_admin_not_first_come(monkeypatch):
+    monkeypatch.setattr(get_settings(), "admin_email", "Boss@Example.com")
+    first = make_user("intruder")
+    boss = TestClient(app)
+    r = boss.post("/api/auth/register", json={"email": "boss@example.com", "display_name": "Boss", "password": "long enough pw"})
+    assert r.json()["is_server_admin"] is True
+    assert first.get("/api/me").json()["is_server_admin"] is False
+
+
+def test_closed_signups_have_no_empty_server_bypass(owner_engine):
+    from sqlalchemy import text
+    with owner_engine.begin() as c:
+        c.execute(text("UPDATE server_settings SET registration_open = false"))
+    r = TestClient(app).post("/api/auth/register", json={"email": "z@example.com", "display_name": "Z", "password": "long enough pw"})
+    assert r.status_code == 403

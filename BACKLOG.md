@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.24 |
+| **Backlog version** | 0.25 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -63,7 +63,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-1 | Core offline vs online modules | Core offline by default; online modules explicitly gated, toggleable, never auto-on | E18, E17, E14-07 | ✅ **Confirmed 2026-11-05** |
 | D-2 | What/where is "Jev" (LLM model/host on Unraid)? | A llama.cpp server. URL and model are entered by the household owner in **Settings** (PO, 2026-11-05) | — | ✅ **Resolved 2026-11-05** |
 | D-3 | Spec sync between Mac (Claude) and Unraid (PO) | Repo: **github.com/nuno2229/Astris** (public). Image: `ghcr.io/nuno2229/astris`. BACKLOG.md lives in the repo | — | ✅ **Resolved 2026-11-05** |
-| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | **Built as proposed (2026-11-06), PO to confirm:** Unraid's own update check; opt-in in-app "update available" banner; automatic backup before database changes; rollback = pin previous tag + restore; first account = server admin who can close sign-ups | — | 🟡 **Built, awaiting confirmation** |
+| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | **Built as proposed (2026-11-06), PO to confirm:** Unraid's own update check; opt-in in-app "update available" banner; automatic backup before database changes; rollback = pin previous tag + restore; server admin set by ADMIN_EMAIL (else first account) who can close sign-ups; backups stay on the server (never downloadable in the app) | — | 🟡 **Built, awaiting confirmation** |
 | D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
 | D-6 | Geography / retailer scope | UK only (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Alerts only, never blocking (PO "ahead", 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
@@ -295,6 +295,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.25 | PO: every section is its own tab (no More page; phone tab bar scrolls). Security: backups no longer downloadable in the app; ADMIN_EMAIL decides the server admin. Released **v0.1.3**. |
 | 2026-11-06 | 0.24 | E19 platform: backups (daily, pre-upgrade, encrypted option, restore CLI), server admin + sign-ups switch, opt-in update banner, personal export. D-4 built as proposed. |
 | 2026-11-06 | 0.23 | E04 receipts (OCR, unit prices, discounts, payment matching, pantry/list). E23 kept originals (PO request). |
 | 2026-11-06 | 0.22 | E17 shopping lists (shared + personal, favourites, from pantry, done-shopping → pantry, notifications); assistant can add to the list. Nav tab Pantry → Shopping (List / Pantry). |
