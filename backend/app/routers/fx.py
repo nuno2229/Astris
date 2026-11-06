@@ -35,8 +35,15 @@ class RateOut(BaseModel):
 
 
 def rate_table(db: DB, hid: UUID) -> dict[tuple[str, str], Decimal]:
-    return {(r.from_currency, r.to_currency): Decimal(r.rate) for r in db.execute(
+    """Manual household rates, plus ECB reference rates when the household opted in. Manual always wins."""
+    manual = {(r.from_currency, r.to_currency): Decimal(r.rate) for r in db.execute(
         text("SELECT from_currency, to_currency, rate FROM fx_rates WHERE household_id = :h"), {"h": hid})}
+    auto = db.execute(text("SELECT fx_auto FROM household_settings WHERE household_id = :h"), {"h": hid}).scalar()
+    if not auto:
+        return manual
+    from app.fx_ecb import ecb_pairs
+    ecb, _ = ecb_pairs(db)
+    return {**ecb, "__ecb__": True, **manual}  # type: ignore[dict-item]
 
 
 def convert(v: Decimal, frm: str, to: str, rates: dict) -> Decimal | None:
@@ -46,6 +53,10 @@ def convert(v: Decimal, frm: str, to: str, rates: dict) -> Decimal | None:
         return v * rates[(frm, to)]
     if (to, frm) in rates:
         return v / rates[(to, frm)]
+    if rates.get("__ecb__"):  # cross through EUR with the ECB set (e.g. USD -> GBP)
+        a = convert(v, frm, "EUR", {k: r for k, r in rates.items() if k != "__ecb__"})
+        if a is not None:
+            return convert(a, "EUR", to, {k: r for k, r in rates.items() if k != "__ecb__"})
     return None
 
 
@@ -83,3 +94,41 @@ def delete_rate(hid: UUID, frm: str, to: str, user: User, db: DB):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an admin can set exchange rates")
     db.execute(text("DELETE FROM fx_rates WHERE household_id = :h AND from_currency = :f AND to_currency = :t"),
                {"h": hid, "f": frm.upper()[:3], "t": to.upper()[:3]})
+
+
+class AutoOut(BaseModel):
+    enabled: bool
+    as_of: date | None
+    currencies: int
+    can_edit: bool
+
+
+class AutoIn(BaseModel):
+    enabled: bool
+
+
+def _auto_out(db: DB, hid: UUID, role: str) -> AutoOut:
+    en = db.execute(text("SELECT fx_auto FROM household_settings WHERE household_id = :h"), {"h": hid}).scalar() or False
+    row = db.execute(text("SELECT max(as_of), count(*) FROM fx_ecb")).one()
+    return AutoOut(enabled=en, as_of=row[0], currencies=row[1], can_edit=role == "owner")
+
+
+@router.get("/households/{hid}/fx-auto", response_model=AutoOut)
+def get_auto(hid: UUID, user: User, db: DB):
+    return _auto_out(db, hid, my_role(db, hid))
+
+
+@router.put("/households/{hid}/fx-auto", response_model=AutoOut)
+def put_auto(hid: UUID, body: AutoIn, user: User, db: DB):
+    """Opt in to daily ECB rates (uses internet). Owner only, like the other household settings."""
+    role = my_role(db, hid)
+    if role != "owner":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the household owner can change this")
+    db.execute(text("""INSERT INTO household_settings (household_id, fx_auto, updated_by) VALUES (:h, :a, :u)
+                       ON CONFLICT (household_id) DO UPDATE SET fx_auto = EXCLUDED.fx_auto,
+                           updated_by = EXCLUDED.updated_by, updated_at = now()"""),
+               {"h": hid, "a": body.enabled, "u": user.id})
+    if body.enabled:
+        from app.categorise.worker import worker
+        worker.wake_fx()
+    return _auto_out(db, hid, role)

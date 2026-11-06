@@ -143,10 +143,18 @@ interface Rate { from_currency: string; to_currency: string; rate: string; as_of
 
 function Rates({ household }: { household: Household }) {
   const [rates, setRates] = useState<Rate[]>([]);
+  const [auto, setAuto] = useState<{ enabled: boolean; as_of: string | null; currencies: number; can_edit: boolean } | null>(null);
   const [f, setF] = useState({ from_currency: "EUR", to_currency: "GBP", rate: "" });
   const [error, setError] = useState("");
   const can = household.role !== "member";
-  const load = () => api.get<Rate[]>(`/api/households/${household.id}/fx-rates`).then(setRates);
+  const load = () => Promise.all([
+    api.get<Rate[]>(`/api/households/${household.id}/fx-rates`).then(setRates),
+    api.get<typeof auto>(`/api/households/${household.id}/fx-auto`).then(setAuto),
+  ]);
+  const toggleAuto = async (enabled: boolean) => {
+    setAuto(await api.put<typeof auto>(`/api/households/${household.id}/fx-auto`, { enabled }));
+    if (enabled) setTimeout(load, 3000);  // the server fetches in the background
+  };
   useEffect(() => { load(); }, [household.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async (e: FormEvent) => {
     e.preventDefault(); setError("");
@@ -157,8 +165,23 @@ function Rates({ household }: { household: Household }) {
     <>
       <h2>Exchange rates ({household.name})</h2>
       <div className="panel stack">
-        <p className="muted small" style={{ margin: 0 }}>Used to show totals in each person's home currency. Entered by hand and kept on your server.
-          {!can && " Only the owner or an admin can change these."}</p>
+        <p className="muted small" style={{ margin: 0 }}>Used to show totals in each person's home currency.</p>
+        {auto && (
+          <div className="stack" style={{ gap: 6 }}>
+            <label className="check">
+              <input type="checkbox" checked={auto.enabled} disabled={!auto.can_edit} onChange={(e) => toggleAuto(e.target.checked)} />
+              <span>Update daily from the European Central Bank <span className="pill">Uses internet</span></span>
+            </label>
+            <span className="muted small">
+              {auto.enabled
+                ? auto.as_of ? `${auto.currencies} currencies, rates from ${new Date(auto.as_of + "T00:00:00").toLocaleDateString()}. Kept on your server, so they still work offline.` : "Fetching the first rates…"
+                : "Only a public rates file is downloaded; nothing about you is sent."}
+              {!auto.can_edit && " Only the household owner can change this."}
+            </span>
+          </div>
+        )}
+        <strong className="small" style={{ marginTop: 6 }}>Your own rates{auto?.enabled ? " (override the ECB)" : ""}</strong>
+        {!can && <span className="muted small">Only the owner or an admin can change these.</span>}
         {rates.length > 0 && (
           <ul className="list" style={{ background: "var(--bg)" }}>
             {rates.map((r) => (

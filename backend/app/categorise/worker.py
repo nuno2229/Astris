@@ -47,12 +47,19 @@ def run_notifications() -> int:
 NOTIFY_EVERY_S = 15 * 60
 
 
+def run_fx(force: bool = False) -> bool:
+    from app.fx_ecb import refresh_if_due
+    with Session(get_engine()) as s, s.begin():
+        return refresh_if_due(s, force)
+
+
 class Worker:
     def __init__(self, idle_seconds: float = 10):
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._idle = idle_seconds
         self._t: threading.Thread | None = None
+        self._fx_now = False
 
     def start(self) -> None:
         self._t = threading.Thread(target=self._loop, name="ai-worker", daemon=True)
@@ -65,6 +72,10 @@ class Worker:
     def wake(self) -> None:
         self._wake.set()
 
+    def wake_fx(self) -> None:
+        self._fx_now = True
+        self._wake.set()
+
     def _loop(self) -> None:
         import time
         last_notify = 0.0
@@ -74,6 +85,11 @@ class Worker:
             except Exception:
                 log.exception("AI worker iteration failed")
                 busy = False
+            try:
+                force, self._fx_now = self._fx_now, False
+                run_fx(force)
+            except Exception:
+                log.exception("ECB rates refresh failed")
             if time.monotonic() - last_notify > NOTIFY_EVERY_S:
                 last_notify = time.monotonic()
                 try:

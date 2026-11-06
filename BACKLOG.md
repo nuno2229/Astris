@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.12 |
+| **Backlog version** | 0.13 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -67,7 +67,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
 | D-6 | Geography / retailer scope | UK implied | E18 | **Open** |
 | D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Accept device-local alerting | E08, E12b | **Open** |
-| D-8 | Offline FX rate cache source | — | E08 | **Open** |
+| D-8 | Offline FX rate cache source | (b) Opt-in daily ECB reference rates, cached locally (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-9 | Copilot may mutate data (scoped) vs read-only first | — | E15-04 | **Open** |
 
 ---
@@ -129,13 +129,13 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E07-04** Upcoming-renewal alerts — `Review` (in-app; push via E22)
 - [x] **E07-05** Feeds recurring transactions (E06) and budgets (E12) — `Review` for E06 (suggestions + linked renewal dates); E12 not built yet
 
-### E08 · Cash wallet & multi-currency — `Review` (automatic rates blocked on D-8) · §8, §9, §25.8
+### E08 · Cash wallet & multi-currency — `Review` · §8, §9, §25.8
 - [x] **E08-01** Cash as a first-class account type, owned per user (§3) — `Review`
 - [x] **E08-02** Opening/closing balances, deposits, withdrawals — `Review` (starting balance, manual entries, "Count my cash" adjustments)
 - [x] **E08-03** Optional reconciliation against card/statement — `Review` (move an ATM withdrawal into a wallet; the linked pair is excluded from spend/income so cash isn't counted twice. General transfer detection is still P-1)
 - [x] **E08-04** Base currency per account; multi-currency transactions — `Review` (original foreign amount from CSV columns / manual entry)
-- [ ] **E08-05** Offline FX cache fallback — `Blocked (D-8)`. Interim: per-household manual rates, stored locally, work offline
-- [ ] **E08-06** Live FX rates as an opt-in add-on (`uses internet`) — `Blocked (D-1)`
+- [x] **E08-05** Offline FX cache fallback — `Review` (last ECB set cached on the server; manual rates override)
+- [x] **E08-06** Live FX rates as an opt-in add-on (`uses internet`) — `Review` (daily ECB file, owner opt-in, off by default)
 - [x] **E08-07** Display in the user's home currency; flag conversions when cards are used abroad — `Review` (converted totals; currencies without a rate listed separately, never guessed)
 
 ### E09 · Bulk import wizard — `Todo` · §10, §25.9
@@ -289,6 +289,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.13 | D-8 resolved (ECB). E08-05/06 done. |
 | 2026-11-06 | 0.12 | E08 cash wallet + multi-currency (manual rates). Security fixes for ntfy. 124 tests. |
 | 2026-11-06 | 0.11 | E22 notifications (Discord/Telegram/ntfy, minimal by default, once per alert). Released **v0.1.1**. |
 | 2026-11-06 | 0.10 | E07 subscriptions (Bills tab, trials, cancellations, suggestions). Version in side panel. E22 notifications approved by PO. G-15. |
