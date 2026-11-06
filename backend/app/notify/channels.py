@@ -6,13 +6,19 @@ import re
 from dataclasses import dataclass
 from urllib.parse import quote, urlsplit
 
-from app.netcheck import is_local_url, origin_only, pinned_request
+import ipaddress
+
+from app.netcheck import is_local_url, origin_only, pinned_request, resolve
 
 DISCORD_RE = re.compile(r"^https://(?:discord\.com|discordapp\.com|ptb\.discord\.com|canary\.discord\.com)"
                         r"/api/webhooks/(\d{5,25})/([A-Za-z0-9_\-]{20,120})/?$")
 TELEGRAM_TOKEN_RE = re.compile(r"^\d{5,15}:[A-Za-z0-9_\-]{30,60}$")
 TELEGRAM_CHAT_RE = re.compile(r"^(-?\d{1,20}|@[A-Za-z][A-Za-z0-9_]{4,31})$")
 NTFY_TOPIC_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
+
+
+ALLOW_LOOPBACK = False   # ntfy may not target the app's own container (tests flip this)
+FAIL = "Couldn't deliver the message. Check the details and that the service is reachable."
 
 
 class ChannelError(ValueError):
@@ -50,6 +56,10 @@ def validate(kind: str, cfg: dict, allow_internet: bool) -> Clean:
             raise ChannelError("Topic can use letters, numbers, - and _ (up to 64)")
         if token and not re.match(r"^[A-Za-z0-9_\-.]{8,200}$", token):
             raise ChannelError("Access token has unexpected characters")
+        host = urlsplit(server).hostname or ""
+        if not ALLOW_LOOPBACK and (host in ("localhost", "ip6-localhost") or any(
+                ipaddress.ip_address(a).is_loopback for a in resolve(host))):
+            raise ChannelError("This address can't be used. Use your server's network address instead.")
         internet = not is_local_url(server)
         if internet and not allow_internet:
             raise ChannelError("This ntfy server is outside your home network. Allow internet use to save it.")
@@ -83,9 +93,13 @@ def send(kind: str, cfg: dict, title: str, body: str, timeout: float = 15) -> No
         req = (f"{server}/{quote(cfg['topic'])}", body[:3900].encode(), headers)
     else:
         raise ChannelError("Unknown channel type")
+    if kind == "ntfy" and not ALLOW_LOOPBACK:
+        host = urlsplit(req[0]).hostname or ""
+        if any(ipaddress.ip_address(a).is_loopback for a in resolve(host)):
+            raise ChannelError(FAIL)
     try:
         code, _ = pinned_request(req[0], "POST", req[1], timeout=timeout, max_bytes=16 * 1024, headers=req[2])
-    except Exception as e:
-        raise ChannelError(f"Couldn't reach the service ({type(e).__name__})")
+    except Exception:
+        raise ChannelError(FAIL)  # one generic message: details would reveal which hosts/ports exist
     if code >= 300:
-        raise ChannelError(f"The service refused the message (HTTP {code})")
+        raise ChannelError(FAIL)

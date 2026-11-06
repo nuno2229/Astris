@@ -128,9 +128,24 @@ def delete_channel(cid: UUID, user: User, db: DB):
     db.execute(text("DELETE FROM notification_channels WHERE id = :id"), {"id": cid})
 
 
+_test_hits: dict = {}
+TEST_LIMIT, TEST_WINDOW_S = 5, 60
+
+
+def _rate_limit(user_id) -> None:
+    import time
+    now = time.monotonic()
+    hits = [t for t in _test_hits.get(user_id, []) if now - t < TEST_WINDOW_S]
+    if len(hits) >= TEST_LIMIT:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many test messages. Try again in a minute.")
+    hits.append(now)
+    _test_hits[user_id] = hits
+
+
 @router.post("/channels/{cid}/test", response_model=TestOut)
 def test_channel(cid: UUID, user: User, db: DB):
     r = _channel(db, cid)
+    _rate_limit(user.id)
     try:
         send(r.kind, r.config, "Astris", "Test message. Notifications are working.")
     except ChannelError as e:

@@ -11,7 +11,8 @@ from tests.conftest import create_household, invite_and_join, make_user
 
 T = date.today()
 DISCORD = "https://discord.com/api/webhooks/123456789012345678/abcdefghijklmnopqrstuvwxyz_ABCDEF-123"
-TG_TOKEN = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw1"
+# Fake, built at runtime so no token-shaped literal sits in the repo (GitHub secret scanning).
+TG_TOKEN = "1" * 9 + ":" + "FAKE_test_token_" * 2 + "0123"
 
 
 @pytest.fixture
@@ -105,7 +106,7 @@ def test_failed_delivery_is_retried(monkeypatch):
     add_sub(a, hid)
     add_channel(a)
     assert worker.run_notifications() == 0
-    assert "refused" in a.get("/api/me/notifications").json()["channels"][0]["last_error"]
+    assert "Couldn't deliver" in a.get("/api/me/notifications").json()["channels"][0]["last_error"]
     assert worker.run_notifications() == 1
 
 
@@ -124,7 +125,8 @@ def test_each_member_gets_own_alerts_and_channels_are_private(outbox):
 
 
 @pytest.fixture
-def fake_ntfy():
+def fake_ntfy(monkeypatch):
+    monkeypatch.setattr(channels, "ALLOW_LOOPBACK", True)  # the test server lives on 127.0.0.1
     got = []
 
     class H(BaseHTTPRequestHandler):
@@ -151,3 +153,20 @@ def test_ntfy_local_end_to_end_and_test_button(fake_ntfy):
     worker.run_notifications()
     path, headers, body = got[-1]
     assert path == "/astris-home" and headers["Authorization"] == "Bearer tk_12345678" and "free trial is ending" in body
+
+
+def test_ntfy_loopback_blocked_and_errors_generic(monkeypatch):
+    a = make_user("a")
+    r = a.post("/api/me/notifications/channels", json={"kind": "ntfy", "config": {"server": "http://127.0.0.1:6379", "topic": "x"}})
+    assert r.status_code == 422 and "can't be used" in r.json()["detail"]
+    monkeypatch.setattr(channels, "pinned_request", lambda *a, **k: (_ for _ in ()).throw(ConnectionRefusedError()))
+    ch = add_channel(a, kind="ntfy", config={"server": "http://192.168.1.77:8090", "topic": "x"}, allow_internet=False)
+    msg = a.post(f"/api/me/notifications/channels/{ch['id']}/test").json()["message"]
+    assert "Refused" not in msg and "HTTP" not in msg and "ConnectionRefused" not in msg
+
+
+def test_test_button_rate_limited(outbox):
+    a = make_user("a")
+    ch = add_channel(a)
+    codes = [a.post(f"/api/me/notifications/channels/{ch['id']}/test").status_code for _ in range(7)]
+    assert codes[:5] == [200] * 5 and codes[5:] == [429, 429]
