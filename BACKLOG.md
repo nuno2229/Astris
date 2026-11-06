@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.18 |
+| **Backlog version** | 0.19 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -163,13 +163,13 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E12-06** Per-card and per-merchant thresholds (daily/weekly/monthly) — **E12b**, `Blocked (D-7)`
 - [x] **E12-07** UI states plainly that there is no server-side blocking; the app never claims to block (§12)
 
-### E13 · Consumption analytics — `Todo` · §17, §25.13
-- [ ] **E13-01** Weekly average per household (e.g. 2.0 L milk/week) and monthly rollups
-- [ ] **E13-02** Seasonality detection and surfacing
-- [ ] **E13-03** Budget vs actual with % over/under and colour-blind-safe thresholds
-- [ ] **E13-04** Top spenders and top stores
-- [ ] **E13-05** Attribution-aware rollups plus an optional "excluded accounts" breakdown
-- [ ] **E13-06** Charts render on mobile and desktop
+### E13 · Consumption analytics — `Review` (quantity trends depend on E04) · §17, §25.13
+- [x] **E13-01** Weekly average per household (e.g. 2.0 L milk/week) and monthly rollups — `Review` for spending (weekly avg per category, 12-month trend). Quantities (litres/week) need receipt line items: `Blocked (E04)`
+- [x] **E13-02** Seasonality detection and surfacing — `Review` (same month last year ≥25% and ≥£20 above that category's usual → heads-up for this and next month; needs a year of history)
+- [x] **E13-03** Budget vs actual with % over/under and colour-blind-safe thresholds — `Review` (Insights + Budgets; status always in words, not colour alone)
+- [x] **E13-04** Top spenders and top stores — `Review`
+- [x] **E13-05** Attribution-aware rollups plus an optional "excluded accounts" breakdown — `Review`
+- [x] **E13-06** Charts render on mobile and desktop — `Review`
 
 ### E14 · Inventory, barcode & expiry — `Todo` · §15, §25.14
 - [ ] **E14-01** Household stock table: product, quantity on hand, restock threshold
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.19 | E13 Insights (categories vs usual/budget, 12-month trend, weekly averages, top shops, who spent, seasonality, separate accounts). |
 | 2026-11-06 | 0.18 | E12 budgets/limits/alerts + daily summary. Goal & budget edit permissions hardened. D-7 resolved. |
 | 2026-11-06 | 0.17 | E11 savings goals. v0.1.2 image published. G-6 interim. |
 | 2026-11-06 | 0.16 | E10 audit trail (append-only, hash-chained, History screen with undo). G-10 interim answer. |

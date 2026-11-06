@@ -53,6 +53,7 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
           start={s.period_start} end={s.period_end} currency={main.currency} />
       )}
 
+      {accounts.length > 0 && <p style={{ margin: "10px 4px 0" }}><a href="#/insights">See where it went</a></p>}
       {converting && <p className="note">Other currencies converted to {main.currency} at your household's exchange rates.</p>}
       {others.map((t) => (
         <p key={t.currency} className="note">Also {money(t.spent, t.currency)} spent in {t.currency}
