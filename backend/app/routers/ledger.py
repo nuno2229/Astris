@@ -58,12 +58,17 @@ def save_parsed(db: DB, user_id: UUID, acc, filename: str, parsed, run_id: UUID 
         "oa": t.original_amount if t.original_currency and t.original_currency != acc.currency else None,
         "oc": t.original_currency if t.original_currency and t.original_currency != acc.currency else None,
     } for t, fp in zip(parsed.transactions, assign_fingerprints(parsed.transactions))]
+    # keep statement order: insert oldest first (newest-first files are reversed) with a per-row timestamp, so
+    # "latest balance" on a day with several transactions is the statement's last line, not a random one
+    txs = parsed.transactions
+    if txs and txs[0].posted_on > txs[-1].posted_on:
+        rows.reverse()
     new = 0
     for r in rows:
         new += db.execute(text("""
             INSERT INTO transactions (account_id, import_batch_id, posted_on, amount, currency, description,
-                                      counterparty, running_balance, fingerprint, original_amount, original_currency)
-            VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp, :oa, :oc)
+                                      counterparty, running_balance, fingerprint, original_amount, original_currency, created_at)
+            VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp, :oa, :oc, clock_timestamp())
             ON CONFLICT (account_id, fingerprint) DO NOTHING"""), r).rowcount
     total = len(rows)
     db.execute(text("UPDATE import_batches SET rows_total = :t, rows_new = :n, rows_duplicate = :d WHERE id = :b"),

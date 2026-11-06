@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.20 |
+| **Backlog version** | 0.21 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -68,7 +68,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-6 | Geography / retailer scope | UK implied | E18 | **Open** |
 | D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Alerts only, never blocking (PO "ahead", 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-8 | Offline FX rate cache source | (b) Opt-in daily ECB reference rates, cached locally (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
-| D-9 | Copilot may mutate data (scoped) vs read-only first | — | E15-04 | **Open** |
+| D-9 | Copilot may mutate data (scoped) vs read-only first | (b) May act, within the user's scope, after explicit confirmation (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 
 ---
 
@@ -181,13 +181,13 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E14-07** Low-stock weekly shop engine: suggested list, configurable trigger (e.g. Sunday), history of generated lists — `Review`; cheapest-store part waits for E18; moving items onto a real shopping list waits for E17
 - [x] **E14-08** Tenant-scoped stock queries (§15.4) — `Review` (RLS + isolation tests; same barcode in two households = two products)
 
-### E15 · In-app AI copilot — `Todo` · §14, §23, §25.15
-- [ ] **E15-01** Floating, collapsible chat available app-wide (mobile included)
-- [ ] **E15-02** Grounded answers mapped onto the real data model; each number cites its account/date/category
-- [ ] **E15-03** Scope enforcement: reads nothing outside the acting user's households/accounts
-- [ ] **E15-04** Scoped actions (add to list, set budget) — `Blocked (D-9)`
-- [ ] **E15-05** Local streaming, < ~2 s typical; graceful fallback (canned answers) when no LLM is available
-- [ ] **E15-06** Optional online augmentation only when explicitly enabled
+### E15 · In-app AI copilot — `Review` · §14, §23, §25.15
+- [x] **E15-01** Floating, collapsible chat available app-wide (mobile included)
+- [x] **E15-02** Grounded answers mapped onto the real data model; each number cites its account/date/category — `Review` (the model only picks the question/action; every figure is computed from the database and listed with sources)
+- [x] **E15-03** Scope enforcement: reads nothing outside the acting user's households/accounts
+- [x] **E15-04** Scoped actions (add to list, set budget) — `Review` (set budget, pantry add/use, goal contribution; always confirmed first; "add to shopping list" waits for E17)
+- [x] **E15-05** Local streaming, < ~2 s typical; graceful fallback (canned answers) when no LLM is available — `Review` (built-in phrase matcher works offline; answers are instant since they come from the database)
+- [x] **E15-06** Optional online augmentation only when explicitly enabled
 
 ### E16 · Web UI, mobile shell & PWA — `Todo` · §21, §2, §25.16
 - [ ] **E16-01** Dashboard grid of widgets: spend today, budget burn, cheapest item, milk trend, list count, upcoming recipes, household selector, low-stock and expiring-soon
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.21 | E15 assistant (grounded answers with sources, confirmed actions, rules fallback). D-9 resolved. Same-day statement order preserved for balances. |
 | 2026-11-06 | 0.20 | E14 pantry: products, batches with use-by, offline barcode scanning (camera/photo/typed), weekly shop suggestions, expiry alerts. Nav: Home, Activity, Bills, Pantry, More. |
 | 2026-11-06 | 0.19 | E13 Insights (categories vs usual/budget, 12-month trend, weekly averages, top shops, who spent, seasonality, separate accounts). |
 | 2026-11-06 | 0.18 | E12 budgets/limits/alerts + daily summary. Goal & budget edit permissions hardened. D-7 resolved. |

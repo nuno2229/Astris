@@ -293,3 +293,21 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
 @media (min-width: 900px) { .two-col { grid-template-columns: 1fr 1fr; } }
 .scan-video { width: 100%; max-height: 40dvh; border-radius: 16px; background: #000; object-fit: cover; }
 label.btn { display: inline-flex; cursor: pointer; color: var(--text); }
+
+/* ---------- assistant ---------- */
+.fab { position: fixed; right: 16px; bottom: calc(var(--nav-h) + var(--safe-b) + 16px); z-index: 11; width: 56px; height: 56px;
+  border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; display: grid; place-items: center;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .35); }
+.fab svg { width: 26px; height: 26px; }
+@media (min-width: 900px) { .fab { bottom: 24px; right: 24px; } }
+dialog.sheet.chat { height: 88dvh; }
+.chat-body { display: flex; flex-direction: column; height: 100%; gap: 12px; padding-bottom: calc(var(--safe-b) + 12px); }
+.chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+.bubble { max-width: 88%; padding: 10px 14px; border-radius: 18px; font-size: 15px; display: grid; gap: 6px; }
+.bubble.me { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 6px; }
+.bubble.astris { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 6px; }
+.sources { font-size: 13px; color: var(--muted); }
+.sources summary { cursor: pointer; }
+.sources ul { margin: 6px 0 0; padding-left: 18px; }
+.action-card { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: var(--bg); }
+.chat-input { display: flex; gap: 8px; }

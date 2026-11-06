@@ -41,7 +41,8 @@ def test_uk_csv_with_preamble_and_dedupe():
     assert (body["rows_total"], body["rows_new"], body["rows_duplicate"]) == (4, 4, 0)
     assert any("Skipped 1" in w for w in body["warnings"])
     txs = a.get(f"/api/accounts/{acc}/transactions").json()
-    assert [Decimal(t["amount"]) for t in txs] == [Decimal("2000"), Decimal("-12.5"), Decimal("-3.2"), Decimal("-3.2")]
+    # newest first; same-day rows in reverse statement order (Tesco was the first line on 01/11)
+    assert [Decimal(t["amount"]) for t in txs] == [Decimal("2000"), Decimal("-3.2"), Decimal("-3.2"), Decimal("-12.5")]
     assert txs[0]["posted_on"] == "2026-11-03"
     assert Decimal(a.get(f"/api/accounts/{acc}").json()["balance"]) == Decimal("2981.10")
     # re-import: nothing new; the two identical coffees are still two rows

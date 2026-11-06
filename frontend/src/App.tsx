@@ -18,6 +18,7 @@ import Budgets from "./screens/Budgets";
 import Insights from "./screens/Insights";
 import Pantry from "./screens/Pantry";
 import More from "./screens/More";
+import Copilot from "./screens/Copilot";
 
 export interface Ctx {
   me: Me;
@@ -116,6 +117,7 @@ export default function App() {
         {household && tab === "more" && <More ctx={ctx} />}
         {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
+      {household && <Copilot household={household} />}
     </div>
   );
 }
