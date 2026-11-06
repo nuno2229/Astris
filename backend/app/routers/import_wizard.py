@@ -169,6 +169,8 @@ async def preview(aid: UUID, user: User, db: DB, files: Annotated[list[UploadFil
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Up to {MAX_FILES} files at a time")
     db.execute(text("DELETE FROM import_previews WHERE user_id = :u AND expires_at <= now()"), {"u": user.id})
     limit = get_settings().max_upload_bytes
+    # serialise this user's uploads so concurrent requests can't each pass the quota check (released at commit)
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('import_previews:' || :u, 0))"), {"u": str(user.id)})
     held = db.execute(text("SELECT count(*), COALESCE(sum(octet_length(raw)), 0) FROM import_previews WHERE user_id = :u"),
                       {"u": user.id}).one()
     if held[0] + len(files) > MAX_USER_PREVIEWS:

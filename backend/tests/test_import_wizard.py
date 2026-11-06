@@ -103,3 +103,20 @@ def test_expired_previews_purged_globally(owner_engine):
     from app.db import get_engine
     with get_engine().begin() as c:   # runtime role, no user bound: only the definer function can do this
         assert c.execute(text("SELECT purge_expired_previews()")).scalar() == 1
+
+
+def test_concurrent_uploads_cannot_exceed_quota(monkeypatch):
+    import threading
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.routers import import_wizard as w
+    a = make_user("a")
+    acc = create_account(a)
+    monkeypatch.setattr(w, "MAX_USER_PREVIEWS", 1)
+    clients = [TestClient(app, cookies=a.cookies) for _ in range(4)]
+    codes = []
+    ts = [threading.Thread(target=lambda c=c: codes.append(
+        c.post(f"/api/accounts/{acc}/imports/preview", files=files(("a.csv", OCT))).status_code)) for c in clients]
+    [t.start() for t in ts]
+    [t.join() for t in ts]
+    assert sorted(codes) == [201, 429, 429, 429]
