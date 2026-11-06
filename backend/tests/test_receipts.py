@@ -147,3 +147,24 @@ def test_isolation():
     assert x.get(f"/api/receipts/{r['id']}").status_code == 404
     assert x.post(f"/api/households/{hid}/receipts", files=[("files", ("r.txt", RECEIPT))]).status_code == 404
     assert x.patch(f"/api/receipt-items/{r['items'][0]['id']}", json={"line_price": "0"}).status_code == 404
+
+
+def test_only_uploader_or_admin_deletes_receipt_and_its_photo():
+    a, b, hid, _ = setup()
+    m = make_user("m")
+    invite_and_join(a, m, hid)
+    r = send(b, hid, keep=True)[0]                     # b (member) uploads with a kept photo
+    assert m.delete(f"/api/receipts/{r['id']}").status_code == 403
+    assert m.get(f"/api/documents/{r['documents'][0]['id']}").status_code == 200   # photo still there
+    assert a.delete(f"/api/receipts/{r['id']}").status_code == 204                  # household owner may
+
+
+def test_quota_counts_files_from_households_you_left(monkeypatch):
+    from app import documents
+    a, b, hid, _ = setup()
+    send(b, hid, keep=True)
+    b.delete(f"/api/households/{hid}/members/{b.me['id']}")             # b leaves: that photo is no longer visible to b
+    hid2 = create_household(b)
+    monkeypatch.setattr(documents, "USER_QUOTA", len(RECEIPT) + 10)
+    r = b.post(f"/api/households/{hid2}/receipts", files=[("files", ("r.txt", RECEIPT))], data={"keep_original": "true"})
+    assert r.status_code == 413

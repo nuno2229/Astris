@@ -319,5 +319,10 @@ def save(rid: UUID, body: SaveIn, user: User, db: DB):
 
 @router.delete("/receipts/{rid}", status_code=204)
 def delete_receipt(rid: UUID, user: User, db: DB):
-    rec = _out(db, rid, detail=False)
+    """Uploader or household owner/admin only: deleting a receipt also removes its kept photo."""
+    rec = db.execute(text("SELECT uploaded_by, household_id FROM receipts WHERE id = :r"), {"r": rid}).first()
+    if rec is None:
+        raise not_found("Receipt not found")
+    if rec.uploaded_by != user.id and my_role(db, rec.household_id) not in ("owner", "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever scanned this receipt, or the household owner or an admin, can delete it")
     db.execute(text("DELETE FROM receipts WHERE id = :r"), {"r": rid})

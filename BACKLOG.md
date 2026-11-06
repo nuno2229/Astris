@@ -65,7 +65,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-3 | Spec sync between Mac (Claude) and Unraid (PO) | Repo: **github.com/nuno2229/Astris** (public). Image: `ghcr.io/nuno2229/astris`. BACKLOG.md lives in the repo | — | ✅ **Resolved 2026-11-05** |
 | D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | Research: auto-update script + in-app banner + rollback; owner/admin vs member | E19 | **Open** |
 | D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
-| D-6 | Geography / retailer scope | UK implied | E18 | **Open** |
+| D-6 | Geography / retailer scope | UK only (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Alerts only, never blocking (PO "ahead", 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-8 | Offline FX rate cache source | (b) Opt-in daily ECB reference rates, cached locally (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-9 | Copilot may mutate data (scoped) vs read-only first | (b) May act, within the user's scope, after explicit confirmation (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |

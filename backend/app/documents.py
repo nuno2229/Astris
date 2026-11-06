@@ -34,7 +34,9 @@ def content_type(raw: bytes, filename: str) -> str:
 
 def keep(db: Session, user_id: UUID, kind: str, filename: str, raw: bytes, *, household_id=None, account_id=None,
          receipt_id=None, import_batch_id=None) -> UUID:
-    used = db.execute(text("SELECT COALESCE(sum(size), 0) FROM documents WHERE owner_user_id = :u"), {"u": user_id}).scalar()
+    # one upload at a time per person, and count every file they own (not just ones visible right now)
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('documents:' || :u, 0))"), {"u": str(user_id)})
+    used = db.execute(text("SELECT doc_usage_bytes()")).scalar()
     if used + len(raw) > USER_QUOTA:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                             "You've reached the storage limit for kept originals (1 GB). Delete some first.")

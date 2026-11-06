@@ -19,6 +19,7 @@ dependencies = [
   "pypdfium2>=4.30",
   "pytesseract>=0.3.10",
   "pillow>=10",
+  "cryptography>=43",
 ]
 
 [project.optional-dependencies]
