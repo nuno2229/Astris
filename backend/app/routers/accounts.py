@@ -7,17 +7,26 @@ from sqlalchemy import text
 
 from app.deps import DB, User, not_found
 from app.routers.households import my_role
+from datetime import date
+from decimal import Decimal
+
+from pydantic import BaseModel, Field
+
 from app.schemas import AccountIn, AccountOut, AccountUpdate, HouseholdAccountOut, ShareIn
 
 router = APIRouter(prefix="/api", tags=["accounts"])
 
-# latest known running balance (from statement imports); NULL if the statement had none
+# Bank/card: latest running balance from statements (NULL if none). Cash wallet (E08): starting balance plus
+# every entry since the starting date.
 _ACCOUNT_SELECT = """
 SELECT a.id, a.name, a.type, a.currency, a.institution, a.owner_user_id, u.display_name AS owner_name,
-       (a.owner_user_id = :u) AS is_mine,
-       (SELECT t.running_balance FROM transactions t
-         WHERE t.account_id = a.id AND t.running_balance IS NOT NULL
-         ORDER BY t.posted_on DESC, t.created_at DESC LIMIT 1) AS balance
+       (a.owner_user_id = :u) AS is_mine, a.opening_balance, a.opening_date,
+       CASE WHEN a.type = 'cash' THEN
+            a.opening_balance + COALESCE((SELECT sum(t.amount) FROM transactions t WHERE t.account_id = a.id
+                                           AND (a.opening_date IS NULL OR t.posted_on >= a.opening_date)), 0)
+       ELSE (SELECT t.running_balance FROM transactions t
+              WHERE t.account_id = a.id AND t.running_balance IS NOT NULL
+              ORDER BY t.posted_on DESC, t.created_at DESC LIMIT 1) END AS balance
   FROM accounts a JOIN users u ON u.id = a.owner_user_id
 """
 
@@ -104,3 +113,53 @@ def unshare_account(hid: UUID, aid: UUID, user: User, db: DB):
                    {"h": hid, "a": aid}).rowcount
     if not n:
         raise not_found("Account is not shared into this household")
+
+
+class OpeningIn(BaseModel):
+    balance: Decimal = Field(gt=Decimal("-1e14"), lt=Decimal("1e14"), decimal_places=2)
+    date: date
+
+
+class CashCountIn(BaseModel):
+    counted: Decimal = Field(ge=0, lt=Decimal("1e14"), decimal_places=2)
+    date: date
+
+
+class CashCountOut(BaseModel):
+    expected: Decimal
+    counted: Decimal
+    adjustment: Decimal      # counted - expected; recorded as an 'adjustment' entry when not zero
+    account: AccountOut
+
+
+@router.put("/accounts/{aid}/opening", response_model=AccountOut)
+def set_opening(aid: UUID, body: OpeningIn, user: User, db: DB):
+    """Starting balance (E08-02). For a cash wallet, the balance is this plus every entry since the date."""
+    require_own_account(db, user, aid)
+    db.execute(text("UPDATE accounts SET opening_balance = :b, opening_date = :d WHERE id = :a"),
+               {"b": body.balance, "d": body.date, "a": aid})
+    return get_account(db, user, aid)
+
+
+@router.post("/accounts/{aid}/cash-count", response_model=CashCountOut)
+def cash_count(aid: UUID, body: CashCountIn, user: User, db: DB):
+    """Count the cash in your wallet (closing balance, E08-02). Any gap becomes an adjustment entry so the
+    wallet matches reality; spending you forgot to log shows up here."""
+    acc = require_own_account(db, user, aid)
+    if acc.type != "cash":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Cash counts are for cash wallets")
+    expected = db.execute(text("""
+        SELECT a.opening_balance + COALESCE((SELECT sum(t.amount) FROM transactions t WHERE t.account_id = a.id
+               AND (a.opening_date IS NULL OR t.posted_on >= a.opening_date) AND t.posted_on <= :d), 0)
+          FROM accounts a WHERE a.id = :a"""), {"a": aid, "d": body.date}).scalar_one()
+    adj = (body.counted - Decimal(expected)).quantize(Decimal("0.01"))
+    if adj != 0:
+        import uuid
+        db.execute(text("""
+            INSERT INTO transactions (account_id, posted_on, amount, currency, description, category, category_source,
+                                      category_confidence, needs_review, ai_status, fingerprint, source, created_by)
+            VALUES (:a, :d, :amt, :c, :desc, 'Cash', 'user', 1, false, 'done', :fp, 'adjustment', :u)"""),
+            {"a": aid, "d": body.date, "amt": adj, "c": acc.currency,
+             "desc": "Cash count: unrecorded spending" if adj < 0 else "Cash count: extra cash found",
+             "fp": f"adjust:{uuid.uuid4()}", "u": user.id})
+    return CashCountOut(expected=expected, counted=body.counted, adjustment=adj, account=get_account(db, user, aid))

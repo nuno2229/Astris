@@ -104,6 +104,8 @@ class AccountOut(BaseModel):
     owner_name: str
     is_mine: bool
     balance: Decimal | None = None
+    opening_balance: Decimal = Decimal(0)
+    opening_date: date | None = None
 
 
 class ShareIn(BaseModel):
@@ -130,6 +132,23 @@ class TransactionOut(BaseModel):
     needs_review: bool = False
     editable: bool = False
     merchant_key: str | None = None
+    source: str = "import"
+    original_amount: Decimal | None = None
+    original_currency: str | None = None
+    transfer_group: UUID | None = None
+
+
+class ManualTxIn(BaseModel):
+    posted_on: date
+    description: str = Field(min_length=1, max_length=200)
+    amount: Decimal = Field(gt=Decimal("-1e14"), lt=Decimal("1e14"), decimal_places=2)   # negative = money out
+    category: str | None = Field(default=None, max_length=50)
+    original_amount: Decimal | None = Field(default=None, gt=Decimal("-1e14"), lt=Decimal("1e14"), decimal_places=2)
+    original_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+
+
+class MoveToWalletIn(BaseModel):
+    wallet_id: UUID
 
 
 class TransactionUpdate(BaseModel):

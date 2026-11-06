@@ -16,6 +16,8 @@ OUT = ("paid out", "money out", "debit", "debit amount", "withdrawals", "out")
 IN = ("paid in", "money in", "credit", "credit amount", "deposits", "in")
 BALANCE = ("balance", "running balance", "balance (gbp)")
 COUNTERPARTY = ("counterparty", "payee", "merchant", "name")
+ORIG_AMOUNT = ("original amount", "foreign amount", "amount (foreign)", "local amount", "transaction amount (original)")
+ORIG_CCY = ("original currency", "foreign currency", "local currency", "currency (original)")
 
 
 def _find(headers: list[str], names: tuple[str, ...]) -> int | None:
@@ -101,6 +103,7 @@ def parse_csv(raw: bytes) -> ParseResult:
     ai, oi, ii = _find(headers, AMOUNT), _find(headers, OUT), _find(headers, IN)
     bi = _find(headers, BALANCE)
     ci = _find(headers, COUNTERPARTY)
+    oai, oci = _find(headers, ORIG_AMOUNT), _find(headers, ORIG_CCY)
     if ci == de:
         ci = None
     if de is None or (ai is None and oi is None and ii is None):
@@ -132,7 +135,18 @@ def parse_csv(raw: bytes) -> ParseResult:
         if amt is None:
             skipped += 1
             continue
+        oa = oc = None
+        if oai is not None and oci is not None and re.fullmatch(r"[A-Za-z]{3}", r[oci].strip() or ""):
+            try:
+                oa, oc = parse_amount(r[oai]), r[oci].strip().upper()
+            except ImportError_:
+                oa = oc = None
+            if oa is not None and amt < 0 and oa > 0:
+                oa = -oa
+            if oa is None:
+                oc = None
         result.transactions.append(ParsedTx(
+            original_amount=oa, original_currency=oc,
             posted_on=d, amount=amt, description=r[de].strip() or "(no description)",
             counterparty=(r[ci].strip() or None) if ci is not None else None,
             running_balance=parse_amount(r[bi]) if bi is not None else None,

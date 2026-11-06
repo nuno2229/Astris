@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, Household, HouseholdAccount, Tx } from "../api";
+import { Account, api, Household, HouseholdAccount, Tx } from "../api";
 import TxList from "./TxList";
 import TxSheet from "./TxSheet";
 
@@ -9,6 +9,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
   const [txs, setTxs] = useState<Tx[] | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   const [cats, setCats] = useState<string[]>([]);
+  const [wallets, setWallets] = useState<Account[]>([]);
   const [open, setOpen] = useState<Tx | null>(null);
   const [toast, setToast] = useState("");
 
@@ -16,6 +17,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
     api.get<HouseholdAccount[]>(`/api/households/${household.id}/accounts`)
       .then((a) => setNames(Object.fromEntries(a.map((x) => [x.id, x.name]))));
     api.get<string[]>("/api/categories").then(setCats);
+    api.get<Account[]>("/api/accounts").then((a) => setWallets(a.filter((x) => x.type === "cash")));
   }, [household.id]);
 
   const load = useCallback(() => {
@@ -41,7 +43,8 @@ export default function Activity({ household, reviewFirst }: { household: Househ
           empty={review ? <div className="empty"><strong>All sorted</strong>Every transaction has a category.</div> : undefined} />
       )}
       {open && (
-        <TxSheet tx={open} categories={cats} onClose={() => setOpen(null)}
+        <TxSheet tx={open} categories={cats} wallets={wallets} onClose={() => setOpen(null)}
+          onChanged={(m) => { setOpen(null); setToast(m); load(); }}
           onSaved={(t, n) => {
             setOpen(null);
             setToast(`Saved as ${t.category}.` + (n ? ` Also updated ${n} other transaction${n === 1 ? "" : "s"} from ${t.merchant ?? "this merchant"}.` : ""));

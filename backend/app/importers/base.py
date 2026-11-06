@@ -18,6 +18,8 @@ class ParsedTx:
     counterparty: str | None = None
     running_balance: Decimal | None = None
     external_id: str | None = None  # e.g. OFX FITID
+    original_amount: Decimal | None = None   # card used abroad: amount in the foreign currency (E08-07)
+    original_currency: str | None = None
 
 
 @dataclass

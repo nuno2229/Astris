@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Account, api, Household, HouseholdAccount, ImportResult, money } from "../api";
 import type { Ctx } from "../App";
+import CashWallet from "./CashWallet";
 
 type Share = "none" | "include" | "hide";
 const SHARE_HELP: Record<Share, string> = {
@@ -109,6 +110,7 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>{SHARE_HELP[share]}</p>
       </div>
+      {a.type === "cash" ? <CashWallet a={a} onChanged={onChanged} /> : <>
       <input ref={fileRef} type="file" accept=".csv,.ofx,.qfx,.txt,.sta,.mt940,.940,.pdf,image/*,text/csv,application/pdf" hidden
         onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
       <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()}>
@@ -123,6 +125,7 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
           {result.rows_new > 0 && <button className="btn danger" onClick={undo}>Undo this import</button>}
         </div>
       )}
+      </>}
     </div>
   );
 }

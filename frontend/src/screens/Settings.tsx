@@ -29,6 +29,7 @@ export default function Settings({ household }: { household: Household }) {
       </div>
       <Notifications />
       <AiSettings household={household} />
+      <Rates household={household} />
       <About />
     </>
   );
@@ -133,6 +134,53 @@ function About() {
         </div>
         <div className="muted small">Server database: {v ? (v.db === "ok" ? "connected" : "unreachable") : "…"}</div>
         <a className="small" href="https://github.com/nuno2229/Astris/releases" target="_blank" rel="noreferrer">Release notes</a>
+      </div>
+    </>
+  );
+}
+
+interface Rate { from_currency: string; to_currency: string; rate: string; as_of: string; source: string }
+
+function Rates({ household }: { household: Household }) {
+  const [rates, setRates] = useState<Rate[]>([]);
+  const [f, setF] = useState({ from_currency: "EUR", to_currency: "GBP", rate: "" });
+  const [error, setError] = useState("");
+  const can = household.role !== "member";
+  const load = () => api.get<Rate[]>(`/api/households/${household.id}/fx-rates`).then(setRates);
+  useEffect(() => { load(); }, [household.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async (e: FormEvent) => {
+    e.preventDefault(); setError("");
+    try { await api.put(`/api/households/${household.id}/fx-rates`, f); setF({ ...f, rate: "" }); load(); }
+    catch (err) { setError((err as Error).message); }
+  };
+  return (
+    <>
+      <h2>Exchange rates ({household.name})</h2>
+      <div className="panel stack">
+        <p className="muted small" style={{ margin: 0 }}>Used to show totals in each person's home currency. Entered by hand and kept on your server.
+          {!can && " Only the owner or an admin can change these."}</p>
+        {rates.length > 0 && (
+          <ul className="list" style={{ background: "var(--bg)" }}>
+            {rates.map((r) => (
+              <li key={r.from_currency + r.to_currency}>
+                <div className="main"><div className="title">1 {r.from_currency} = {Number(r.rate)} {r.to_currency}</div>
+                  <div className="meta">Set {new Date(r.as_of + "T00:00:00").toLocaleDateString()}</div></div>
+                {can && <button className="iconbtn" aria-label={`Remove ${r.from_currency} rate`}
+                  onClick={() => api.del(`/api/households/${household.id}/fx-rates/${r.from_currency}/${r.to_currency}`).then(load)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg></button>}
+              </li>
+            ))}
+          </ul>
+        )}
+        {can && (
+          <form className="row" onSubmit={save} style={{ flexWrap: "nowrap", alignItems: "flex-end" }}>
+            <label style={{ width: 80 }}>1<input value={f.from_currency} onChange={(e) => setF({ ...f, from_currency: e.target.value.toUpperCase() })} maxLength={3} pattern="[A-Za-z]{3}" required /></label>
+            <label style={{ flex: 1 }}>equals<input value={f.rate} onChange={(e) => setF({ ...f, rate: e.target.value })} inputMode="decimal" pattern="\d+(\.\d{1,8})?" required placeholder="0.85" /></label>
+            <label style={{ width: 80 }}>&nbsp;<input value={f.to_currency} onChange={(e) => setF({ ...f, to_currency: e.target.value.toUpperCase() })} maxLength={3} pattern="[A-Za-z]{3}" required /></label>
+            <button className="btn">Save</button>
+          </form>
+        )}
+        {error && <div className="error" role="alert">{error}</div>}
       </div>
     </>
   );

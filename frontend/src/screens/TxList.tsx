@@ -39,7 +39,11 @@ export default function TxList({ txs, accountNames, empty, onOpen }: {
                       {acct && <span className="muted">{(t.category || t.needs_review) ? ", " : ""}{acct}</span>}
                     </div>
                   </div>
-                  <div className={"amt" + (n > 0 ? " in" : "")}>{money(n, t.currency, true)}</div>
+                  <div className={"amt" + (n > 0 ? " in" : "")}>
+                    {money(n, t.currency, true)}
+                    {t.original_currency && <div className="meta fx">{money(t.original_amount, t.original_currency)}</div>}
+                    {t.transfer_group && <div className="meta fx">{t.source === "transfer" ? "From bank" : "To wallet"}</div>}
+                  </div>
                 </>
               );
               return (

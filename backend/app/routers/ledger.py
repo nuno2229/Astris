@@ -15,7 +15,7 @@ from app.importers.base import ImportError_, assign_fingerprints, check_amount
 from app.importers.detect import parse_statement
 from app.routers.accounts import require_own_account
 from app.routers.households import my_role
-from app.schemas import ImportResult, TransactionOut, TransactionUpdate, TransactionUpdated
+from app.schemas import ImportResult, ManualTxIn, MoveToWalletIn, TransactionOut, TransactionUpdate, TransactionUpdated
 from app.categorise import rules as cat_rules
 from app.categorise.service import apply_rules, correct
 from app.categorise.worker import worker
@@ -27,7 +27,8 @@ router = APIRouter(prefix="/api", tags=["ledger"])
 
 _TX_COLS = "t.id, t.account_id, t.posted_on, t.amount, t.currency, t.description, t.merchant, " \
            "t.counterparty, t.category, t.running_balance, t.category_source, t.category_confidence, " \
-           "t.needs_review, (a.owner_user_id = app_uid()) AS editable, t.merchant_key"
+           "t.needs_review, (a.owner_user_id = app_uid()) AS editable, t.merchant_key, t.source, " \
+           "t.original_amount, t.original_currency, t.transfer_group"
 
 
 @router.post("/accounts/{aid}/imports", response_model=ImportResult, status_code=201)
@@ -43,6 +44,7 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
         for t in parsed.transactions:  # every parser goes through the same gate
             t.amount = check_amount(t.amount)
             t.running_balance = check_amount(t.running_balance, "balance")
+            t.original_amount = check_amount(t.original_amount, "foreign amount")
     except ImportError_ as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     if parsed.currency and parsed.currency != acc.currency:
@@ -58,13 +60,15 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
         "a": aid, "b": batch_id, "d": t.posted_on, "amt": t.amount, "c": acc.currency,
         "desc": t.description[:500], "cp": (t.counterparty or None) and t.counterparty[:200],
         "bal": t.running_balance, "fp": fp,
+        "oa": t.original_amount if t.original_currency and t.original_currency != acc.currency else None,
+        "oc": t.original_currency if t.original_currency and t.original_currency != acc.currency else None,
     } for t, fp in zip(parsed.transactions, assign_fingerprints(parsed.transactions))]
     new = 0
     for r in rows:
         new += db.execute(text("""
             INSERT INTO transactions (account_id, import_batch_id, posted_on, amount, currency, description,
-                                      counterparty, running_balance, fingerprint)
-            VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp)
+                                      counterparty, running_balance, fingerprint, original_amount, original_currency)
+            VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp, :oa, :oc)
             ON CONFLICT (account_id, fingerprint) DO NOTHING"""), r).rowcount
     total = len(rows)
     apply_rules(db, user.id, batch_id)  # instant offline categories; the LLM refines in the background
@@ -133,6 +137,15 @@ class DaySpend(BaseModel):
     spent: Decimal
 
 
+class Converted(BaseModel):
+    currency: str                 # the viewer's home currency (E08-07)
+    spent: Decimal
+    received: Decimal
+    spent_today: Decimal
+    missing: list[str]            # included currencies with no exchange rate (shown separately, never guessed)
+    daily: list[DaySpend]
+
+
 class Summary(BaseModel):
     household_id: UUID
     period_start: date
@@ -146,6 +159,7 @@ class Summary(BaseModel):
     needs_review: int = 0            # transactions whose category is uncertain (E05-03)
     upcoming: list[RecurringOut] = []  # regular payments due in the next 14 days (E06-04)
     missed: list[RecurringOut] = []    # expected but never arrived (E06-03)
+    converted: Converted | None = None
     subscription_alerts: list[dict] = []  # trial ending/converted, charged after cancel, renewing soon (E07-04)
 
 
@@ -166,7 +180,7 @@ def household_summary(hid: UUID, user: User, db: DB,
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
           JOIN accounts a ON a.id = t.account_id
           JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
-         WHERE t.posted_on >= :s AND t.posted_on < :e
+         WHERE t.posted_on >= :s AND t.posted_on < :e AND t.transfer_group IS NULL
          GROUP BY ha.attribution, t.currency ORDER BY t.currency"""),
         {"h": hid, "s": start, "e": end, "today": today}).all()
     counts = dict(db.execute(text("""
@@ -180,7 +194,7 @@ def household_summary(hid: UUID, user: User, db: DB,
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND ha.attribution = 'include'
           JOIN accounts a ON a.id = t.account_id
           JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
-         WHERE t.posted_on >= :s AND t.posted_on < :e AND t.amount < 0
+         WHERE t.posted_on >= :s AND t.posted_on < :e AND t.amount < 0 AND t.transfer_group IS NULL
          GROUP BY t.currency, t.posted_on ORDER BY t.posted_on"""), {"h": hid, "s": start, "e": end}).all()
     recent = household_transactions(hid, user, db, None, False, None, 12, 0)
     rec = household_recurring(db, hid)
@@ -192,7 +206,23 @@ def household_summary(hid: UUID, user: User, db: DB,
          WHERE t.needs_review"""), {"h": hid}).scalar_one()
     pick = lambda attr: [CurrencyTotals(currency=r.currency, spent=r.spent, received=r.received,
                                         spent_today=r.spent_today) for r in rows if r.attribution == attr]
-    return Summary(household_id=hid, period_start=start, period_end=end, included=pick("include"),
+    home = db.execute(text("SELECT home_currency FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
+    from app.routers.fx import rate_table, convert
+    rates = rate_table(db, hid)
+    inc_rows = [r for r in rows if r.attribution == "include"]
+    missing = sorted({r.currency for r in inc_rows if convert(Decimal(1), r.currency, home, rates) is None})
+    conv = lambda v, c: convert(Decimal(v), c, home, rates) or Decimal(0)
+    by_day: dict = {}
+    for d in daily:
+        if d.currency not in missing:
+            by_day[d.day] = by_day.get(d.day, Decimal(0)) + conv(d.spent, d.currency)
+    converted = Converted(
+        currency=home, missing=missing,
+        spent=sum((conv(r.spent, r.currency) for r in inc_rows if r.currency not in missing), Decimal(0)).quantize(Decimal("0.01")),
+        received=sum((conv(r.received, r.currency) for r in inc_rows if r.currency not in missing), Decimal(0)).quantize(Decimal("0.01")),
+        spent_today=sum((conv(r.spent_today, r.currency) for r in inc_rows if r.currency not in missing), Decimal(0)).quantize(Decimal("0.01")),
+        daily=[DaySpend(currency=home, day=k, spent=v.quantize(Decimal("0.01"))) for k, v in sorted(by_day.items())])
+    return Summary(household_id=hid, converted=converted, period_start=start, period_end=end, included=pick("include"),
                    excluded=pick("hide"), accounts_included=counts.get("include", 0),
                    accounts_excluded=counts.get("hide", 0), recent=recent,
                    daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count,
@@ -223,3 +253,97 @@ def update_transaction(tid: UUID, body: TransactionUpdate, user: User, db: DB):
     tx = db.execute(text(f"SELECT {_TX_COLS} FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE t.id = :t"),
                     {"t": tid}).one()
     return TransactionUpdated(transaction=TransactionOut(**tx._mapping), also_updated=n)
+
+
+def _own_tx(db: DB, user, tid: UUID):
+    row = db.execute(text("""SELECT t.*, a.owner_user_id, a.type AS account_type, a.currency AS account_currency,
+                                    a.name AS account_name
+                               FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE t.id = :t"""),
+                     {"t": tid}).first()
+    if row is None:
+        raise not_found("Transaction not found")
+    if row.owner_user_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can change this")
+    return row
+
+
+def _tx_out(db: DB, tid: UUID) -> TransactionOut:
+    return TransactionOut(**db.execute(text(f"SELECT {_TX_COLS} FROM transactions t JOIN accounts a ON a.id = t.account_id "
+                                            "WHERE t.id = :t"), {"t": tid}).one()._mapping)
+
+
+@router.post("/accounts/{aid}/transactions", response_model=TransactionOut, status_code=201)
+def add_manual(aid: UUID, body: ManualTxIn, user: User, db: DB):
+    """Manual entry (cash spend, top-up, anything a statement won't show). Owner only (E08-02)."""
+    import uuid as _uuid
+    acc = require_own_account(db, user, aid)
+    if body.category is not None and body.category not in cat_rules.CATEGORIES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown category")
+    if (body.original_amount is None) != (body.original_currency is None):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Give both the foreign amount and its currency")
+    tid = db.execute(text("""
+        INSERT INTO transactions (account_id, posted_on, amount, currency, description, category, category_source,
+                                  category_confidence, needs_review, ai_status, fingerprint, source, created_by,
+                                  original_amount, original_currency)
+        VALUES (:a, :d, :amt, :c, :desc, :cat, CAST(:src AS category_source), :conf, false, :st, :fp, 'manual', :u, :oa, :oc)
+        RETURNING id"""),
+        {"a": aid, "d": body.posted_on, "amt": body.amount, "c": acc.currency, "desc": body.description.strip(),
+         "cat": body.category, "src": "user" if body.category else None, "conf": 1 if body.category else None,
+         "st": "done" if body.category else "pending", "fp": f"manual:{_uuid.uuid4()}", "u": user.id,
+         "oa": body.original_amount, "oc": body.original_currency}).scalar_one()
+    if not body.category:
+        apply_rules(db, user.id)
+    return _tx_out(db, tid)
+
+
+@router.delete("/transactions/{tid}", status_code=204)
+def delete_manual(tid: UUID, user: User, db: DB):
+    """Only entries you typed in (or cash-count adjustments) can be deleted; statement lines are the record (§2)."""
+    row = _own_tx(db, user, tid)
+    if row.source not in ("manual", "adjustment"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Imported statement lines can't be deleted. Undo the import instead.")
+    db.execute(text("DELETE FROM transactions WHERE id = :t"), {"t": tid})
+
+
+@router.post("/transactions/{tid}/move-to-wallet", response_model=TransactionOut)
+def move_to_wallet(tid: UUID, body: MoveToWalletIn, user: User, db: DB):
+    """Reconcile an ATM withdrawal into your cash wallet (E08-03). Both legs become one transfer, so the cash
+    isn't counted as spending twice (once at the ATM, again when spent)."""
+    import uuid as _uuid
+    tx = _own_tx(db, user, tid)
+    if tx.amount >= 0 or tx.account_type == "cash":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Pick a withdrawal from a bank or card account")
+    if tx.transfer_group:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Already moved into a wallet")
+    wallet = db.execute(text("SELECT id, currency, type, owner_user_id FROM accounts WHERE id = :w"), {"w": body.wallet_id}).first()
+    if wallet is None or wallet.owner_user_id != user.id or wallet.type != "cash":
+        raise not_found("Cash wallet not found")
+    if wallet.currency == tx.account_currency:
+        amount = -Decimal(tx.amount)
+    elif tx.original_currency == wallet.currency and tx.original_amount is not None:
+        amount = abs(Decimal(tx.original_amount))       # e.g. €200 from an ATM abroad, charged in £
+    else:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"This withdrawal isn't in {wallet.currency}. Add the cash to the wallet by hand.")
+    group = _uuid.uuid4()
+    db.execute(text("UPDATE transactions SET transfer_group = :g, category = 'Cash', category_source = 'user', "
+                    "category_confidence = 1, needs_review = false WHERE id = :t"), {"g": group, "t": tid})
+    db.execute(text("""
+        INSERT INTO transactions (account_id, posted_on, amount, currency, description, category, category_source,
+                                  category_confidence, needs_review, ai_status, fingerprint, source, created_by, transfer_group)
+        VALUES (:w, :d, :amt, :c, :desc, 'Cash', 'user', 1, false, 'done', :fp, 'transfer', :u, :g)"""),
+        {"w": wallet.id, "d": tx.posted_on, "amt": amount, "c": wallet.currency,
+         "desc": f"Cash from {tx.account_name}", "fp": f"transfer:{group}", "u": user.id, "g": group})
+    return _tx_out(db, tid)
+
+
+@router.delete("/transfers/{group}", status_code=204)
+def unlink_transfer(group: UUID, user: User, db: DB):
+    rows = db.execute(text("""SELECT t.id, t.source, a.owner_user_id FROM transactions t JOIN accounts a ON a.id = t.account_id
+                               WHERE t.transfer_group = :g"""), {"g": group}).all()
+    if not rows:
+        raise not_found("Transfer not found")
+    if any(r.owner_user_id != user.id for r in rows):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can change this")
+    db.execute(text("DELETE FROM transactions WHERE transfer_group = :g AND source = 'transfer'"), {"g": group})
+    db.execute(text("UPDATE transactions SET transfer_group = NULL WHERE transfer_group = :g"), {"g": group})

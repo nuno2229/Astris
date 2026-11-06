@@ -247,3 +247,4 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
 .alert-critical strong { color: var(--danger); }
 .hero .figure .per { font-size: 0.35em; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; font-stretch: 100%; }
 .channel { padding: 14px; border-radius: 16px; background: var(--bg); }
+.amt .fx { font-weight: 400; text-align: right; font-size: 13px; }

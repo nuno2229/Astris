@@ -25,9 +25,15 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
   const month = new Date(s.period_start + "T00:00:00").toLocaleDateString(undefined, { month: "long" });
   const names = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
   // Main currency = the one with the most spending; others listed below (no FX conversion until E08)
+  // Home currency (E08-07): converted totals when exchange rates cover the currencies; never guessed.
+  const conv = s.converted;
   const totals = [...s.included].sort((a, b) => Number(b.spent) - Number(a.spent));
-  const main = totals[0] ?? { currency: ctx.me.home_currency, spent: "0", received: "0", spent_today: "0" };
-  const others = totals.slice(1);
+  const useConv = !!conv && s.included.some((t) => !conv.missing.includes(t.currency));
+  const main = useConv ? { currency: conv!.currency, spent: conv!.spent, received: conv!.received, spent_today: conv!.spent_today }
+    : totals[0] ?? { currency: ctx.me.home_currency, spent: "0", received: "0", spent_today: "0" };
+  const others = useConv ? totals.filter((t) => conv!.missing.includes(t.currency)) : totals.slice(1);
+  const daily = useConv ? conv!.daily : s.daily.filter((d) => d.currency === main.currency);
+  const converting = useConv && s.included.some((t) => t.currency !== conv!.currency && !conv!.missing.includes(t.currency));
 
   return (
     <>
@@ -41,12 +47,14 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
       </section>
 
       {accounts.length > 0 && (
-        <Constellation daily={s.daily.filter((d) => d.currency === main.currency)}
+        <Constellation daily={daily}
           start={s.period_start} end={s.period_end} currency={main.currency} />
       )}
 
+      {converting && <p className="note">Other currencies converted to {main.currency} at your household's exchange rates.</p>}
       {others.map((t) => (
-        <p key={t.currency} className="note">Also {money(t.spent, t.currency)} spent in {t.currency}.</p>
+        <p key={t.currency} className="note">Also {money(t.spent, t.currency)} spent in {t.currency}
+          {useConv && <>: no exchange rate set, <a href="#/settings">add one</a></>}.</p>
       ))}
       {s.missed.map((m) => (
         <a key={m.id} className="callout review-link" href="#/bills/regular">
