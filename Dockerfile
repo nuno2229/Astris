@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # ---------- frontend build ----------
-FROM node:22-alpine AS web
+# built once on the build machine (platform-independent output), not under ARM emulation
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web
 WORKDIR /web
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
