@@ -6,9 +6,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import quote, urlsplit
 
-import ipaddress
-
-from app.netcheck import is_local_url, origin_only, pinned_request, resolve
+from app.netcheck import is_local_url, is_self_or_loopback, origin_only, pinned_request, resolve
 
 DISCORD_RE = re.compile(r"^https://(?:discord\.com|discordapp\.com|ptb\.discord\.com|canary\.discord\.com)"
                         r"/api/webhooks/(\d{5,25})/([A-Za-z0-9_\-]{20,120})/?$")
@@ -58,7 +56,7 @@ def validate(kind: str, cfg: dict, allow_internet: bool) -> Clean:
             raise ChannelError("Access token has unexpected characters")
         host = urlsplit(server).hostname or ""
         if not ALLOW_LOOPBACK and (host in ("localhost", "ip6-localhost") or any(
-                ipaddress.ip_address(a).is_loopback for a in resolve(host))):
+                is_self_or_loopback(a) for a in resolve(host))):  # early, friendly check; enforced again at connect
             raise ChannelError("This address can't be used. Use your server's network address instead.")
         internet = not is_local_url(server)
         if internet and not allow_internet:
@@ -93,12 +91,9 @@ def send(kind: str, cfg: dict, title: str, body: str, timeout: float = 15) -> No
         req = (f"{server}/{quote(cfg['topic'])}", body[:3900].encode(), headers)
     else:
         raise ChannelError("Unknown channel type")
-    if kind == "ntfy" and not ALLOW_LOOPBACK:
-        host = urlsplit(req[0]).hostname or ""
-        if any(ipaddress.ip_address(a).is_loopback for a in resolve(host)):
-            raise ChannelError(FAIL)
     try:
-        code, _ = pinned_request(req[0], "POST", req[1], timeout=timeout, max_bytes=16 * 1024, headers=req[2])
+        code, _ = pinned_request(req[0], "POST", req[1], timeout=timeout, max_bytes=16 * 1024, headers=req[2],
+                                 block_self=(kind == "ntfy" and not ALLOW_LOOPBACK))
     except Exception:
         raise ChannelError(FAIL)  # one generic message: details would reveal which hosts/ports exist
     if code >= 300:

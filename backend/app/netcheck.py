@@ -62,6 +62,34 @@ class BlockedAddress(Exception):
     pass
 
 
+_SELF: set[str] | None = None
+
+
+def self_addresses() -> set[str]:
+    """This host/container's own addresses (hostname IPs + outbound source IPs). No packets are sent."""
+    global _SELF
+    if _SELF is None:
+        found: set[str] = set()
+        try:
+            found |= {i[4][0].split("%")[0] for i in socket.getaddrinfo(socket.gethostname(), None)}
+        except OSError:
+            pass
+        for fam, probe in ((socket.AF_INET, "10.255.255.255"), (socket.AF_INET6, "2001:db8::1")):
+            try:
+                with socket.socket(fam, socket.SOCK_DGRAM) as sk:
+                    sk.connect((probe, 9))  # UDP connect only picks a route; nothing is transmitted
+                    found.add(sk.getsockname()[0].split("%")[0])
+            except OSError:
+                pass
+        _SELF = found
+    return _SELF
+
+
+def is_self_or_loopback(ip: str) -> bool:
+    a = _embedded_v4(ipaddress.ip_address(ip))
+    return a.is_loopback or str(a) in self_addresses() or ip in self_addresses()
+
+
 def origin_only(url: str) -> str | None:
     """Normalise to scheme://host[:port]. None if the URL carries a path, query, fragment or credentials —
     the LLM endpoint is a server, not an arbitrary URL (limits blind POSTs into the LAN)."""
@@ -79,7 +107,8 @@ def origin_only(url: str) -> str | None:
 
 
 def pinned_request(url: str, method: str = "GET", body: bytes | None = None, timeout: float = 5,
-                   max_bytes: int = 256 * 1024, headers: dict | None = None) -> tuple[int, bytes]:
+                   max_bytes: int = 256 * 1024, headers: dict | None = None,
+                   block_self: bool = False) -> tuple[int, bytes]:
     """HTTP without DNS-rebinding: resolve ONCE, refuse if any address is blocked, then connect to that
     exact IP (Host header + TLS SNI/cert check still use the hostname). Never follows redirects.
     `timeout` is a TOTAL wall-clock deadline for the whole exchange, not per socket read."""
@@ -100,6 +129,8 @@ def pinned_request(url: str, method: str = "GET", body: bytes | None = None, tim
     host = parts.hostname or ""
     addrs = sorted(resolve(host))
     if not addrs or any(_ip_is_blocked(a) for a in addrs):
+        raise BlockedAddress(url)
+    if block_self and any(is_self_or_loopback(a) for a in addrs):  # same addresses we connect to: no TOCTOU
         raise BlockedAddress(url)
     ip = addrs[0]
     port = parts.port or (443 if parts.scheme == "https" else 80)

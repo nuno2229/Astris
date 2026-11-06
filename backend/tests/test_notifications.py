@@ -19,7 +19,7 @@ TG_TOKEN = "1" * 9 + ":" + "FAKE_test_token_" * 2 + "0123"
 def outbox(monkeypatch):
     sent = []
 
-    def fake(url, method="GET", body=None, timeout=5, max_bytes=0, headers=None):
+    def fake(url, method="GET", body=None, timeout=5, max_bytes=0, headers=None, **kw):
         sent.append({"url": url, "body": body, "headers": headers or {}})
         return 204, b""
     monkeypatch.setattr(channels, "pinned_request", fake)
@@ -170,3 +170,24 @@ def test_test_button_rate_limited(outbox):
     ch = add_channel(a)
     codes = [a.post(f"/api/me/notifications/channels/{ch['id']}/test").status_code for _ in range(7)]
     assert codes[:5] == [200] * 5 and codes[5:] == [429, 429]
+
+
+def test_self_check_happens_on_the_connected_address(monkeypatch):
+    """Sending resolves exactly once, and the loopback/self check runs on that same answer (no TOCTOU)."""
+    from app import netcheck
+    calls = []
+
+    def fake_resolve(h):
+        calls.append(h)
+        return {"127.0.0.1"}
+    monkeypatch.setattr(netcheck, "resolve", fake_resolve)
+    with pytest.raises(channels.ChannelError):
+        channels.send("ntfy", {"server": "http://rebind.example:8090", "topic": "x", "token": None}, "t", "b")
+    assert calls == ["rebind.example"]
+
+
+def test_own_addresses_are_refused():
+    from app.netcheck import is_self_or_loopback, self_addresses
+    for ip in self_addresses() | {"127.0.0.1", "::1", "::ffff:127.0.0.1"}:
+        assert is_self_or_loopback(ip)
+    assert not is_self_or_loopback("192.0.2.10")
