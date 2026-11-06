@@ -99,6 +99,12 @@ def _goal(db: DB, gid: UUID):
     return g
 
 
+def _require_manager(db: DB, g, user) -> None:
+    """Changing or deleting a shared goal: its creator, or the household owner/admin."""
+    if g.created_by != user.id and my_role(db, g.household_id) not in ("owner", "admin"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever created this goal, or the household owner or an admin, can change it")
+
+
 def build(db: Session, g, me: UUID, detail: bool = False) -> GoalOut:
     today = date.today()
     rows = db.execute(text("""SELECT c.id, c.user_id, u.display_name AS name, c.amount, c.made_on, c.note,
@@ -197,6 +203,7 @@ def get_goal(gid: UUID, user: User, db: DB):
 @router.patch("/goals/{gid}", response_model=GoalOut)
 def update_goal(gid: UUID, body: GoalUpdate, user: User, db: DB):
     g = _goal(db, gid)
+    _require_manager(db, g, user)
     fields = body.model_dump(exclude_unset=True)
     if "name" in fields and fields["name"] is None:
         fields.pop("name")
@@ -215,6 +222,11 @@ def update_goal(gid: UUID, body: GoalUpdate, user: User, db: DB):
 @router.delete("/goals/{gid}", status_code=204)
 def delete_goal(gid: UUID, user: User, db: DB):
     g = _goal(db, gid)
+    _require_manager(db, g, user)
+    if db.execute(text("SELECT 1 FROM goal_contributions WHERE goal_id = :g AND user_id <> :u LIMIT 1"),
+                  {"g": gid, "u": user.id}).first():
+        raise HTTPException(status.HTTP_409_CONFLICT,
+                            "Other members have saved toward this goal. Archive it instead so their record is kept.")
     db.execute(text("DELETE FROM goals WHERE id = :g"), {"g": gid})
     audit.log(db, user.id, "goal.delete", "goal", f"Deleted goal {g.name}", entity_id=gid, household_id=g.household_id)
 

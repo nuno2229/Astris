@@ -87,3 +87,21 @@ def test_validation():
                                                         "deadline": T.isoformat()}).status_code == 422
     g = new_goal(a, hid)
     assert a.post(f"/api/goals/{g['id']}/contributions", json={"amount": "0"}).status_code == 422
+
+
+def test_only_creator_or_admin_changes_goal_and_others_savings_are_kept():
+    a, b, hid = setup()
+    c = make_user("c")
+    invite_and_join(a, c, hid, role="admin")
+    g = new_goal(b, hid)                                  # created by member b
+    a.post(f"/api/goals/{g['id']}/contributions", json={"amount": "40"})
+    m = make_user("m")
+    invite_and_join(a, m, hid)
+    assert m.patch(f"/api/goals/{g['id']}", json={"target": "1"}).status_code == 403
+    assert m.delete(f"/api/goals/{g['id']}").status_code == 403
+    assert c.patch(f"/api/goals/{g['id']}", json={"name": "Trip"}).status_code == 200          # admin may
+    assert b.delete(f"/api/goals/{g['id']}").status_code == 409                                # a's money is in it
+    assert b.patch(f"/api/goals/{g['id']}", json={"archived": True}).status_code == 200
+    own = new_goal(m, hid, name="Mine")
+    m.post(f"/api/goals/{own['id']}/contributions", json={"amount": "5"})
+    assert m.delete(f"/api/goals/{own['id']}").status_code == 204                              # only own money in it
