@@ -4,6 +4,7 @@ import type { Ctx } from "../App";
 import Constellation from "./Constellation";
 import TxList from "./TxList";
 import { RecurringRow } from "./Recurring";
+import { Meter } from "./Goals";
 
 type SummaryWithDaily = Summary & { daily: { currency: string; day: string; spent: string }[] };
 
@@ -90,6 +91,22 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
           Counts {s.accounts_included} shared account{s.accounts_included === 1 ? "" : "s"}. Transfers between your own accounts
           currently count as spending.
         </p>
+      )}
+
+      <h2>Savings goals</h2>
+      {s.goals.length === 0 ? (
+        <p className="note" style={{ marginTop: 0 }}>Saving for something together? <a href="#/goals">Set a goal</a>.</p>
+      ) : (
+        <a className="panel goal-card stack" href="#/goals" style={{ gap: 14 }}>
+          {s.goals.slice(0, 3).map((g) => (
+            <div key={g.id} className="stack" style={{ gap: 6 }}>
+              <div className="acct-head"><span style={{ fontWeight: 600 }}>{g.name}</span>
+                <span className="small muted">{money(g.saved, g.currency)} of {money(g.target, g.currency)}</span></div>
+              <Meter value={Number(g.progress)} label={`${g.name} progress`} />
+              {g.on_track === false && <span className="small flag">Behind schedule</span>}
+            </div>
+          ))}
+        </a>
       )}
 
       {s.upcoming.length > 0 && (

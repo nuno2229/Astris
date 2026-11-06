@@ -49,6 +49,8 @@ export interface Totals { currency: string; spent: string; received: string; spe
 export interface Summary { household_id: string; period_start: string; period_end: string; included: Totals[];
   excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number;
   upcoming: Recurring[]; missed: Recurring[];
+  goals: { id: string; name: string; target: string; currency: string; saved: string; progress: string; achieved: boolean;
+    deadline: string | null; on_track: boolean | null; projected_date: string | null }[];
   converted: { currency: string; spent: string; received: string; spent_today: string; missing: string[];
     daily: { currency: string; day: string; spent: string }[] } | null; subscription_alerts: (SubAlert & { subscription_id: string; provider: string })[] }
 export interface ImportResult { batch_id: string; format: string; rows_total: number; rows_new: number;

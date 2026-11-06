@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.16 |
+| **Backlog version** | 0.17 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -149,10 +149,10 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E10-02** Tamper-evident local log — `Review` (append-only for the app role; per-account/household hash chain; "History intact" check)
 - [x] **E10-03** Owner can view and reverse changes — `Review` (History screen; undo refuses if the record changed since; undo is itself logged)
 
-### E11 · Savings goals — `Todo` · §6, §25.11
-- [ ] **E11-01** Named goals with a target amount and optional deadline
-- [ ] **E11-02** Per-member contributions vs the household goal
-- [ ] **E11-03** Progress: %, days remaining and projected completion, auto-updated from the ledger
+### E11 · Savings goals — `Review` · §6, §25.11
+- [x] **E11-01** Named goals with a target amount and optional deadline — `Review` (household-level; archive)
+- [x] **E11-02** Per-member contributions vs the household goal — `Review` (who put in what + share; you only add/remove your own)
+- [x] **E11-03** Progress: %, days remaining and projected completion, auto-updated from the ledger — `Review` (count a statement transfer toward a goal; "always" rule auto-counts future ones on import; pace over the last 90 days, min 30)
 
 ### E12 · Budgets, alerts & spending limits — `Todo` · §7, §12, §25.12
 - [ ] **E12-01** Monthly caps per category and per merchant
@@ -250,7 +250,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-3 | ✅ **Resolved by E22 (2026-11-06).** **Notifications are required** (§7, §11, §15.2, §18) **but there's no delivery channel.** Standard PWA web push goes through Apple/Google push servers, which conflicts with "no data leaves home". | §2 vs §7 |
 | G-4 | **Camera/barcode scanning in a PWA needs HTTPS** (secure context). Plain `http://unraid-ip:port` on the LAN won't allow camera access. A local TLS strategy is needed. | §15.1, §21 |
 | G-5 | "Scheduled income/known bills from calendar or recurring-ofx blocks": which calendar? None is defined as a data source. | §5 |
-| G-6 | Goals are listed as an account type in §25.2 but defined as targets in §6. Is a goal an account or a view over accounts? | §6, §25.2 |
+| G-6 | Goals are listed as an account type in §25.2 but defined as targets in §6. Is a goal an account or a view over accounts? **Interim (E11):** a goal is a view over contributions (manual, or statement transfers you link; future ones auto-counted). Tracking a savings account's balance directly isn't built. PO to confirm. | §6, §25.2 |
 | G-7 | "Mirror to client device" (§2) implies offline client storage/sync, but §23 says sharing is server-local. What is cached on the device, and is it encrypted? | §2, §23 |
 | G-8 | §3.3 says product/price data "may be shared globally". Globally across households on the same server only, presumably — confirm. | §3.3 |
 | G-9 | No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.17 | E11 savings goals. v0.1.2 image published. G-6 interim. |
 | 2026-11-06 | 0.16 | E10 audit trail (append-only, hash-chained, History screen with undo). G-10 interim answer. |
 | 2026-11-06 | 0.15 | v0.1.1 image build cancelled (stalled; tag kept, no image). Released **v0.1.2** from main (E08, ECB rates, E09, security fixes, faster build). |
 | 2026-11-06 | 0.14 | E09 bulk import wizard (dry run, balance checks, adjust, whole-run rollback). G-16. |

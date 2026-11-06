@@ -10,6 +10,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
   const [names, setNames] = useState<Record<string, string>>({});
   const [cats, setCats] = useState<string[]>([]);
   const [wallets, setWallets] = useState<Account[]>([]);
+  const [goals, setGoals] = useState<{ id: string; name: string; currency: string }[]>([]);
   const [open, setOpen] = useState<Tx | null>(null);
   const [toast, setToast] = useState("");
 
@@ -18,6 +19,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
       .then((a) => setNames(Object.fromEntries(a.map((x) => [x.id, x.name]))));
     api.get<string[]>("/api/categories").then(setCats);
     api.get<Account[]>("/api/accounts").then((a) => setWallets(a.filter((x) => x.type === "cash")));
+    api.get<{ id: string; name: string; currency: string }[]>(`/api/households/${household.id}/goals`).then(setGoals);
   }, [household.id]);
 
   const load = useCallback(() => {
@@ -43,7 +45,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
           empty={review ? <div className="empty"><strong>All sorted</strong>Every transaction has a category.</div> : undefined} />
       )}
       {open && (
-        <TxSheet tx={open} categories={cats} wallets={wallets} onClose={() => setOpen(null)}
+        <TxSheet tx={open} categories={cats} wallets={wallets} goals={goals} onClose={() => setOpen(null)}
           onChanged={(m) => { setOpen(null); setToast(m); load(); }}
           onSaved={(t, n) => {
             setOpen(null);

@@ -73,6 +73,8 @@ def save_parsed(db: DB, user_id: UUID, acc, filename: str, parsed, run_id: UUID 
 
 def after_import(db: DB, user_id: UUID, account_ids) -> None:
     apply_rules(db, user_id)              # instant offline categories; the LLM refines in the background
+    from app.routers.goals import apply_rules as goal_rules
+    goal_rules(db, user_id)               # transfers you said count toward a savings goal (E11)
     for aid in set(account_ids):
         detect_recurring(db, user_id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
     worker.wake()
@@ -180,7 +182,8 @@ class Summary(BaseModel):
     upcoming: list[RecurringOut] = []  # regular payments due in the next 14 days (E06-04)
     missed: list[RecurringOut] = []    # expected but never arrived (E06-03)
     converted: Converted | None = None
-    subscription_alerts: list[dict] = []  # trial ending/converted, charged after cancel, renewing soon (E07-04)
+    subscription_alerts: list[dict] = []
+    goals: list[dict] = []          # active savings goals, for the Home widget (E11)  # trial ending/converted, charged after cancel, renewing soon (E07-04)
 
 
 @router.get("/households/{hid}/summary", response_model=Summary)
@@ -242,7 +245,10 @@ def household_summary(hid: UUID, user: User, db: DB,
         received=sum((conv(r.received, r.currency) for r in inc_rows if r.currency not in missing), Decimal(0)).quantize(Decimal("0.01")),
         spent_today=sum((conv(r.spent_today, r.currency) for r in inc_rows if r.currency not in missing), Decimal(0)).quantize(Decimal("0.01")),
         daily=[DaySpend(currency=home, day=k, spent=v.quantize(Decimal("0.01"))) for k, v in sorted(by_day.items())])
-    return Summary(household_id=hid, converted=converted, period_start=start, period_end=end, included=pick("include"),
+    from app.routers.goals import household_goals
+    goal_cards = [g.model_dump(include={"id", "name", "target", "currency", "saved", "progress", "achieved", "deadline",
+                                        "on_track", "projected_date"}) for g in household_goals(db, hid, user.id)]
+    return Summary(household_id=hid, converted=converted, goals=goal_cards, period_start=start, period_end=end, included=pick("include"),
                    excluded=pick("hide"), accounts_included=counts.get("include", 0),
                    accounts_excluded=counts.get("hide", 0), recent=recent,
                    daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count,

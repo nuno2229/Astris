@@ -7,8 +7,9 @@ const SOURCE: Record<string, string> = {
 };
 
 /** Bottom sheet to see a transaction and fix its category. Uses <dialog> for focus trapping + Esc. */
-export default function TxSheet({ tx, categories, wallets = [], onClose, onSaved, onChanged }: {
-  tx: Tx; categories: string[]; wallets?: Account[]; onClose: () => void; onSaved: (t: Tx, alsoUpdated: number) => void;
+export default function TxSheet({ tx, categories, wallets = [], goals = [], onClose, onSaved, onChanged }: {
+  tx: Tx; categories: string[]; wallets?: Account[]; goals?: { id: string; name: string; currency: string }[];
+  onClose: () => void; onSaved: (t: Tx, alsoUpdated: number) => void;
   onChanged?: (message: string) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -65,6 +66,7 @@ export default function TxSheet({ tx, categories, wallets = [], onClose, onSaved
               <button className="btn quiet" onClick={() => ref.current?.close()}>Cancel</button>
             </div>
             <CashActions tx={tx} wallets={wallets} onDone={(m) => { ref.current?.close(); onChanged?.(m); }} />
+            <GoalAction tx={tx} goals={goals} onDone={(m) => { ref.current?.close(); onChanged?.(m); }} />
           </>
         ) : (
           <>
@@ -111,5 +113,32 @@ function CashActions({ tx, wallets, onDone }: { tx: Tx; wallets: Account[]; onDo
       )}
       {error && <div className="error" role="alert">{error}</div>}
     </>
+  );
+}
+
+function GoalAction({ tx, goals, onDone }: { tx: Tx; goals: { id: string; name: string; currency: string }[]; onDone: (m: string) => void }) {
+  const usable = goals.filter((g) => g.currency === tx.currency);
+  const [goal, setGoal] = useState(usable[0]?.id ?? "");
+  const [always, setAlways] = useState(true);
+  const [error, setError] = useState("");
+  if (Number(tx.amount) >= 0 || tx.transfer_group || !usable.length) return null;
+  const go = async () => {
+    setError("");
+    try { await api.post(`/api/goals/${goal}/from-transaction`, { transaction_id: tx.id, always });
+      onDone(`Counted toward ${usable.find((g) => g.id === goal)?.name}.`); }
+    catch (e) { setError((e as Error).message); }
+  };
+  return (
+    <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+      <strong>Saving towards something?</strong>
+      <div className="row" style={{ flexWrap: "nowrap" }}>
+        {usable.length > 1 && <select value={goal} onChange={(e) => setGoal(e.target.value)} aria-label="Goal">
+          {usable.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
+        <button className="btn" onClick={go}>Count towards {usable.length === 1 ? usable[0].name : "goal"}</button>
+      </div>
+      <label className="check"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} />
+        <span>Also count future transfers to {tx.merchant ?? tx.description}</span></label>
+      {error && <div className="error" role="alert">{error}</div>}
+    </div>
   );
 }

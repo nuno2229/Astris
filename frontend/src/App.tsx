@@ -13,6 +13,7 @@ import Settings from "./screens/Settings";
 import Bills from "./screens/Bills";
 import ImportWizard from "./screens/ImportWizard";
 import History from "./screens/History";
+import Goals from "./screens/Goals";
 
 export interface Ctx {
   me: Me;
@@ -102,6 +103,7 @@ export default function App() {
         {household && tab === "settings" && <Settings household={household} />}
         {household && tab === "import" && <ImportWizard accountId={route[1]} />}
         {household && tab === "history" && <History household={household} />}
+        {household && tab === "goals" && <Goals household={household} currency={me.home_currency} />}
         {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
     </div>
