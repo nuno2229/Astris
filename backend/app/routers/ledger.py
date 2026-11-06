@@ -15,12 +15,16 @@ from app.importers.base import ImportError_, assign_fingerprints, check_amount
 from app.importers.detect import parse_statement
 from app.routers.accounts import require_own_account
 from app.routers.households import my_role
-from app.schemas import ImportResult, TransactionOut
+from app.schemas import ImportResult, TransactionOut, TransactionUpdate, TransactionUpdated
+from app.categorise import rules as cat_rules
+from app.categorise.service import apply_rules, correct
+from app.categorise.worker import worker
 
 router = APIRouter(prefix="/api", tags=["ledger"])
 
 _TX_COLS = "t.id, t.account_id, t.posted_on, t.amount, t.currency, t.description, t.merchant, " \
-           "t.counterparty, t.category, t.running_balance"
+           "t.counterparty, t.category, t.running_balance, t.category_source, t.category_confidence, " \
+           "t.needs_review, (a.owner_user_id = app_uid()) AS editable, t.merchant_key"
 
 
 @router.post("/accounts/{aid}/imports", response_model=ImportResult, status_code=201)
@@ -60,6 +64,8 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
             VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp)
             ON CONFLICT (account_id, fingerprint) DO NOTHING"""), r).rowcount
     total = len(rows)
+    apply_rules(db, user.id, batch_id)  # instant offline categories; the LLM refines in the background
+    worker.wake()
     db.execute(text("UPDATE import_batches SET rows_total = :t, rows_new = :n, rows_duplicate = :d WHERE id = :b"),
                {"t": total, "n": new, "d": total - new, "b": batch_id})
     return ImportResult(batch_id=batch_id, format=parsed.format, rows_total=total, rows_new=new,
@@ -78,7 +84,8 @@ def undo_import(bid: UUID, user: User, db: DB):
 def account_transactions(aid: UUID, user: User, db: DB,
                          limit: Annotated[int, Query(ge=1, le=500)] = 100,
                          offset: Annotated[int, Query(ge=0)] = 0):
-    rows = db.execute(text(f"""SELECT {_TX_COLS} FROM transactions t WHERE t.account_id = :a
+    rows = db.execute(text(f"""SELECT {_TX_COLS} FROM transactions t JOIN accounts a ON a.id = t.account_id
+                               WHERE t.account_id = :a
                                ORDER BY t.posted_on DESC, t.created_at DESC LIMIT :l OFFSET :o"""),
                       {"a": aid, "l": limit, "o": offset}).all()
     if not rows and db.execute(text("SELECT 1 FROM accounts WHERE id = :a"), {"a": aid}).first() is None:
@@ -89,6 +96,8 @@ def account_transactions(aid: UUID, user: User, db: DB,
 @router.get("/households/{hid}/transactions", response_model=list[TransactionOut])
 def household_transactions(hid: UUID, user: User, db: DB,
                            q: Annotated[str | None, Query(max_length=100)] = None,
+                           review: bool = False,
+                           category: Annotated[str | None, Query(max_length=50)] = None,
                            limit: Annotated[int, Query(ge=1, le=500)] = 100,
                            offset: Annotated[int, Query(ge=0)] = 0):
     """All transactions on accounts shared into this household (include AND hide — attribution never strips access)."""
@@ -98,9 +107,12 @@ def household_transactions(hid: UUID, user: User, db: DB,
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
           JOIN accounts a ON a.id = t.account_id
           JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
-         WHERE (CAST(:q AS text) IS NULL OR t.description ILIKE '%' || CAST(:q AS text) || '%')
+         WHERE (CAST(:q AS text) IS NULL OR t.description ILIKE '%' || CAST(:q AS text) || '%'
+                OR t.merchant ILIKE '%' || CAST(:q AS text) || '%')
+           AND (NOT :review OR t.needs_review)
+           AND (CAST(:cat AS text) IS NULL OR t.category = CAST(:cat AS text))
          ORDER BY t.posted_on DESC, t.created_at DESC LIMIT :l OFFSET :o"""),
-        {"h": hid, "q": q, "l": limit, "o": offset})
+        {"h": hid, "q": q, "review": review, "cat": category, "l": limit, "o": offset})
     return [TransactionOut(**r._mapping) for r in rows]
 
 
@@ -127,6 +139,7 @@ class Summary(BaseModel):
     accounts_excluded: int
     recent: list[TransactionOut]
     daily: list[DaySpend] = []       # included accounts only, days with spending (§17 time series, M1 scale)
+    needs_review: int = 0            # transactions whose category is uncertain (E05-03)
 
 
 @router.get("/households/{hid}/summary", response_model=Summary)
@@ -162,10 +175,38 @@ def household_summary(hid: UUID, user: User, db: DB,
           JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE t.posted_on >= :s AND t.posted_on < :e AND t.amount < 0
          GROUP BY t.currency, t.posted_on ORDER BY t.posted_on"""), {"h": hid, "s": start, "e": end}).all()
-    recent = household_transactions(hid, user, db, None, 12, 0)
+    recent = household_transactions(hid, user, db, None, False, None, 12, 0)
+    review_count = db.execute(text("""
+        SELECT count(*) FROM transactions t
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+          JOIN accounts a ON a.id = t.account_id
+          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+         WHERE t.needs_review"""), {"h": hid}).scalar_one()
     pick = lambda attr: [CurrencyTotals(currency=r.currency, spent=r.spent, received=r.received,
                                         spent_today=r.spent_today) for r in rows if r.attribution == attr]
     return Summary(household_id=hid, period_start=start, period_end=end, included=pick("include"),
                    excluded=pick("hide"), accounts_included=counts.get("include", 0),
                    accounts_excluded=counts.get("hide", 0), recent=recent,
-                   daily=[DaySpend(**r._mapping) for r in daily])
+                   daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count)
+
+
+@router.get("/categories", response_model=list[str])
+def categories(user: User):
+    return cat_rules.CATEGORIES
+
+
+@router.patch("/transactions/{tid}", response_model=TransactionUpdated)
+def update_transaction(tid: UUID, body: TransactionUpdate, user: User, db: DB):
+    """Set a category by hand (account owner only). remember=True teaches the app this merchant."""
+    if body.category not in cat_rules.CATEGORIES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown category")
+    row = db.execute(text("""SELECT a.owner_user_id FROM transactions t JOIN accounts a ON a.id = t.account_id
+                              WHERE t.id = :t"""), {"t": tid}).first()
+    if row is None:
+        raise not_found("Transaction not found")
+    if row.owner_user_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can change this")
+    n = correct(db, user.id, tid, body.category, (body.merchant or "").strip() or None, body.remember)
+    tx = db.execute(text(f"SELECT {_TX_COLS} FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE t.id = :t"),
+                    {"t": tid}).one()
+    return TransactionUpdated(transaction=TransactionOut(**tx._mapping), also_updated=n)

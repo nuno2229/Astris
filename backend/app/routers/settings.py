@@ -85,6 +85,10 @@ def put_settings(hid: UUID, body: LlmSettings, user: User, db: DB):
             updated_by = EXCLUDED.updated_by, updated_at = now()"""),
         {"h": hid, "e": body.llm_enabled, "u": body.llm_base_url, "m": (body.llm_model or "").strip() or None,
          "ai": body.llm_allow_internet, "by": user.id})
+    if body.llm_enabled:
+        db.execute(text("SELECT ai_requeue_household(:h)"), {"h": hid})  # let the AI look at earlier imports
+        from app.categorise.worker import worker
+        worker.wake()
     return get_settings_(hid, user, db)
 
 

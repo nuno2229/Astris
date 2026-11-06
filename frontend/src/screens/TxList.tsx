@@ -11,9 +11,9 @@ function dayLabel(iso: string): string {
     year: d.getFullYear() === t.getFullYear() ? undefined : "numeric" });
 }
 
-/** Transactions grouped under date headings. Money out = text ink with a minus; money in = sky blue with a plus. */
-export default function TxList({ txs, accountNames, empty }: {
-  txs: Tx[]; accountNames?: Record<string, string>; empty?: React.ReactNode;
+/** Transactions grouped under date headings. Title = clean merchant name when known. */
+export default function TxList({ txs, accountNames, empty, onOpen }: {
+  txs: Tx[]; accountNames?: Record<string, string>; empty?: React.ReactNode; onOpen?: (t: Tx) => void;
 }) {
   if (!txs.length) return <>{empty ?? <div className="empty"><strong>Nothing here yet</strong>Import a statement from Accounts to see transactions.</div>}</>;
   const groups: [string, Tx[]][] = [];
@@ -29,13 +29,22 @@ export default function TxList({ txs, accountNames, empty }: {
           <ul className="list">
             {items.map((t) => {
               const n = Number(t.amount);
-              return (
-                <li key={t.id}>
+              const acct = accountNames?.[t.account_id];
+              const body = (
+                <>
                   <div className="main">
-                    <div className="title">{t.description}</div>
-                    {accountNames?.[t.account_id] && <div className="meta">{accountNames[t.account_id]}</div>}
+                    <div className="title">{t.merchant ?? t.description}</div>
+                    <div className="meta">
+                      {t.needs_review ? <span className="flag">Needs a category</span> : t.category}
+                      {acct && <span className="muted">{(t.category || t.needs_review) ? ", " : ""}{acct}</span>}
+                    </div>
                   </div>
                   <div className={"amt" + (n > 0 ? " in" : "")}>{money(n, t.currency, true)}</div>
+                </>
+              );
+              return (
+                <li key={t.id} className={onOpen ? "tap" : undefined}>
+                  {onOpen ? <button className="rowbtn" onClick={() => onOpen(t)}>{body}</button> : body}
                 </li>
               );
             })}

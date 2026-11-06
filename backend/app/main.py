@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -6,7 +7,17 @@ from fastapi.staticfiles import StaticFiles
 
 from app.routers import accounts, auth, households, ledger, settings
 
-app = FastAPI(title="Astris", docs_url="/api/docs", openapi_url="/api/openapi.json")
+@asynccontextmanager
+async def lifespan(_app):
+    from app.categorise.worker import worker
+    from app.config import get_settings
+    if get_settings().ai_worker:
+        worker.start()
+    yield
+    worker.stop()
+
+
+app = FastAPI(title="Astris", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 

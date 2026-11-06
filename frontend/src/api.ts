@@ -40,10 +40,11 @@ export interface Account { id: string; name: string; type: "bank" | "card" | "ca
 export interface HouseholdAccount extends Account { attribution: "include" | "hide" }
 export interface Tx { id: string; account_id: string; posted_on: string; amount: string; currency: string;
   description: string; merchant: string | null; counterparty: string | null; category: string | null;
-  running_balance: string | null }
+  running_balance: string | null; category_source: "rule" | "llm" | "user" | "user_rule" | null;
+  category_confidence: string | null; needs_review: boolean; editable: boolean; merchant_key: string | null }
 export interface Totals { currency: string; spent: string; received: string; spent_today: string }
 export interface Summary { household_id: string; period_start: string; period_end: string; included: Totals[];
-  excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[] }
+  excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number }
 export interface ImportResult { batch_id: string; format: string; rows_total: number; rows_new: number;
   rows_duplicate: number; warnings: string[] }
 

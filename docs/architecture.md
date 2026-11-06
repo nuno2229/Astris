@@ -80,3 +80,24 @@ Each account has one master: bank imports. Receipts and manual entries reconcile
 | Distinct login | Per-user sessions; token stored only as a SHA-256 hash |
 | AI is data-only | LLM prompts wrap uploaded content as data and validate JSON output (E05) |
 | Mobile-first | Every screen designed for the mobile shell first |
+
+## Categorisation (E05)
+
+```mermaid
+flowchart LR
+  IMP["Import"] --> R["Rules (instant, offline)<br/>1. your learned merchant rules<br/>2. built-in UK dictionary + fuzzy"]
+  R -->|confidence ≥ 0.90| DONE["Categorised"]
+  R -->|uncertain| Q[("ai_status = pending")]
+  Q --> W["Background worker<br/>(as the account owner, under RLS)"]
+  W -->|household AI on| LLM["llama.cpp<br/>JSON data in, schema-checked JSON out"]
+  W -->|no AI configured| SKIP["Keep rule result"]
+  LLM --> V{"Valid category<br/>from the list?"}
+  V -->|yes, more confident| DONE
+  V -->|no| SKIP
+  DONE --> REV["confidence < 0.70 → 'Needs a category'"]
+```
+
+- **Prompt-injection guard (E03-08):** statement text goes to the model only as a JSON data payload. The system prompt says it is data, the reply is constrained by a JSON schema, and the server accepts only `{index, category from the fixed list, confidence 0–1, short merchant}`. The model cannot trigger any other action.
+- **Network rule:** LLM calls resolve the address once, refuse link-local and metadata ranges, connect to that exact IP, and re-check the "home network only" rule at call time.
+- **Corrections always win.** "Always use this" stores a personal rule (`merchant_rules`, private to the user, RLS) and re-applies it to that user's matching transactions.
+- **Which household's AI (G-14):** the first household the account was shared into that has AI enabled.

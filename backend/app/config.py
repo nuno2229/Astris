@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     session_days: int = 30
     invite_days: int = 7
     max_upload_bytes: int = 20 * 1024 * 1024
+    ai_worker: bool = True  # background categorisation worker
     app_version: str = ""  # set by the Docker build from the git tag; else the package version
 
     def _url(self, role: str, pw: str) -> str:

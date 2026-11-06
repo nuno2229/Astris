@@ -5,6 +5,7 @@ os.environ["DATABASE_URL"] = f"postgresql+psycopg://ft_app:ft_app_dev@localhost:
 os.environ["MIGRATION_DATABASE_URL"] = f"postgresql+psycopg://ft_owner:ft_owner_dev@localhost:5432/{TEST_DB}"
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["ALLOW_REGISTRATION"] = "true"
+os.environ["AI_WORKER"] = "false"  # tests drive the worker explicitly
 
 import itertools  # noqa: E402
 
@@ -41,7 +42,7 @@ def clean(owner_engine):
     yield
     with owner_engine.begin() as c:
         c.execute(text("TRUNCATE users, households, sessions, memberships, invitations, accounts, "
-                       "household_accounts, import_batches, transactions, household_settings CASCADE"))
+                       "household_accounts, import_batches, transactions, household_settings, merchant_rules CASCADE"))
 
 
 def make_user(name: str = "user") -> TestClient:

@@ -89,7 +89,7 @@ export default function App() {
       </nav>
       <main key={hid /* remount per household: isolated context per screen (§21) */}>
         {household && tab === "" && <Dashboard ctx={ctx} household={household} />}
-        {household && tab === "activity" && <Activity household={household} />}
+        {household && tab === "activity" && <Activity household={household} reviewFirst={route[1] === "review"} />}
         {household && tab === "accounts" && <Accounts ctx={ctx} household={household} />}
         {household && tab === "household" && <HouseholdScreen ctx={ctx} household={household} />}
         {household && tab === "settings" && <Settings household={household} />}

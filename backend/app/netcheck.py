@@ -62,8 +62,9 @@ class BlockedAddress(Exception):
     pass
 
 
-def pinned_get(url: str, timeout: float = 5, max_bytes: int = 256 * 1024) -> tuple[int, bytes]:
-    """GET without DNS-rebinding: resolve ONCE, refuse if any address is blocked, then connect to that
+def pinned_request(url: str, method: str = "GET", body: bytes | None = None, timeout: float = 5,
+                   max_bytes: int = 256 * 1024, headers: dict | None = None) -> tuple[int, bytes]:
+    """HTTP without DNS-rebinding: resolve ONCE, refuse if any address is blocked, then connect to that
     exact IP (Host header + TLS SNI/cert check still use the hostname). Never follows redirects."""
     import http.client
     import ssl
@@ -91,11 +92,15 @@ def pinned_get(url: str, timeout: float = 5, max_bytes: int = 256 * 1024) -> tup
                 self.sock = socket.create_connection((ip, port), timeout)
         conn = _Conn(host, port, timeout=timeout)
     try:
-        conn.request("GET", path, headers={"Accept": "application/json"})
+        conn.request(method, path, body=body, headers={"Accept": "application/json", **(headers or {})})
         r = conn.getresponse()
         return r.status, r.read(max_bytes)
     finally:
         conn.close()
+
+
+def pinned_get(url: str, timeout: float = 5, max_bytes: int = 256 * 1024) -> tuple[int, bytes]:
+    return pinned_request(url, "GET", timeout=timeout, max_bytes=max_bytes)
 
 
 def is_local_url(url: str) -> bool:

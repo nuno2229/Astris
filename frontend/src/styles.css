@@ -203,3 +203,30 @@ label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); font-weig
 .wordmark svg { width: 40px; height: 40px; color: var(--accent); }
 .wordmark span { font-family: var(--font-display); font-weight: 750; font-stretch: 80%; font-size: 52px; letter-spacing: -0.04em; line-height: 1; }
 .tagline { color: var(--muted); font-size: 16px; text-align: center; max-width: 30ch; margin-top: -12px; }
+
+/* ---------- tappable rows, review flag ---------- */
+.list li.tap { padding: 0; }
+.rowbtn { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 13px 18px; min-height: 60px; cursor: pointer; }
+.rowbtn:hover { background: color-mix(in srgb, var(--surface-2) 50%, transparent); }
+.rowbtn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 0; }
+.flag { color: var(--accent); font-weight: 600; }
+.review-link { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; text-decoration: none; color: var(--text); }
+.review-link strong { color: var(--accent); }
+.acct-bal.in { color: var(--in); }
+
+/* ---------- bottom sheet ---------- */
+dialog.sheet { border: 0; padding: 0; margin: auto auto 0; width: 100%; max-width: 560px; max-height: 88dvh;
+  background: var(--surface); color: var(--text); border-radius: 24px 24px 0 0; }
+dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
+.sheet-body { padding: 10px 20px calc(var(--safe-b) + 22px); overflow: auto; }
+.grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 6px; }
+@media (min-width: 900px) { dialog.sheet { margin: auto; border-radius: 24px; } }
+@media (prefers-reduced-motion: no-preference) {
+  dialog.sheet[open] { animation: sheet-in 220ms cubic-bezier(.2,.8,.2,1); }
+  @keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
+  cursor: pointer; font-size: 14px; font-weight: 500; }
+.chip[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }

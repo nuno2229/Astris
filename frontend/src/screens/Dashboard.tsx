@@ -47,6 +47,12 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
       {others.map((t) => (
         <p key={t.currency} className="note">Also {money(t.spent, t.currency)} spent in {t.currency}.</p>
       ))}
+      {s.needs_review > 0 && (
+        <a className="callout review-link" href="#/activity/review">
+          <span><strong>{s.needs_review}</strong> transaction{s.needs_review === 1 ? " needs" : "s need"} a category</span>
+          <span aria-hidden="true">›</span>
+        </a>
+      )}
       {s.excluded.length > 0 && (
         <div className="callout" style={{ marginTop: 14 }}>
           {s.excluded.map((t) => money(t.spent, t.currency)).join(" and ")} spent on {s.accounts_excluded} separate

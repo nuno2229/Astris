@@ -125,6 +125,22 @@ class TransactionOut(BaseModel):
     counterparty: str | None
     category: str | None
     running_balance: Decimal | None
+    category_source: str | None = None
+    category_confidence: Decimal | None = None
+    needs_review: bool = False
+    editable: bool = False
+    merchant_key: str | None = None
+
+
+class TransactionUpdate(BaseModel):
+    category: str = Field(min_length=1, max_length=50)
+    merchant: str | None = Field(default=None, max_length=60)
+    remember: bool = True
+
+
+class TransactionUpdated(BaseModel):
+    transaction: TransactionOut
+    also_updated: int
 
 
 class ImportResult(BaseModel):

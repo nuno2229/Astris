@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.7 |
+| **Backlog version** | 0.8 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -99,7 +99,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E03-05** PDF (scanned) and statement images via OCR — `Review` (Tesseract in Docker/CI; verify on real scans)
 - [ ] **E03-06** Extract: date, merchant, category, amount, counterparty, running balance, currency
 - [ ] **E03-07** Bank import is the master per account; receipts and manual entries reconcile onto it (§2)
-- [ ] **E03-08** Prompt-injection guard: document content is data only, with structured JSON output (§23)
+- [x] **E03-08** Prompt-injection guard: document content is data only, with structured JSON output (§23) — `Review` (JSON data payload, schema-constrained reply, allowlist validation, tested)
 
 ### E04 · Receipt scanner & unit price — `Todo` · §4.2, §25.4
 - [ ] **E04-01** Photo upload, single and batch; multiple receipts per image
@@ -109,12 +109,12 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E04-05** Receipt products reconcile onto the bank transaction (§2)
 - [ ] **E04-06** Capture expiry date where readable (§15.2)
 
-### E05 · AI categorisation pipeline — `Todo` · §4.1, §22, §25.5
+### E05 · AI categorisation pipeline — `Review` · §4.1, §22, §25.5
 - [x] **E05-00** LLM server address/model configured in Settings, owner only (PO instruction 2026-11-05) — `Review`
-- [ ] **E05-01** Local LLM integration (llama.cpp / Ollama), run as a background queue so the UI stays responsive
-- [ ] **E05-02** Merchant/alias dictionary with fuzzy matching
-- [ ] **E05-03** Confidence score; uncertain items flagged rather than silently guessed
-- [ ] **E05-04** Rules-based fallback when no model is configured (§22)
+- [x] **E05-01** Local LLM integration (llama.cpp / Ollama), run as a background queue so the UI stays responsive — `Review` (worker thread; runs as each account owner under RLS)
+- [x] **E05-02** Merchant/alias dictionary with fuzzy matching — `Review` (built-in UK dictionary + personal learned rules)
+- [x] **E05-03** Confidence score; uncertain items flagged rather than silently guessed — `Review` ("Needs a category" filter + Home prompt)
+- [x] **E05-04** Rules-based fallback when no model is configured (§22) — `Review`
 
 ### E06 · Recurring & scheduled transactions — `Todo` · §5, §25.6
 - [ ] **E06-01** Auto-detect recurring charges (rent, subscriptions, standing orders, dividends) and scheduled income
@@ -249,6 +249,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-9 | No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
 | G-11 | ✅ **Confirmed by PO 2026-11-05 (interim rules adopted).** **Account visibility and default attribution.** §3.2 says a user's accounts "default to" counting toward the household or being hidden, but doesn't pick one. §3.5 "Hide" keeps an account "visible & usable within that account's own scope" — can other household members see a hidden account's transactions? **M1 interim:** the owner explicitly shares an account into a household and must choose the attribution (no default). Every member of that household can see it; attribution only affects totals. Revisit once the PO decides. | §3.2, §3.5 |
 | G-12 | **Real statements needed for PDF/OCR tuning.** Every bank lays out PDFs differently. The reader handles the common UK "Date / Description / Paid out / Paid in / Balance" shape, but needs a few real (redacted) statements from the banks you use to confirm. Statements are processed locally only. | E03-04/05 |
+| G-13 | **No category list in the spec.** Interim list: Groceries, Eating out, Transport, Bills, Housing, Shopping, Entertainment, Subscriptions, Health, Personal care, Travel, Kids, Pets, Gifts & donations, Cash, Transfers, Income, Fees & charges, Other. The "Transfers" label doesn't change totals (that's P-1). Custom per-household categories are not built. | E05, E07, E12 |
+| G-14 | **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
 | G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). | §13 |
 
 ---
@@ -279,6 +281,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.8 | E05 categorisation: rules + learned merchant rules + background local-LLM pass with injection guard; review flow in UI. G-13, G-14 added. |
 | 2026-11-05 | 0.7 | E03: MT940, text PDF, scanned PDF / photo OCR import. G-12 added. |
 | 2026-11-05 | 0.6 | UI redesign; security fixes; summary gains daily spend series. 61 tests. |
 | 2026-11-05 | 0.5 | Repo set (D-3 resolved). Version shown in Settings → About. Renamed to Astris. First push + tag v0.1.0. |
