@@ -246,13 +246,31 @@ def propose(c: Ctx, it: Intent) -> dict:
         g = hits[0]
         return {"action": {"kind": "goal_contribute", "params": {"goal_id": str(g.id), "amount": round(it.amount, 2)},
                            "summary": f"Record {money(it.amount, g.currency)} from you toward {g.name}?"}}
+    if it.tool == "list_add":
+        name = (it.product or "").strip()
+        if not name:
+            return {"answer": "What should I add to the list?"}
+        qty = it.quantity or 1
+        return {"action": {"kind": "list_add", "params": {"name": name.capitalize()[:120], "quantity": qty},
+                           "summary": f"Add {qty:g}× {name} to {c.hname}'s shopping list?"}}
     return {"answer": "I can't do that yet."}
+
+
+def list_show(c: Ctx, it: Intent) -> dict:
+    from app.routers.shopping import default_list
+    lid = default_list(c.db, c.hid, c.user_id)
+    rows = c.db.execute(text("SELECT name, quantity FROM shopping_items WHERE list_id = :l AND NOT checked ORDER BY added_at"),
+                        {"l": lid}).all()
+    if not rows:
+        return {"answer": "The shopping list is empty.", "citations": [], "link": "#/list"}
+    return {"answer": "On the list: " + ", ".join(f"{r.name}" + (f" ×{Decimal(r.quantity):g}" if r.quantity != 1 else "") for r in rows) + ".",
+            "citations": [], "link": "#/list"}
 
 
 HANDLERS = {"spending": spending, "balance": balance, "low_stock": low_stock, "expiring": expiring,
             "stock_lookup": stock_lookup, "bills": bills, "budgets": budgets, "goals": goals, "by_member": by_member,
-            "top_shops": top_shops}
-ACTIONS = {"set_budget", "pantry_add", "pantry_use", "goal_contribute"}
+            "top_shops": top_shops, "list_show": list_show}
+ACTIONS = {"set_budget", "pantry_add", "pantry_use", "goal_contribute", "list_add"}
 HELP = ("I can answer questions about your household's money and pantry, for example: “how much did we spend on groceries "
         "this week?”, “what's running low?”, “any bills due?”, “who spent the most last month?”. I can also do things after "
-        "you confirm: “set a £200 budget for groceries”, “add 2 milk to the pantry”, “put £50 towards the holiday”.")
+        "you confirm: “set a £200 budget for groceries”, “add milk to the shopping list”, “put £50 towards the holiday”.")

@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass, field
 from app.categorise.rules import CATEGORIES
 
 TOOLS = ["spending", "balance", "low_stock", "expiring", "stock_lookup", "bills", "budgets", "goals", "by_member",
-         "top_shops", "set_budget", "pantry_add", "pantry_use", "goal_contribute", "shopping_list", "help"]
+         "top_shops", "set_budget", "pantry_add", "pantry_use", "goal_contribute", "list_add", "list_show", "help"]
 PERIODS = ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "this_year"]
 
 SYNONYMS = {
@@ -85,8 +85,14 @@ def rules(text: str) -> Intent:
     t = " " + re.sub(r"\s+", " ", text.lower()).strip() + " "
     it = Intent(period=_period(t), category=_category(t), amount=_amount(t))
     # ---- actions ----
-    if re.search(r"\bshopping list\b", t):
-        it.tool = "shopping_list"
+    m = re.search(r"\b(?:add|put|we need|need)\s+(.+?)\s+(?:to|on)\s+(?:the\s+|my\s+|our\s+)?(?:shopping\s+)?list\b", t) \
+        or re.search(r"\b(?:we need|we're out of|we are out of|need to buy)\s+(.+?)\s*$", t)
+    if m:
+        it.tool = "list_add"
+        it.quantity, it.product = _qty_and_name(m[1])
+        return it
+    if re.search(r"\b(shopping list|what'?s on the list|the list)\b", t):
+        it.tool = "list_show"
         return it
     if re.search(r"\b(set|make|create|change|put)\b.*\bbudget\b", t) and it.amount:
         it.tool = "set_budget"
@@ -157,7 +163,7 @@ SYSTEM = (
     "expiring (pantry use-by), stock_lookup (do we have <product>), bills (upcoming bills & subscription renewals), "
     "budgets, goals, by_member (who spent what), top_shops, set_budget (category + amount + budget_period), "
     "pantry_add (product + quantity), pantry_use (product + quantity), goal_contribute (goal + amount), "
-    "shopping_list, help.\nNever invent numbers that the user didn't say. If unsure, use help."
+    "list_add (add product + quantity to the shopping list), list_show (what's on the shopping list), help.\nNever invent numbers that the user didn't say. If unsure, use help."
 )
 
 

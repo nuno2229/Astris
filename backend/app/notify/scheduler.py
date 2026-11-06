@@ -29,7 +29,7 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
     today = today or date.today()
     p = db.execute(text("SELECT * FROM notification_prefs WHERE user_id = :u"), {"u": user}).first()
     renew_days = p.renew_days if p else 3
-    want = {k: (getattr(p, k) if p else True) for k in ("renewals", "trials", "cancelled_charges", "missed_payments", "budgets", "stock")}
+    want = {k: (getattr(p, k) if p else True) for k in ("renewals", "trials", "cancelled_charges", "missed_payments", "budgets", "stock", "shopping")}
     want["daily_summary"] = bool(p.daily_summary) if p else False
     out = []
     for h in db.execute(text("""SELECT h.id, h.name FROM households h JOIN memberships m ON m.household_id = h.id
@@ -69,6 +69,20 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
                     if lot.state == "soon":
                         out.append({"key": f"expiry:{lot.id}:{lot.expires_on}", "minimal": "Something in the pantry expires soon.",
                                     "detailed": f"{pr.name} ({h.name}) expires {_when(lot.expires_on, today)}."})
+        if want["shopping"]:
+            # items other people added to lists you can see, in the last day (one message per batch)
+            rows = db.execute(text("""
+                SELECT l.id AS list_id, l.name AS list_name, i.id, i.name, u.display_name AS who FROM shopping_items i
+                  JOIN shopping_lists l ON l.id = i.list_id JOIN users u ON u.id = i.added_by
+                 WHERE l.household_id = :h AND i.added_by <> :me AND NOT i.checked AND i.added_at > now() - interval '1 day'
+                 ORDER BY i.added_at"""), {"h": h.id, "me": user}).all()
+            by_list: dict = {}
+            for r in rows:
+                by_list.setdefault((r.list_id, r.list_name), []).append(r)
+            for (lid, lname), items in by_list.items():
+                who = ", ".join(dict.fromkeys(r.who for r in items))
+                out.append({"key": f"shop:{lid}:{items[-1].id}", "minimal": "The shopping list has new items.",
+                            "detailed": f"{lname} ({h.name}): {who} added " + ", ".join(r.name for r in items[:8]) + "."})
         if want["daily_summary"]:
             from datetime import datetime
             if datetime.now().hour >= 8:   # send in the morning, about yesterday

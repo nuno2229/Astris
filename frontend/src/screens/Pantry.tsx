@@ -17,7 +17,7 @@ function lotText(l: Lot): string {
   return `${l.days_left} day${l.days_left === 1 ? "" : "s"} left`;
 }
 
-export default function Pantry({ household }: { household: Household }) {
+export default function Pantry({ household, embedded }: { household: Household; embedded?: boolean }) {
   const [items, setItems] = useState<Product[] | null>(null);
   const [sugg, setSugg] = useState<Sugg[]>([]);
   const [day, setDay] = useState<number | null>(null);
@@ -37,7 +37,7 @@ export default function Pantry({ household }: { household: Household }) {
 
   return (
     <>
-      <h1>Pantry</h1>
+      {!embedded && <h1>Pantry</h1>}
       <div className="row" style={{ flexWrap: "nowrap" }}>
         <button className="btn primary" style={{ flex: 1 }} onClick={() => setOpen("scan")}>Scan items</button>
         <button className="btn" style={{ flex: 1 }} onClick={() => setOpen("new")}>Add by hand</button>

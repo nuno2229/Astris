@@ -76,7 +76,7 @@ p { margin: 0; }
 .switcher:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 10px; }
 .topbar .spacer { flex: 1; }
 
-main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 4px 16px calc(var(--nav-h) + var(--safe-b) + 32px); }
+main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 4px 16px calc(var(--nav-h) + var(--safe-b) + 96px); }  /* room to scroll past the assistant button */
 
 .bottomnav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr);
@@ -101,7 +101,7 @@ main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 4px 16px
   .bottomnav a { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 14px; font-size: 15px; border-radius: var(--r-ctl); }
   .bottomnav a[aria-current="page"] { background: var(--surface); }
   .bottomnav a[aria-current="page"]::before { top: 50%; left: -2px; transform: translateY(-50%); }
-  main { padding: 8px 32px 48px; }
+  main { padding: 8px 32px 112px; }
 }
 
 /* ---------- hero ---------- */
@@ -311,3 +311,8 @@ dialog.sheet.chat { height: 88dvh; }
 .sources ul { margin: 6px 0 0; padding-left: 18px; }
 .action-card { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: var(--bg); }
 .chat-input { display: flex; gap: 8px; }
+.shoplist li { padding: 6px 6px 6px 16px; min-height: 56px; }
+.shoplist li.done .title { text-decoration: line-through; color: var(--muted); }
+.shoplist .main { display: grid; min-width: 0; }
+.star { font-size: 20px; color: var(--muted); }
+.star.on { color: var(--accent); }

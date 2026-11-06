@@ -77,9 +77,6 @@ def ask(body: AskIn, user: User, db: DB):
                          {"u": user.id, "h": body.household_id, "k": a["kind"], "p": json.dumps(a["params"]), "s": a["summary"]}).scalar_one()
         return AskOut(answer="Here's what I'd do. Confirm to go ahead.", action=ActionOut(id=aid, kind=a["kind"], summary=a["summary"]),
                       understood_by=it.source)
-    if it.tool == "shopping_list":
-        return AskOut(answer="The shopping list isn't built yet. For now I can add things to the pantry, and the "
-                             "Pantry tab makes a weekly list of what's running low.", link="#/pantry", understood_by=it.source)
     return AskOut(answer=HELP, understood_by=it.source)
 
 
@@ -113,6 +110,12 @@ def confirm(aid: UUID, user: User, db: DB):
             from app.routers.inventory import UseIn, use
             use(UUID(p["product_id"]), UseIn(quantity=Decimal(str(p["quantity"]))), user, db)
             link = "#/pantry"
+        elif a.kind == "list_add":
+            from app.routers.shopping import ItemIn, _list, _log, add_item, default_list
+            lst = _list(db, default_list(db, hid, user.id))
+            add_item(db, lst, user.id, ItemIn(name=p["name"], quantity=Decimal(str(p["quantity"]))), "assistant")
+            _log(db, user.id, lst, "list.add", f"Added {p['quantity']:g}× {p['name']} to {lst.name}")
+            link = "#/list"
         elif a.kind == "goal_contribute":
             from app.routers.goals import ContributionIn, contribute
             contribute(UUID(p["goal_id"]), ContributionIn(amount=Decimal(str(p["amount"])), note="via the assistant"), user, db)

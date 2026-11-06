@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.21 |
+| **Backlog version** | 0.22 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -185,7 +185,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E15-01** Floating, collapsible chat available app-wide (mobile included)
 - [x] **E15-02** Grounded answers mapped onto the real data model; each number cites its account/date/category — `Review` (the model only picks the question/action; every figure is computed from the database and listed with sources)
 - [x] **E15-03** Scope enforcement: reads nothing outside the acting user's households/accounts
-- [x] **E15-04** Scoped actions (add to list, set budget) — `Review` (set budget, pantry add/use, goal contribution; always confirmed first; "add to shopping list" waits for E17)
+- [x] **E15-04** Scoped actions (add to list, set budget) — `Review` (set budget, add to shopping list, pantry add/use, goal contribution; always confirmed first)
 - [x] **E15-05** Local streaming, < ~2 s typical; graceful fallback (canned answers) when no LLM is available — `Review` (built-in phrase matcher works offline; answers are instant since they come from the database)
 - [x] **E15-06** Optional online augmentation only when explicitly enabled
 
@@ -198,12 +198,12 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds
 - [ ] **E16-07** Every flow works on mobile from day one: scanning, barcode, chat, budgets, goals, wallet, import review
 
-### E17 · Shopping list & product intelligence — `Todo` · §16, §18
-- [ ] **E17-01** Household list by default, personal list optional
-- [ ] **E17-02** Add from receipts, manually, from Cookidoo carry-over and from low-stock suggestions
-- [ ] **E17-03** Per-item checkbox, notes, qty, expiry
-- [ ] **E17-04** Share/notify household members (local-first)
-- [ ] **E17-05** Favourites (user/household scoped); filter the list by favourites
+### E17 · Shopping list & product intelligence — `Review` (store tagging waits for E18) · §16, §18
+- [x] **E17-01** Household list by default, personal list optional — `Review` (shared list created automatically; personal lists private incl. in History)
+- [x] **E17-02** Add from receipts, manually, from Cookidoo carry-over and from low-stock suggestions — `Review` for manual, low-stock (pantry) and the assistant; receipts wait for E04, Cookidoo for E20
+- [x] **E17-03** Per-item checkbox, notes, qty, expiry — `Review` (+ "Done shopping" puts ticked pantry items back into stock)
+- [x] **E17-04** Share/notify household members (local-first) — `Review` (list refreshes while open; others notified via their channels, once per batch)
+- [x] **E17-05** Favourites (user/household scoped); filter the list by favourites — `Review`
 - [ ] **E17-06** "Buy cheapest" store tagging — `Blocked (D-1)`
 
 ### E18 · Price comparison (opt-in online) — `Blocked (D-1, D-6)` · §16, §25.18
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.22 | E17 shopping lists (shared + personal, favourites, from pantry, done-shopping → pantry, notifications); assistant can add to the list. Nav tab Pantry → Shopping (List / Pantry). |
 | 2026-11-06 | 0.21 | E15 assistant (grounded answers with sources, confirmed actions, rules fallback). D-9 resolved. Same-day statement order preserved for balances. |
 | 2026-11-06 | 0.20 | E14 pantry: products, batches with use-by, offline barcode scanning (camera/photo/typed), weekly shop suggestions, expiry alerts. Nav: Home, Activity, Bills, Pantry, More. |
 | 2026-11-06 | 0.19 | E13 Insights (categories vs usual/budget, 12-month trend, weekly averages, top shops, who spent, seasonality, separate accounts). |
