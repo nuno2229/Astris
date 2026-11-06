@@ -6,6 +6,7 @@ import TxList from "./TxList";
 import { RecurringRow } from "./Recurring";
 import { Meter } from "./Goals";
 import { BudgetBar } from "./Budgets";
+import { useServer } from "./ServerSettings";
 
 type SummaryWithDaily = Summary & { daily: { currency: string; day: string; spent: string }[] };
 
@@ -13,6 +14,7 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
   const [s, setS] = useState<SummaryWithDaily | null>(null);
   const [accounts, setAccounts] = useState<HouseholdAccount[]>([]);
   const [error, setError] = useState("");
+  const [server] = useServer();
 
   useEffect(() => {
     Promise.all([
@@ -39,6 +41,10 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
 
   return (
     <>
+      {server?.is_admin && server.update_available && (
+        <a className="callout review-link" href="#/settings" style={{ marginBottom: 10 }}>
+          <span><strong>Astris {server.latest_version}</strong> is available</span><span aria-hidden="true">›</span></a>
+      )}
       <section className="hero" aria-labelledby="hero-label">
         <div className="label" id="hero-label">Spent in {month}</div>
         <div className="figure">{money(main.spent, main.currency)}</div>

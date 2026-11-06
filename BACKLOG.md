@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.23 |
+| **Backlog version** | 0.24 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -63,7 +63,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-1 | Core offline vs online modules | Core offline by default; online modules explicitly gated, toggleable, never auto-on | E18, E17, E14-07 | ✅ **Confirmed 2026-11-05** |
 | D-2 | What/where is "Jev" (LLM model/host on Unraid)? | A llama.cpp server. URL and model are entered by the household owner in **Settings** (PO, 2026-11-05) | — | ✅ **Resolved 2026-11-05** |
 | D-3 | Spec sync between Mac (Claude) and Unraid (PO) | Repo: **github.com/nuno2229/Astris** (public). Image: `ghcr.io/nuno2229/astris`. BACKLOG.md lives in the repo | — | ✅ **Resolved 2026-11-05** |
-| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | Research: auto-update script + in-app banner + rollback; owner/admin vs member | E19 | **Open** |
+| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | **Built as proposed (2026-11-06), PO to confirm:** Unraid's own update check; opt-in in-app "update available" banner; automatic backup before database changes; rollback = pin previous tag + restore; first account = server admin who can close sign-ups | — | 🟡 **Built, awaiting confirmation** |
 | D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
 | D-6 | Geography / retailer scope | UK only (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Alerts only, never blocking (PO "ahead", 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
@@ -112,7 +112,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 ### E23 · Keep original files (opt-in) — `Review` · **PO request 2026-11-06**
 - [x] **E23-01** Optional "keep a copy" for receipt photos (visible to the household) and statement files (owner only) — `Review`
 - [x] **E23-02** Download as attachment only (never rendered in the app), delete any time, 1 GB per person — `Review`
-- [ ] **E23-03** Included in backup/export (E19-05) — `Todo`; stored unencrypted until E02-10
+- [x] **E23-03** Included in backup/export (E19-05) — `Review` (in backups; encrypted backups with BACKUP_PASSPHRASE; the live DB is unencrypted until E02-10)
 
 ### E05 · AI categorisation pipeline — `Review` · §4.1, §22, §25.5
 - [x] **E05-00** LLM server address/model configured in Settings, owner only (PO instruction 2026-11-05) — `Review`
@@ -216,13 +216,13 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E18-02** "Is it worth it?" side-by-side view
 - [ ] **E18-03** Disclaimer on data freshness and scraping ethics; `uses internet` label and toggle
 
-### E19 · Platform, release & ops — `Todo` · §20, §25.19
-- [ ] **E19-01** Dockerfile and Unraid template
-- [ ] **E19-02** GitHub source, release-tagged images, one-command upgrade
-- [ ] **E19-03** Research: native-feeling Unraid updates (auto-update vs in-app banner, rollback) — `Blocked (D-4)`
-- [ ] **E19-04** Multi-user self-service registration and role separation (owner/admin vs member)
-- [ ] **E19-05** Full DB export/import, backup and restore
-- [ ] **E19-06** No telemetry leaving the home by default (§23)
+### E19 · Platform, release & ops — `Review` · §20, §25.19
+- [x] **E19-01** Dockerfile and Unraid template — `Review` (backups folder + passphrase in the template)
+- [x] **E19-02** GitHub source, release-tagged images, one-command upgrade — `Done` (v0.1.2 published)
+- [x] **E19-03** Research: native-feeling Unraid updates (auto-update vs in-app banner, rollback) — `Review` (Unraid's own update check + opt-in in-app banner + automatic pre-migrate backup + tag-pin rollback, see README)
+- [x] **E19-04** Multi-user self-service registration and role separation (owner/admin vs member) — `Review` (server admin = first account; sign-ups switch; household roles from E02)
+- [x] **E19-05** Full DB export/import, backup and restore — `Review` (daily + pre-migrate backups, optional encryption, download; CLI restore; personal JSON export. Importing a personal export into another server isn't built)
+- [x] **E19-06** No telemetry leaving the home by default (§23) — `Review` (no outbound calls unless opted in: local LLM, ECB rates, update check, Discord/Telegram/ntfy)
 
 ### E22 · Notifications (Discord / Telegram / ntfy) — `Review` · **PO request 2026-11-06** (supersedes P-5) · §2, §7, §11
 - [x] **E22-01** Per-user channels: Discord webhook, Telegram bot, ntfy (self-hostable). Internet channels opt-in + labelled "uses internet"
@@ -295,6 +295,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.24 | E19 platform: backups (daily, pre-upgrade, encrypted option, restore CLI), server admin + sign-ups switch, opt-in update banner, personal export. D-4 built as proposed. |
 | 2026-11-06 | 0.23 | E04 receipts (OCR, unit prices, discounts, payment matching, pantry/list). E23 kept originals (PO request). |
 | 2026-11-06 | 0.22 | E17 shopping lists (shared + personal, favourites, from pantry, done-shopping → pantry, notifications); assistant can add to the list. Nav tab Pantry → Shopping (List / Pantry). |
 | 2026-11-06 | 0.21 | E15 assistant (grounded answers with sources, confirmed actions, rules fallback). D-9 resolved. Same-day statement order preserved for balances. |

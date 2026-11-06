@@ -39,3 +39,21 @@ The image is published to GHCR when a `v*` tag is pushed (`.github/workflows/rel
 4. Open `http://<unraid-ip>:8484` and create the first account. Turn off *Allow new sign-ups* once everyone has one.
 
 On every start the container waits for Postgres, creates roles and the database if needed, applies migrations, then starts. `/api/health` reports the DB state and version.
+
+## Updating, backups and rolling back (D-4)
+
+- **Update:** Unraid's Docker tab shows "update ready" when a new image is published; click *apply update*. Server admins
+  can also turn on Settings → Server → "Tell me when an update is available" (checks GitHub once a day; off by default).
+- **Automatic safety net:** when a new version changes the database, the container takes a `pre-migrate` backup before
+  applying the change. Daily backups are kept for 14 days (`BACKUP_KEEP`) in the *Backups* folder of the template.
+- **Back up now / download:** Settings → Server (server admin = the first account created).
+- **Encrypted backups:** set `BACKUP_PASSPHRASE`. Without it, an encrypted backup can't be restored.
+- **Roll back to an older version:**
+  1. In the Unraid template, change the image tag from `:latest` to the previous version, e.g. `ghcr.io/nuno2229/astris:0.1.2`.
+  2. Restore the backup taken just before the upgrade:
+     ```bash
+     docker exec -it astris python -m app.backup list
+     docker exec -it astris python -m app.backup restore astris-YYYYMMDD-HHMMSS-pre-migrate.astrisbak --yes
+     ```
+     Restore **replaces all data** with the backup's. It needs the schema-owner credentials the container already has.
+- **Personal export:** anyone can download their own data (Settings → Your data) as JSON.

@@ -29,7 +29,7 @@ export const api = {
 };
 
 export type Role = "owner" | "admin" | "member";
-export interface Me { id: string; email: string; display_name: string; home_currency: string }
+export interface Me { id: string; email: string; display_name: string; home_currency: string; is_server_admin?: boolean }
 export interface Household { id: string; name: string; role: Role }
 export interface Member { user_id: string; display_name: string; email: string; role: Role; joined_at: string }
 export interface HouseholdDetail extends Household { members: Member[] }

@@ -20,7 +20,9 @@ COPY backend/pyproject.toml ./
 COPY backend/ ./
 RUN pip install --upgrade pip && pip install .
 COPY --from=web /web/dist /app/frontend/dist
-RUN useradd --system --uid 10001 --home /app ledger && rm -f .env && chown -R ledger /app
+RUN useradd --system --uid 10001 --home /app ledger && rm -f .env && mkdir -p /data/backups && chown -R ledger /app /data
+ENV BACKUP_DIR=/data/backups
+VOLUME ["/data/backups"]
 USER ledger
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \

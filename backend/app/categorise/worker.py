@@ -60,6 +60,8 @@ class Worker:
         self._idle = idle_seconds
         self._t: threading.Thread | None = None
         self._fx_now = False
+        self._updates_now = False
+        self._last_daily = None
 
     def start(self) -> None:
         self._t = threading.Thread(target=self._loop, name="ai-worker", daemon=True)
@@ -76,6 +78,10 @@ class Worker:
         self._fx_now = True
         self._wake.set()
 
+    def wake_updates(self) -> None:
+        self._updates_now = True
+        self._wake.set()
+
     def _loop(self) -> None:
         import time
         last_notify = 0.0
@@ -90,6 +96,10 @@ class Worker:
                 run_fx(force)
             except Exception:
                 log.exception("ECB rates refresh failed")
+            try:
+                self._daily_jobs()
+            except Exception:
+                log.exception("daily jobs failed")
             if time.monotonic() - last_notify > NOTIFY_EVERY_S:
                 last_notify = time.monotonic()
                 try:
@@ -109,6 +119,25 @@ class Worker:
             if not busy:
                 self._wake.wait(self._idle)
                 self._wake.clear()
+
+
+    def _daily_jobs(self) -> None:
+        """Once a day after BACKUP_HOUR: a backup and (opt-in) the update check. Update check also on demand."""
+        from datetime import datetime
+        from app.config import get_settings
+        from app.routers.admin import check_for_update
+        now = datetime.now()
+        if self._updates_now:
+            self._updates_now = False
+            check_for_update(lambda: Session(get_engine()))
+        if self._last_daily == now.date() or now.hour < get_settings().backup_hour:
+            return
+        self._last_daily = now.date()
+        from app import backup
+        latest = backup.list_backups()
+        if not latest or (now.timestamp() - datetime.fromisoformat(latest[0]["created_at"]).timestamp()) > 20 * 3600:
+            backup.create("daily")
+        check_for_update(lambda: Session(get_engine()))
 
 
 worker = Worker()

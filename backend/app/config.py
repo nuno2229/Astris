@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     invite_days: int = 7
     max_upload_bytes: int = 20 * 1024 * 1024
     ai_worker: bool = True  # background categorisation worker
+    backup_dir: str = "./backups"          # Docker/Unraid: /data/backups (a mapped share)
+    backup_keep: int = 14                  # daily backups kept
+    backup_hour: int = 3                   # local hour for the daily backup
+    backup_passphrase: str = ""            # set to encrypt backups (keep it somewhere safe!)
+    github_repo: str = "nuno2229/Astris"   # for the opt-in update check
     app_version: str = ""  # set by the Docker build from the git tag; else the package version
 
     def _url(self, role: str, pw: str) -> str:

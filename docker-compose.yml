@@ -22,6 +22,8 @@ services:
       db: { condition: service_healthy }
     ports:
       - "${PORT:-8484}:8000"
+    volumes:
+      - ${DATA_DIR:-./data}/backups:/data/backups
     environment:
       DB_HOST: db
       DB_NAME: finance_tracker
@@ -30,3 +32,4 @@ services:
       DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       TZ: ${TZ:-Europe/London}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}      # set to encrypt backups; keep it safe, it can't be recovered

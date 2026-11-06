@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, Household } from "../api";
 import { getThemePref, setThemePref, ThemePref } from "../theme";
 import Notifications from "./Notifications";
+import ServerSettings from "./ServerSettings";
 
 interface SettingsData {
   llm_enabled: boolean; llm_base_url: string | null; llm_model: string | null;
@@ -30,6 +31,7 @@ export default function Settings({ household }: { household: Household }) {
       <Notifications />
       <AiSettings household={household} />
       <Rates household={household} />
+      <ServerSettings />
       <About />
     </>
   );

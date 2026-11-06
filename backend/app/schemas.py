@@ -25,6 +25,7 @@ class MeOut(BaseModel):
     email: str
     display_name: str
     home_currency: str
+    is_server_admin: bool = False
 
 
 class MeUpdate(BaseModel):

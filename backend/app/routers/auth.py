@@ -29,14 +29,14 @@ def _start_session(db: DB, request: Request, response: Response, user_id) -> Non
 
 
 def _me(db: DB, uid) -> MeOut:
-    row = db.execute(text("SELECT id, email, display_name, home_currency FROM users WHERE id = :u"), {"u": uid}).one()
+    row = db.execute(text("SELECT id, email, display_name, home_currency, is_server_admin FROM users WHERE id = :u"), {"u": uid}).one()
     return MeOut(**row._mapping)
 
 
 @router.post("/auth/register", response_model=MeOut, status_code=201)
 def register(body: RegisterIn, db: DB, request: Request, response: Response):
-    if not get_settings().allow_registration:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Registration is disabled on this server")
+    if not get_settings().allow_registration or not db.execute(text("SELECT registration_open()")).scalar():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "New sign-ups are closed on this server. Ask the admin for an invite.")
     try:
         with db.begin_nested():
             uid = db.execute(
