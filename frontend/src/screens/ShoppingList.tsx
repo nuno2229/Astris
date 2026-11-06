@@ -1,7 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api, Household } from "../api";
 
-interface Item { id: string; name: string; quantity: string; note: string | null; expires_on: string | null; product_id: string | null;
+import { unitLabel } from "./Prices";
+
+interface Item { cheapest: { store: string; unit_price: string; basis: string } | null; id: string; name: string; quantity: string; note: string | null; expires_on: string | null; product_id: string | null;
   in_pantry: string | null; source: string; checked: boolean; added_by: string | null; added_at: string; favourite: boolean }
 interface List { id: string; name: string; scope: "household" | "personal"; is_default: boolean; open_items: number; can_delete: boolean; items?: Item[] }
 interface Fav { id: string; name: string; scope: "household" | "personal" }
@@ -101,7 +103,7 @@ export default function ShoppingList({ household }: { household: Household }) {
           )}
         </>
       )}
-      <p className="muted small" style={{ marginTop: 14 }}>Cheapest-shop suggestions will come with price comparison.</p>
+      <p className="muted small" style={{ marginTop: 14 }}>“Cheapest at” comes from your receipts and, if switched on, Open Prices. See Shopping → Prices.</p>
     </>
   );
 }
@@ -113,6 +115,7 @@ function Row({ i, onToggle, onRemove, onStar }: { i: Item; onToggle: (i: Item) =
         <input type="checkbox" checked={i.checked} onChange={() => onToggle(i)} />
         <span className="main">
           <span className="title">{i.name}{Number(i.quantity) !== 1 && <span className="muted"> × {q(i.quantity)}</span>}</span>
+          {i.cheapest && <span className="meta"><span className="best">Cheapest at {i.cheapest.store}</span> ({unitLabel(i.cheapest)})</span>}
           <span className="meta">{[i.note, i.in_pantry !== null ? `have ${q(i.in_pantry)}` : null,
             i.source === "pantry" ? "running low" : i.source === "assistant" ? "added by Astris" : i.added_by ? `added by ${i.added_by}` : null]
             .filter(Boolean).join(", ")}</span>

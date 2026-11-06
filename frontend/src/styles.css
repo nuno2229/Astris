@@ -325,3 +325,9 @@ dialog.sheet.chat { height: 88dvh; }
 .ritem { align-items: flex-start; }
 .ritem input { min-height: 40px; padding: 6px 10px; }
 .ritem .price { width: 84px; text-align: right; font-variant-numeric: tabular-nums; }
+.best { color: var(--in); font-weight: 600; }
+.price-row { display: block !important; padding: 0 !important; }
+table.compare { width: calc(100% - 24px); margin: 0 12px 12px; border-collapse: collapse; font-size: 14px; }
+table.compare th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px; }
+table.compare td { padding: 8px 6px; border-top: 1px solid var(--line); vertical-align: top; font-variant-numeric: tabular-nums; }
+table.compare tr.best-row td:first-child { font-weight: 600; }

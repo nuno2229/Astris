@@ -60,6 +60,7 @@ class ItemOut(BaseModel):
     added_by: str | None
     added_at: datetime
     favourite: bool
+    cheapest: dict | None = None      # best known shop from your receipts / Open Prices (E17-06, E18)
 
 
 class ListDetail(ListOut):
@@ -118,6 +119,8 @@ def _favs(db: DB, hid: UUID) -> set[str]:
 
 def detail(db: DB, lst, user_id: UUID) -> ListDetail:
     favs = _favs(db, lst.household_id)
+    from app.routers.prices import cheapest_for, price_book
+    book = price_book(db, lst.household_id)
     rows = db.execute(text("""
         SELECT i.*, u.display_name AS added_by_name,
                (SELECT sum(l.quantity) FROM stock_lots l WHERE l.product_id = i.product_id) AS in_pantry
@@ -126,7 +129,8 @@ def detail(db: DB, lst, user_id: UUID) -> ListDetail:
     items = [ItemOut(id=r.id, name=r.name, quantity=Decimal(r.quantity).normalize(), note=r.note, expires_on=r.expires_on,
                      product_id=r.product_id, in_pantry=Decimal(r.in_pantry).normalize() if r.in_pantry is not None else
                      (Decimal(0) if r.product_id else None), source=r.source, checked=r.checked, added_by=r.added_by_name,
-                     added_at=r.added_at, favourite=r.name.lower() in favs) for r in rows]
+                     added_at=r.added_at, favourite=r.name.lower() in favs,
+                     cheapest=(lambda s: s.model_dump(mode="json") if s else None)(cheapest_for(book, r.name))) for r in rows]
     return ListDetail(id=lst.id, name=lst.name, scope=lst.scope, is_default=lst.is_default,
                       open_items=sum(1 for i in items if not i.checked), can_delete=_can_delete(db, lst, user_id), items=items)
 

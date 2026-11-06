@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.25 |
+| **Backlog version** | 0.26 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -203,18 +203,18 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds
 - [ ] **E16-07** Every flow works on mobile from day one: scanning, barcode, chat, budgets, goals, wallet, import review
 
-### E17 · Shopping list & product intelligence — `Review` (store tagging waits for E18) · §16, §18
+### E17 · Shopping list & product intelligence — `Review` · §16, §18
 - [x] **E17-01** Household list by default, personal list optional — `Review` (shared list created automatically; personal lists private incl. in History)
 - [x] **E17-02** Add from receipts, manually, from Cookidoo carry-over and from low-stock suggestions — `Review` for manual, low-stock (pantry) and the assistant; receipts wait for E04, Cookidoo for E20
 - [x] **E17-03** Per-item checkbox, notes, qty, expiry — `Review` (+ "Done shopping" puts ticked pantry items back into stock)
 - [x] **E17-04** Share/notify household members (local-first) — `Review` (list refreshes while open; others notified via their channels, once per batch)
 - [x] **E17-05** Favourites (user/household scoped); filter the list by favourites — `Review`
-- [ ] **E17-06** "Buy cheapest" store tagging — `Blocked (D-1)`
+- [x] **E17-06** "Buy cheapest" store tagging — `Review` ("Cheapest at Aldi" on list items when ≥2 shops seen)
 
-### E18 · Price comparison (opt-in online) — `Blocked (D-1, D-6)` · §16, §25.18
-- [ ] **E18-01** Cheapest store per product this week (UK grocer sources TBD)
-- [ ] **E18-02** "Is it worth it?" side-by-side view
-- [ ] **E18-03** Disclaimer on data freshness and scraping ethics; `uses internet` label and toggle
+### E18 · Price comparison (opt-in online) — `Review` (UK; sources: your receipts + opt-in Open Prices; no scraping — G-17) · §16, §25.18
+- [x] **E18-01** Cheapest store per product this week (UK grocer sources TBD) — `Review` (latest price per shop, like-for-like unit prices, pints handled)
+- [x] **E18-02** "Is it worth it?" side-by-side view — `Review` (Shopping → Prices)
+- [x] **E18-03** Disclaimer on data freshness and scraping ethics; `uses internet` label and toggle — `Review` (dates shown, >60 days flagged)
 
 ### E19 · Platform, release & ops — `Review` · §20, §25.19
 - [x] **E19-01** Dockerfile and Unraid template — `Review` (backups folder + passphrase in the template)
@@ -265,6 +265,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-14 | **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
 | G-15 | **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
 | G-16 | **"Adjust per-account rules" (E09-03) interpretation.** Built as per-file choice of target account, day/month order and CSV column mapping, applied before import. Saved per-bank import profiles (remembering a mapping for next time) aren't built. | E09 |
+| G-17 | **Price sources (E18).** No public UK supermarket price APIs exist and scraping their sites breaches their terms, so prices come from your own receipts (offline) and, opt-in, Open Prices (Open Food Facts, open data, barcode lookups, UK results only). Coverage will be thinner than a scraper's. PO to confirm. | E18 |
 | G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). **Interim answer (E10):** the app's database role can only add entries, never edit or delete them, and a hash chain flags any entry altered or removed directly in the database. It does **not** stop someone with full database admin access who also rebuilds the chain; that would need an off-server copy of the chain head. PO to confirm this is enough. | §13 |
 
 ---
@@ -295,6 +296,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.26 | E18 price comparison (receipts + opt-in Open Prices, UK); cheapest-shop tags on the list. Security: ADMIN_EMAIL only claims admin while none exists; CLI set-admin. G-17. |
 | 2026-11-06 | 0.25 | PO: every section is its own tab (no More page; phone tab bar scrolls). Security: backups no longer downloadable in the app; ADMIN_EMAIL decides the server admin. Released **v0.1.3**. |
 | 2026-11-06 | 0.24 | E19 platform: backups (daily, pre-upgrade, encrypted option, restore CLI), server admin + sign-ups switch, opt-in update banner, personal export. D-4 built as proposed. |
 | 2026-11-06 | 0.23 | E04 receipts (OCR, unit prices, discounts, payment matching, pantry/list). E23 kept originals (PO request). |

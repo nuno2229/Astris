@@ -15,7 +15,7 @@ DISCOUNT = re.compile(r"\b(saving|discount|promo|offer|clubcard price|nectar pri
 TOTAL = re.compile(r"^\s*(?:total|balance due|amount due|to pay|total to pay)\b[^\d-]*(\d{1,5}[.,]\d{2})", re.I)
 QTY_AT = re.compile(r"^\s*(\d{1,3})\s*[x@]\s*[£€$]?\s?(\d{1,4}[.,]\d{2})", re.I)                    # 2 x 0.85
 WEIGHT = re.compile(r"(\d{1,3}[.,]\d{1,3})\s*kg\s*@\s*[£€$]?\s?(\d{1,4}[.,]\d{2})\s*/\s*kg", re.I)   # 0.512 kg @ £1.20/kg
-SIZE = re.compile(r"(?:(\d{1,2})\s*[xX]\s*)?(\d{1,4}(?:[.,]\d{1,3})?)\s*(kg|g|ml|cl|ltr|l|litre|pk|pack)\b", re.I)
+SIZE = re.compile(r"(?:(\d{1,2})\s*[xX]\s*)?(\d{1,4}(?:[.,]\d{1,3})?)\s*(kg|g|ml|cl|ltr|l|litre|pints?|pt|pk|pack)\b", re.I)
 DATE = re.compile(r"\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})\b")
 
 
@@ -68,9 +68,11 @@ def size_from_name(name: str) -> tuple[Decimal | None, str | None, Decimal | Non
     if not m:
         return None, None, None, name.strip()
     pack, qty, unit = m[1], _d(m[2]), m[3].lower()
-    unit = {"ltr": "l", "litre": "l", "cl": "ml", "pk": "item", "pack": "item"}.get(unit, unit)
+    unit = {"ltr": "l", "litre": "l", "cl": "ml", "pk": "item", "pack": "item", "pint": "ml", "pints": "ml", "pt": "ml"}.get(unit, unit)
     if m[3].lower() == "cl":
         qty *= 10
+    if m[3].lower() in ("pint", "pints", "pt"):
+        qty *= 568                      # UK pint
     if unit == "item":
         return qty, "item", None, name.strip()
     return qty, unit, Decimal(pack) if pack else None, name.strip()

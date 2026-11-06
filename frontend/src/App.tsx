@@ -86,7 +86,7 @@ export default function App() {
     { path: "household", label: "Household", icon: <UsersIcon /> },
     { path: "history", label: "History", icon: <HistoryIcon /> },
   ];
-  const ALIASES: Record<string, string> = { pantry: "list", receipts: "list", recurring: "bills", import: "accounts" };
+  const ALIASES: Record<string, string> = { pantry: "list", receipts: "list", prices: "list", recurring: "bills", import: "accounts" };
   const activeTab = ALIASES[tab] ?? tab;
 
 
@@ -123,7 +123,8 @@ export default function App() {
         {household && tab === "goals" && <Goals household={household} currency={me.home_currency} />}
         {household && tab === "budgets" && <Budgets household={household} currency={me.home_currency} />}
         {household && tab === "insights" && <Insights household={household} />}
-        {household && (tab === "list" || tab === "pantry" || tab === "receipts") && <Shopping household={household} initial={tab === "pantry" ? "pantry" : tab === "receipts" ? "receipts" : "list"} />}
+        {household && ["list", "pantry", "receipts", "prices"].includes(tab) &&
+          <Shopping household={household} initial={(tab === "list" ? "list" : tab) as "list" | "pantry" | "receipts" | "prices"} />}
         {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
       {household && <Copilot household={household} />}
