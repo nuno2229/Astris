@@ -27,6 +27,26 @@ def run_once() -> int:
     return done
 
 
+def run_notifications() -> int:
+    """Send new alerts for every user with a channel. Each user runs in their own transaction, as that user."""
+    from app.notify.scheduler import notify_user
+    eng = get_engine()
+    with Session(eng) as s:
+        users = [r[0] for r in s.execute(text("SELECT notify_users(500)"))]
+    sent = 0
+    for u in users:
+        try:
+            with Session(eng) as s, s.begin():
+                bind_user(s, u)
+                sent += notify_user(s, u)
+        except Exception:
+            log.exception("notifications failed for user %s", u)
+    return sent
+
+
+NOTIFY_EVERY_S = 15 * 60
+
+
 class Worker:
     def __init__(self, idle_seconds: float = 10):
         self._wake = threading.Event()
@@ -46,12 +66,20 @@ class Worker:
         self._wake.set()
 
     def _loop(self) -> None:
+        import time
+        last_notify = 0.0
         while not self._stop.is_set():
             try:
                 busy = run_once() > 0
             except Exception:
                 log.exception("AI worker iteration failed")
                 busy = False
+            if time.monotonic() - last_notify > NOTIFY_EVERY_S:
+                last_notify = time.monotonic()
+                try:
+                    run_notifications()
+                except Exception:
+                    log.exception("notification round failed")
             if not busy:
                 self._wake.wait(self._idle)
                 self._wake.clear()

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, Household } from "../api";
 import { getThemePref, setThemePref, ThemePref } from "../theme";
+import Notifications from "./Notifications";
 
 interface SettingsData {
   llm_enabled: boolean; llm_base_url: string | null; llm_model: string | null;
@@ -26,6 +27,7 @@ export default function Settings({ household }: { household: Household }) {
         </div>
         <span className="muted small">Saved on this device only.</span>
       </div>
+      <Notifications />
       <AiSettings household={household} />
       <About />
     </>

@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.10 |
+| **Backlog version** | 0.11 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -219,12 +219,12 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E19-05** Full DB export/import, backup and restore
 - [ ] **E19-06** No telemetry leaving the home by default (§23)
 
-### E22 · Notifications (Discord / Telegram / ntfy) — `In progress` · **PO request 2026-11-06** (supersedes P-5) · §2, §7, §11
-- [ ] **E22-01** Per-user channels: Discord webhook, Telegram bot, ntfy (self-hostable). Internet channels opt-in + labelled "uses internet"
-- [ ] **E22-02** Minimal message content by default (no names/amounts) unless the user turns details on
-- [ ] **E22-03** Triggers: subscription renewing (1/3/7 days ahead), trial ending, charged after cancel, missed regular payment
-- [ ] **E22-04** Each alert sent once (dedupe), test-message button, secrets never returned by the API
-- [ ] **E22-05** Strict destinations: Discord only discord.com webhooks, Telegram only api.telegram.org; ntfy via the pinned, home-network-checked client
+### E22 · Notifications (Discord / Telegram / ntfy) — `Review` · **PO request 2026-11-06** (supersedes P-5) · §2, §7, §11
+- [x] **E22-01** Per-user channels: Discord webhook, Telegram bot, ntfy (self-hostable). Internet channels opt-in + labelled "uses internet"
+- [x] **E22-02** Minimal message content by default (no names/amounts) unless the user turns details on
+- [x] **E22-03** Triggers: subscription renewing (1/3/7 days ahead), trial ending, charged after cancel, missed regular payment
+- [x] **E22-04** Each alert sent once (dedupe), test-message button, secrets never returned by the API
+- [x] **E22-05** Strict destinations: Discord only discord.com webhooks, Telegram only api.telegram.org; ntfy via the pinned, home-network-checked client
 
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
@@ -247,7 +247,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 |---|---|---|
 | G-1 | **Cross-references are stale.** E.g. "§5 isolation" (§5 is now Recurring; isolation is in §3), "§15 attribution" (it's §3.5), "§12 AI scope" (copilot is §14), "§17 data model" (§17 is analytics), "§18 research note" (it's §20), "§21 privacy" (it's §23), and "respects §5 attribution" in §15.3/§17. | Throughout |
 | G-2 | NFR "cold parse of 5k-line PDF under ~X s" has no number. | §22 |
-| G-3 | **Notifications are required** (§7, §11, §15.2, §18) **but there's no delivery channel.** Standard PWA web push goes through Apple/Google push servers, which conflicts with "no data leaves home". | §2 vs §7 |
+| G-3 | ✅ **Resolved by E22 (2026-11-06).** **Notifications are required** (§7, §11, §15.2, §18) **but there's no delivery channel.** Standard PWA web push goes through Apple/Google push servers, which conflicts with "no data leaves home". | §2 vs §7 |
 | G-4 | **Camera/barcode scanning in a PWA needs HTTPS** (secure context). Plain `http://unraid-ip:port` on the LAN won't allow camera access. A local TLS strategy is needed. | §15.1, §21 |
 | G-5 | "Scheduled income/known bills from calendar or recurring-ofx blocks": which calendar? None is defined as a data source. | §5 |
 | G-6 | Goals are listed as an account type in §25.2 but defined as targets in §6. Is a goal an account or a view over accounts? | §6, §25.2 |
@@ -289,6 +289,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.11 | E22 notifications (Discord/Telegram/ntfy, minimal by default, once per alert). Released **v0.1.1**. |
 | 2026-11-06 | 0.10 | E07 subscriptions (Bills tab, trials, cancellations, suggestions). Version in side panel. E22 notifications approved by PO. G-15. |
 | 2026-11-06 | 0.9 | E06 recurring payments (detection, next due, missed, price change, dismiss). Security: LLM URL origin-only + total deadline. 99 tests. |
 | 2026-11-06 | 0.8 | E05 categorisation: rules + learned merchant rules + background local-LLM pass with injection guard; review flow in UI. G-13, G-14 added. |

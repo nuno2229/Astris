@@ -8,7 +8,13 @@ pydantic-settings>=2.4
 python-multipart>=0.0.9
 ofxparse>=0.21
 email-validator>=2
+mt-940>=4.30
+pdfplumber>=0.11
+pypdfium2>=4.30
+pytesseract>=0.3.10
+pillow>=10
 
 [dev]
 pytest>=8
 httpx>=0.27
+reportlab>=4
