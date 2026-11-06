@@ -78,3 +78,28 @@ def test_wizard_isolation():
     run = a.post("/api/import-runs", json={"preview_ids": [p["id"]]}).json()
     assert b.delete(f"/api/import-runs/{run['id']}").status_code == 404
     assert b.get("/api/import-runs").json() == []
+
+
+def test_upload_budgets(monkeypatch):
+    from app.routers import import_wizard as w
+    a = make_user("a")
+    acc = create_account(a)
+    monkeypatch.setattr(w, "MAX_REQUEST_BYTES", len(OCT) + 10)
+    r = a.post(f"/api/accounts/{acc}/imports/preview", files=files(("a.csv", OCT), ("b.csv", OCT)))
+    assert r.status_code == 413 and "too large together" in r.json()["detail"]
+    monkeypatch.setattr(w, "MAX_REQUEST_BYTES", 10 ** 9)
+    monkeypatch.setattr(w, "MAX_USER_PREVIEWS", 2)
+    assert a.post(f"/api/accounts/{acc}/imports/preview", files=files(("a.csv", OCT), ("b.csv", OCT))).status_code == 201
+    assert a.post(f"/api/accounts/{acc}/imports/preview", files=files(("c.csv", OCT))).status_code == 429
+
+
+def test_expired_previews_purged_globally(owner_engine):
+    from sqlalchemy import text
+    a = make_user("a")
+    acc = create_account(a)
+    a.post(f"/api/accounts/{acc}/imports/preview", files=files(("a.csv", OCT)))
+    with owner_engine.begin() as c:
+        c.execute(text("UPDATE import_previews SET expires_at = now() - interval '1 minute'"))
+    from app.db import get_engine
+    with get_engine().begin() as c:   # runtime role, no user bound: only the definer function can do this
+        assert c.execute(text("SELECT purge_expired_previews()")).scalar() == 1

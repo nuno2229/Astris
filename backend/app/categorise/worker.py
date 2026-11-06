@@ -93,6 +93,11 @@ class Worker:
             if time.monotonic() - last_notify > NOTIFY_EVERY_S:
                 last_notify = time.monotonic()
                 try:
+                    with Session(get_engine()) as s, s.begin():
+                        s.execute(text("SELECT purge_expired_previews()"))
+                except Exception:
+                    log.exception("preview purge failed")
+                try:
                     run_notifications()
                 except Exception:
                     log.exception("notification round failed")

@@ -20,6 +20,9 @@ from app.routers.ledger import after_import, parse_checked, save_parsed
 
 router = APIRouter(prefix="/api", tags=["import-wizard"])
 MAX_FILES = 20
+MAX_REQUEST_BYTES = 50 * 1024 * 1024     # all files in one upload
+MAX_USER_PREVIEWS = 40                   # pending (not yet imported) previews per user
+MAX_USER_PREVIEW_BYTES = 100 * 1024 * 1024
 TOLERANCE = Decimal("0.01")
 
 
@@ -166,13 +169,23 @@ async def preview(aid: UUID, user: User, db: DB, files: Annotated[list[UploadFil
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Up to {MAX_FILES} files at a time")
     db.execute(text("DELETE FROM import_previews WHERE user_id = :u AND expires_at <= now()"), {"u": user.id})
     limit = get_settings().max_upload_bytes
+    held = db.execute(text("SELECT count(*), COALESCE(sum(octet_length(raw)), 0) FROM import_previews WHERE user_id = :u"),
+                      {"u": user.id}).one()
+    if held[0] + len(files) > MAX_USER_PREVIEWS:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                            "Too many files waiting to be imported. Import or remove some first.")
     seen: dict = {}
     out = []
+    used = 0
     for f in files:
         raw = await f.read(limit + 1)
         name = (f.filename or "upload")[:255]
         if len(raw) > limit:
             raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"{name} is too large")
+        used += len(raw)
+        if used > MAX_REQUEST_BYTES or held[1] + used > MAX_USER_PREVIEW_BYTES:
+            raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                                "These files are too large together. Import them in smaller groups.")
         pid = db.execute(text("INSERT INTO import_previews (user_id, account_id, filename, raw) VALUES (:u, :a, :f, :r) RETURNING id"),
                          {"u": user.id, "a": aid, "f": name, "r": raw}).scalar_one()
         out.append(await run_in_threadpool(_analyse, db, user, pid, name, aid, raw, {}, seen))
