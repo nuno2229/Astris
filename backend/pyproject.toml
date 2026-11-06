@@ -1,6 +1,6 @@
 [project]
 name = "finance-tracker"
-version = "0.1.1"  # bump together with the git tag (vX.Y.Z)
+version = "0.1.2"  # bump together with the git tag (vX.Y.Z)
 description = "Private, self-hosted household money + shopping hub"
 requires-python = ">=3.13"
 dependencies = [

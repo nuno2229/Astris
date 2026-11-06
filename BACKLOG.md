@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.14 |
+| **Backlog version** | 0.15 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.15 | v0.1.1 image build cancelled (stalled; tag kept, no image). Released **v0.1.2** from main (E08, ECB rates, E09, security fixes, faster build). |
 | 2026-11-06 | 0.14 | E09 bulk import wizard (dry run, balance checks, adjust, whole-run rollback). G-16. |
 | 2026-11-06 | 0.13 | D-8 resolved (ECB). E08-05/06 done. |
 | 2026-11-06 | 0.12 | E08 cash wallet + multi-currency (manual rates). Security fixes for ntfy. 124 tests. |
