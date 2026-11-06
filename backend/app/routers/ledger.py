@@ -21,6 +21,7 @@ from app.categorise.service import apply_rules, correct
 from app.categorise.worker import worker
 from app.recurring import detect as detect_recurring
 from app.routers.recurring import RecurringOut, household_recurring
+from app.routers.subscriptions import household_subscriptions
 
 router = APIRouter(prefix="/api", tags=["ledger"])
 
@@ -145,6 +146,7 @@ class Summary(BaseModel):
     needs_review: int = 0            # transactions whose category is uncertain (E05-03)
     upcoming: list[RecurringOut] = []  # regular payments due in the next 14 days (E06-04)
     missed: list[RecurringOut] = []    # expected but never arrived (E06-03)
+    subscription_alerts: list[dict] = []  # trial ending/converted, charged after cancel, renewing soon (E07-04)
 
 
 @router.get("/households/{hid}/summary", response_model=Summary)
@@ -195,7 +197,10 @@ def household_summary(hid: UUID, user: User, db: DB,
                    accounts_excluded=counts.get("hide", 0), recent=recent,
                    daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count,
                    upcoming=[r for r in rec if r.status == "active" and r.next_date <= today + timedelta(days=14)][:6],
-                   missed=[r for r in rec if r.status == "missed"])
+                   missed=[r for r in rec if r.status == "missed"],
+                   subscription_alerts=[{"subscription_id": str(sub.id), "provider": sub.provider, **a.model_dump()}
+                                        for sub in household_subscriptions(db, hid) for a in sub.alerts
+                                        if a.kind != "renewing" or (sub.next_renewal and (sub.next_renewal - today).days <= 3)])
 
 
 @router.get("/categories", response_model=list[str])

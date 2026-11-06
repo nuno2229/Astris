@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import accounts, auth, households, ledger, recurring, settings
+from app.routers import accounts, auth, households, ledger, recurring, settings, subscriptions
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -39,7 +39,8 @@ async def security(request: Request, call_next):
     return response
 
 
-for r in (auth.router, households.router, accounts.router, ledger.router, recurring.router, settings.router):
+for r in (auth.router, households.router, accounts.router, ledger.router, recurring.router, settings.router,
+          subscriptions.router):
     app.include_router(r)
 
 

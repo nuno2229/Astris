@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, Household, Me } from "./api";
 import { go, store, useRoute } from "./router";
-import { ChevronDown, GearIcon, HomeIcon, ListIcon, StarMark, UsersIcon, WalletIcon } from "./icons";
+import { BillsIcon, ChevronDown, GearIcon, HomeIcon, ListIcon, StarMark, UsersIcon, WalletIcon } from "./icons";
 import AuthScreen from "./screens/Auth";
 import Dashboard from "./screens/Dashboard";
 import Activity from "./screens/Activity";
@@ -10,7 +10,7 @@ import HouseholdScreen from "./screens/Household";
 import Onboarding from "./screens/Onboarding";
 import Join from "./screens/Join";
 import Settings from "./screens/Settings";
-import RecurringScreen from "./screens/Recurring";
+import Bills from "./screens/Bills";
 
 export interface Ctx {
   me: Me;
@@ -27,6 +27,8 @@ export default function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const [households, setHouseholds] = useState<Household[]>([]);
   const [hid, setHid] = useState<string | null>(null);
+  const [version, setVersion] = useState("");
+  useEffect(() => { api.get<{ version: string }>("/api/health").then((h) => setVersion(h.version)).catch(() => {}); }, []);
 
   const loadMe = useCallback(async () => {
     try { setMe(await api.get<Me>("/api/me")); }
@@ -63,6 +65,7 @@ export default function App() {
   const tabs = [
     { path: "", label: "Home", icon: <HomeIcon /> },
     { path: "activity", label: "Activity", icon: <ListIcon /> },
+    { path: "bills", label: "Bills", icon: <BillsIcon /> },
     { path: "accounts", label: "Accounts", icon: <WalletIcon /> },
     { path: "household", label: "Household", icon: <UsersIcon /> },
   ];
@@ -87,6 +90,7 @@ export default function App() {
             {t.icon}<span>{t.label}</span>
           </a>
         ))}
+        {version && <a className="version" href="#/settings" aria-label={`Astris version ${version}`}>Astris {version}</a>}
       </nav>
       <main key={hid /* remount per household: isolated context per screen (§21) */}>
         {household && tab === "" && <Dashboard ctx={ctx} household={household} />}
@@ -94,7 +98,7 @@ export default function App() {
         {household && tab === "accounts" && <Accounts ctx={ctx} household={household} />}
         {household && tab === "household" && <HouseholdScreen ctx={ctx} household={household} />}
         {household && tab === "settings" && <Settings household={household} />}
-        {household && tab === "recurring" && <RecurringScreen household={household} />}
+        {household && (tab === "bills" || tab === "recurring") && <Bills household={household} currency={me.home_currency} initial={tab === "recurring" ? "regular" : route[1]} />}
       </main>
     </div>
   );

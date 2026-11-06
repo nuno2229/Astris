@@ -49,8 +49,14 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
         <p key={t.currency} className="note">Also {money(t.spent, t.currency)} spent in {t.currency}.</p>
       ))}
       {s.missed.map((m) => (
-        <a key={m.id} className="callout review-link" href="#/recurring">
+        <a key={m.id} className="callout review-link" href="#/bills/regular">
           <span><strong>{m.name}</strong> didn't arrive as expected ({money(m.expected_amount, m.currency, true)})</span>
+          <span aria-hidden="true">›</span>
+        </a>
+      ))}
+      {s.subscription_alerts.map((a) => (
+        <a key={a.subscription_id + a.kind} className={"callout review-link" + (a.severity === "critical" ? " alert-critical" : "")} href="#/bills">
+          <span><strong>{a.provider}</strong>: {a.text}</span>
           <span aria-hidden="true">›</span>
         </a>
       ))}
@@ -82,7 +88,7 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
         <>
           <h2>Coming up</h2>
           <ul className="list">{s.upcoming.map((r) => <RecurringRow key={r.id} r={r} />)}</ul>
-          <p style={{ marginTop: 12 }}><a href="#/recurring">All regular payments</a></p>
+          <p style={{ marginTop: 12 }}><a href="#/bills/regular">All regular payments</a></p>
         </>
       )}
 

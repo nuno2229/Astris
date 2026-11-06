@@ -79,7 +79,7 @@ p { margin: 0; }
 main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 4px 16px calc(var(--nav-h) + var(--safe-b) + 32px); }
 
 .bottomnav {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(4, 1fr);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line);
@@ -234,3 +234,15 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
 .chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent;
   cursor: pointer; font-size: 14px; font-weight: 500; }
 .chip[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+
+/* version: bottom of the side panel on desktop; phones see it in Settings > About */
+.bottomnav .version { display: none; }
+@media (min-width: 900px) {
+  .bottomnav .version { display: block; margin-top: auto; padding: 14px; min-height: 0; font-size: 13px; font-weight: 500;
+    color: var(--muted); font-variant-numeric: tabular-nums; }
+  .bottomnav .version::before { display: none; }
+  .bottomnav { padding-bottom: 20px; }
+}
+.alert-critical { background: color-mix(in srgb, var(--danger) 16%, var(--surface)); }
+.alert-critical strong { color: var(--danger); }
+.hero .figure .per { font-size: 0.35em; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; font-stretch: 100%; }

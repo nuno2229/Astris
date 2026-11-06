@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.9 |
+| **Backlog version** | 0.10 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -122,12 +122,12 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E06-03** Missed-payment detection (expected charge didn't appear) — `Review` (only when imported statements cover the due date + grace)
 - [x] **E06-04** Upcoming due dates surfaced — `Review` (Home "Coming up", Regular payments screen)
 
-### E07 · Subscription registry — `Todo` · §11, §25.7
-- [ ] **E07-01** Registry separate from the ledger: provider, cost, cycle, renewal date, next renewal, auto-renew, status
-- [ ] **E07-02** Cancellation tracking
-- [ ] **E07-03** Unused-trial detection
-- [ ] **E07-04** Upcoming-renewal alerts
-- [ ] **E07-05** Feeds recurring transactions (E06) and budgets (E12)
+### E07 · Subscription registry — `Review` · §11, §25.7
+- [x] **E07-01** Registry separate from the ledger: provider, cost, cycle, renewal date, next renewal, auto-renew, status — `Review` (household-level, any member manages; Bills tab)
+- [x] **E07-02** Cancellation tracking — `Review` (flags charges after the cancel date)
+- [x] **E07-03** Unused-trial detection — `Review` (interpretation G-15: trial ending soon / became paid / ended quietly)
+- [x] **E07-04** Upcoming-renewal alerts — `Review` (in-app; push via E22)
+- [x] **E07-05** Feeds recurring transactions (E06) and budgets (E12) — `Review` for E06 (suggestions + linked renewal dates); E12 not built yet
 
 ### E08 · Cash wallet & multi-currency — `Todo` · §8, §9, §25.8
 - [ ] **E08-01** Cash as a first-class account type, owned per user (§3)
@@ -219,6 +219,13 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E19-05** Full DB export/import, backup and restore
 - [ ] **E19-06** No telemetry leaving the home by default (§23)
 
+### E22 · Notifications (Discord / Telegram / ntfy) — `In progress` · **PO request 2026-11-06** (supersedes P-5) · §2, §7, §11
+- [ ] **E22-01** Per-user channels: Discord webhook, Telegram bot, ntfy (self-hostable). Internet channels opt-in + labelled "uses internet"
+- [ ] **E22-02** Minimal message content by default (no names/amounts) unless the user turns details on
+- [ ] **E22-03** Triggers: subscription renewing (1/3/7 days ahead), trial ending, charged after cancel, missed regular payment
+- [ ] **E22-04** Each alert sent once (dedupe), test-message button, secrets never returned by the API
+- [ ] **E22-05** Strict destinations: Discord only discord.com webhooks, Telegram only api.telegram.org; ntfy via the pinned, home-network-checked client
+
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
 - [ ] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions; deduct/estimate ingredients from stock
@@ -251,6 +258,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-12 | **Real statements needed for PDF/OCR tuning.** Every bank lays out PDFs differently. The reader handles the common UK "Date / Description / Paid out / Paid in / Balance" shape, but needs a few real (redacted) statements from the banks you use to confirm. Statements are processed locally only. | E03-04/05 |
 | G-13 | **No category list in the spec.** Interim list: Groceries, Eating out, Transport, Bills, Housing, Shopping, Entertainment, Subscriptions, Health, Personal care, Travel, Kids, Pets, Gifts & donations, Cash, Transfers, Income, Fees & charges, Other. The "Transfers" label doesn't change totals (that's P-1). Custom per-household categories are not built. | E05, E07, E12 |
 | G-14 | **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
+| G-15 | **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
 | G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). | §13 |
 
 ---
@@ -265,7 +273,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | P-2 | **Refunds/returns** linked to the original transaction | Otherwise refunds skew category spend and budgets | Awaiting approval |
 | P-3 | **Split transactions** (one payment across several categories or members) | Needed for "who paid for what" (§14) and per-member goal contributions | Awaiting approval |
 | P-4 | **Settle-up between household members** (who owes whom) | Natural follow-on to P-3 for partners/roommates | Awaiting approval |
-| P-5 | **Self-hosted notification channel** (in-app inbox plus optional ntfy/Gotify/Unraid notifications) | Resolves G-3 without breaking privacy | Awaiting approval |
+| P-5 | **Self-hosted notification channel** (in-app inbox plus optional ntfy/Gotify/Unraid notifications) | Resolves G-3 without breaking privacy | ✅ **Approved 2026-11-06** as E22 (Discord/Telegram/ntfy) |
 | P-6 | **Local TLS** (e.g. reverse proxy with internal CA, or Tailscale/HTTPS cert) | Resolves G-4 so camera scanning works on phones | Awaiting approval |
 | P-7 | **Offline product database seed** (import an Open Food Facts dump locally) | Barcode scans can resolve product names/brands offline without an internet lookup | Awaiting approval |
 | P-8 | **Tenant-isolation test suite as a CI gate** (automated cross-household leakage tests on every query/AI path) | §2 says leakage = defect; this makes it enforceable | Awaiting approval |
@@ -281,6 +289,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.10 | E07 subscriptions (Bills tab, trials, cancellations, suggestions). Version in side panel. E22 notifications approved by PO. G-15. |
 | 2026-11-06 | 0.9 | E06 recurring payments (detection, next due, missed, price change, dismiss). Security: LLM URL origin-only + total deadline. 99 tests. |
 | 2026-11-06 | 0.8 | E05 categorisation: rules + learned merchant rules + background local-LLM pass with injection guard; review flow in UI. G-13, G-14 added. |
 | 2026-11-05 | 0.7 | E03: MT940, text PDF, scanned PDF / photo OCR import. G-12 added. |

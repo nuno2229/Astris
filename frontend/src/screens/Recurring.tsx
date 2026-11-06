@@ -29,7 +29,7 @@ export function RecurringRow({ r, onDismiss }: { r: Recurring; onDismiss?: () =>
   );
 }
 
-export default function RecurringScreen({ household }: { household: Household }) {
+export default function RecurringScreen({ household, embedded }: { household: Household; embedded?: boolean }) {
   const [items, setItems] = useState<Recurring[] | null>(null);
   const load = useCallback(() => api.get<Recurring[]>(`/api/households/${household.id}/recurring`).then(setItems), [household.id]);
   useEffect(() => { load(); }, [load]);
@@ -44,7 +44,7 @@ export default function RecurringScreen({ household }: { household: Household })
 
   return (
     <>
-      <h1>Regular payments</h1>
+      {!embedded && <h1>Regular payments</h1>}
       {items.length === 0 ? (
         <div className="empty"><strong>None found yet</strong>Bills, subscriptions and pay show up here once a statement has a few months of history.</div>
       ) : (

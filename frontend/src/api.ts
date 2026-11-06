@@ -45,7 +45,7 @@ export interface Tx { id: string; account_id: string; posted_on: string; amount:
 export interface Totals { currency: string; spent: string; received: string; spent_today: string }
 export interface Summary { household_id: string; period_start: string; period_end: string; included: Totals[];
   excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number;
-  upcoming: Recurring[]; missed: Recurring[] }
+  upcoming: Recurring[]; missed: Recurring[]; subscription_alerts: (SubAlert & { subscription_id: string; provider: string })[] }
 export interface ImportResult { batch_id: string; format: string; rows_total: number; rows_new: number;
   rows_duplicate: number; warnings: string[] }
 
@@ -76,3 +76,12 @@ export function relDay(iso: string): string {
   if (n > 1 && n < 7) return `in ${n} days`;
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
+
+export interface SubAlert { kind: string; text: string; severity: "info" | "warning" | "critical" }
+export interface Subscription { id: string; provider: string; plan: string | null; amount: string; currency: string;
+  cycle: "weekly" | "fortnightly" | "monthly" | "quarterly" | "yearly"; auto_renew: boolean;
+  status: "active" | "trial" | "cancelled"; trial_ends: string | null; cancelled_on: string | null;
+  access_until: string | null; next_renewal: string | null; monthly_cost: string; linked: boolean;
+  notes: string | null; alerts: SubAlert[] }
+export interface SubSuggestion { recurring_id: string; name: string; amount: string; currency: string; cadence: string; next_date: string }
+export const CYCLE_LABEL = { weekly: "a week", fortnightly: "every 2 weeks", monthly: "a month", quarterly: "a quarter", yearly: "a year" } as const;

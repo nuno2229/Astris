@@ -1,4 +1,4 @@
-import { KeyboardEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, PointerEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { money } from "../api";
 
 /** Month as a constellation: x = day, y = cumulative spend, star size = that day's spend.
@@ -10,12 +10,23 @@ export default function Constellation({ daily, start, end, currency }: {
   const [w, setW] = useState(340);
   const [sel, setSel] = useState<number | null>(null);
   const [draw, setDraw] = useState(true);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = wrap.current; if (!el) return;
-    const ro = new ResizeObserver(([e]) => setW(Math.max(260, Math.round(e.contentRect.width))));
+    // padding-box width minus the panel's horizontal padding = drawable width
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      if (inner > 0) setW(Math.max(260, Math.round(inner)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
+    addEventListener("resize", measure);
+    return () => { ro.disconnect(); removeEventListener("resize", measure); };
+  }, []);
+  useEffect(() => {
     const t = setTimeout(() => setDraw(false), 2000); // one orchestrated moment, then static
-    return () => { ro.disconnect(); clearTimeout(t); };
+    return () => clearTimeout(t);
   }, []);
 
   const H = 150, padX = 14, padTop = 18, padBot = 22;
