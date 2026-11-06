@@ -260,7 +260,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-14 | **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
 | G-15 | **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
 | G-16 | **"Adjust per-account rules" (E09-03) interpretation.** Built as per-file choice of target account, day/month order and CSV column mapping, applied before import. Saved per-bank import profiles (remembering a mapping for next time) aren't built. | E09 |
-| G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). | §13 |
+| G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). **Interim answer (E10):** the app's database role can only add entries, never edit or delete them, and a hash chain flags any entry altered or removed directly in the database. It does **not** stop someone with full database admin access who also rebuilds the chain; that would need an off-server copy of the chain head. PO to confirm this is enough. | §13 |
 
 ---
 
