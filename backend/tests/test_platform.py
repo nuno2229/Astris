@@ -135,3 +135,20 @@ def test_closed_signups_have_no_empty_server_bypass(owner_engine):
         c.execute(text("UPDATE server_settings SET registration_open = false"))
     r = TestClient(app).post("/api/auth/register", json={"email": "z@example.com", "display_name": "Z", "password": "long enough pw"})
     assert r.status_code == 403
+
+
+def test_admin_email_cannot_take_over_an_existing_admin(monkeypatch):
+    first = make_user("owner")                                     # first account: admin (ADMIN_EMAIL unset)
+    monkeypatch.setattr(get_settings(), "admin_email", "attacker@example.com")
+    r = TestClient(app).post("/api/auth/register", json={"email": "attacker@example.com", "display_name": "X", "password": "long enough pw"})
+    assert r.json()["is_server_admin"] is False
+    assert first.get("/api/me").json()["is_server_admin"] is True
+
+
+def test_cli_sets_admin():
+    from app import admin_cli
+    a, b = make_user("a"), make_user("b")
+    assert admin_cli.main(["set-admin", b.me["email"]]) == 0
+    assert (a.get("/api/me").json()["is_server_admin"], b.get("/api/me").json()["is_server_admin"]) == (False, True)
+    assert admin_cli.main(["set-admin", "nobody@example.com"]) == 1
+    assert b.get("/api/me").json()["is_server_admin"] is True          # unchanged on failure

@@ -49,7 +49,9 @@ On every start the container waits for Postgres, creates roles and the database 
   can also turn on Settings → Server → "Tell me when an update is available" (checks GitHub once a day; off by default).
 - **Automatic safety net:** when a new version changes the database, the container takes a `pre-migrate` backup before
   applying the change. Daily backups are kept for 14 days (`BACKUP_KEEP`) in the *Backups* folder of the template.
-- **Back up now:** Settings → Server (server admin = the account with `ADMIN_EMAIL`, or the first account if unset).
+- **Server admin:** register with the `ADMIN_EMAIL` address right after the first start (it only claims admin while
+  there is none), or assign it from the server: `docker exec -it astris python -m app.admin_cli set-admin you@example.com`.
+- **Back up now:** Settings → Server.
   Backups contain everyone's data and credentials, so they're never downloadable through the app: copy them from the
   *Backups* share on the server.
 - **Encrypted backups:** set `BACKUP_PASSPHRASE`. Without it, an encrypted backup can't be restored.
