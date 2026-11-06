@@ -14,6 +14,7 @@ export default function TxSheet({ tx, categories, wallets = [], onClose, onSaved
   const ref = useRef<HTMLDialogElement>(null);
   const [cat, setCat] = useState(tx.category ?? "");
   const [remember, setRemember] = useState(true);
+  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { ref.current?.showModal(); }, []);
@@ -25,7 +26,7 @@ export default function TxSheet({ tx, categories, wallets = [], onClose, onSaved
   const save = async () => {
     setBusy(true); setError("");
     try {
-      const r = await api.patch<{ transaction: Tx; also_updated: number }>(`/api/transactions/${tx.id}`, { category: cat, remember });
+      const r = await api.patch<{ transaction: Tx; also_updated: number }>(`/api/transactions/${tx.id}`, { category: cat, remember, reason: reason || null });
       onSaved(r.transaction, r.also_updated);
     } catch (e) { setError((e as Error).message); setBusy(false); }
   };
@@ -57,6 +58,7 @@ export default function TxSheet({ tx, categories, wallets = [], onClose, onSaved
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
               <span>Always use this for {ruleName}</span>
             </label>
+            <label>Why? (optional, kept in the history)<input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} /></label>
             {error && <div className="error" role="alert">{error}</div>}
             <div className="row">
               <button className="btn primary" disabled={!cat || busy} onClick={save}>Save category</button>

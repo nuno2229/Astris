@@ -155,6 +155,7 @@ class TransactionUpdate(BaseModel):
     category: str = Field(min_length=1, max_length=50)
     merchant: str | None = Field(default=None, max_length=60)
     remember: bool = True
+    reason: str | None = Field(default=None, max_length=300)   # "why", for the change history (E10)
 
 
 class TransactionUpdated(BaseModel):

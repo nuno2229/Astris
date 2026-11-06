@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
+from app import audit
 from app.deps import DB, User
 from app.netcheck import BlockedAddress, is_blocked_url, is_local_url, origin_only, pinned_get
 from app.routers.households import my_role
@@ -85,6 +86,10 @@ def put_settings(hid: UUID, body: LlmSettings, user: User, db: DB):
             updated_by = EXCLUDED.updated_by, updated_at = now()"""),
         {"h": hid, "e": body.llm_enabled, "u": body.llm_base_url, "m": (body.llm_model or "").strip() or None,
          "ai": body.llm_allow_internet, "by": user.id})
+    audit.log(db, user.id, "settings.ai", "household",
+              f"AI assistant {'on' if body.llm_enabled else 'off'}" + (f" ({body.llm_base_url})" if body.llm_base_url else ""),
+              household_id=hid, after={"enabled": body.llm_enabled, "url": body.llm_base_url, "model": body.llm_model,
+                                       "allow_internet": body.llm_allow_internet})
     if body.llm_enabled:
         db.execute(text("SELECT ai_requeue_household(:h)"), {"h": hid})  # let the AI look at earlier imports
         from app.categorise.worker import worker

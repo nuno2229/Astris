@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.15 |
+| **Backlog version** | 0.16 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -144,10 +144,10 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E09-03** Conflict view; proceed or adjust per-account rules — `Review` (interpreted as per-file target account, date order and column mapping — G-16)
 - [x] **E09-04** Rollback/cancel of a bulk run without touching existing data — `Review`
 
-### E10 · Change-log & audit trail — `Todo` · §13, §25.10
-- [ ] **E10-01** Log who/when/why for manual edits, imports/reconciles, stock changes and shopping-list mutations
-- [ ] **E10-02** Tamper-evident local log
-- [ ] **E10-03** Owner can view and reverse changes
+### E10 · Change-log & audit trail — `Review` · §13, §25.10
+- [x] **E10-01** Log who/when/why for manual edits, imports/reconciles, stock changes and shopping-list mutations — `Review` for edits, imports, cash moves/counts, starting balances, subscriptions, members, invites, AI/FX settings; stock & shopping list get hooked in when E14/E17 are built
+- [x] **E10-02** Tamper-evident local log — `Review` (append-only for the app role; per-account/household hash chain; "History intact" check)
+- [x] **E10-03** Owner can view and reverse changes — `Review` (History screen; undo refuses if the record changed since; undo is itself logged)
 
 ### E11 · Savings goals — `Todo` · §6, §25.11
 - [ ] **E11-01** Named goals with a target amount and optional deadline
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.16 | E10 audit trail (append-only, hash-chained, History screen with undo). G-10 interim answer. |
 | 2026-11-06 | 0.15 | v0.1.1 image build cancelled (stalled; tag kept, no image). Released **v0.1.2** from main (E08, ECB rates, E09, security fixes, faster build). |
 | 2026-11-06 | 0.14 | E09 bulk import wizard (dry run, balance checks, adjust, whole-run rollback). G-16. |
 | 2026-11-06 | 0.13 | D-8 resolved (ECB). E08-05/06 done. |

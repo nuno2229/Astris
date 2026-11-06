@@ -12,6 +12,7 @@ from app.deps import DB, User, not_found
 from app.schemas import (
     AcceptInviteIn, HouseholdDetail, HouseholdIn, HouseholdOut, InviteCreated, InviteIn, InviteOut, MemberOut,
 )
+from app import audit
 from app.security import new_token, token_hash
 
 router = APIRouter(prefix="/api", tags=["households"])
@@ -71,6 +72,9 @@ def remove_member(hid: UUID, uid: UUID, user: User, db: DB):
             raise not_found("Member not found")
         raise HTTPException(status.HTTP_403_FORBIDDEN,
                             "The owner can't be removed" if target == "owner" else "Not allowed to remove this member")
+    who = db.execute(text("SELECT display_name FROM users WHERE id = :u"), {"u": uid}).scalar() or "a member"
+    audit.log(db, user.id, "member.leave" if uid == user.id else "member.remove", "household",
+              f"{who} left the household" if uid == user.id else f"Removed {who}", entity_id=uid, household_id=hid)
 
 
 @router.post("/households/{hid}/invites", response_model=InviteCreated, status_code=201)
@@ -86,6 +90,8 @@ def create_invite(hid: UUID, body: InviteIn, user: User, db: DB):
         RETURNING id, email, role, created_at, expires_at, accepted_at, revoked_at"""),
         {"h": hid, "c": token_hash(code), "e": body.email.lower() if body.email else None,
          "r": body.role, "u": user.id, "x": expires}).one()
+    audit.log(db, user.id, "invite.create", "household", f"Created an invite ({body.role}"
+              + (f" for {body.email.lower()})" if body.email else ")"), entity_id=row.id, household_id=hid)
     return InviteCreated(**row._mapping, code=code)
 
 
@@ -106,6 +112,7 @@ def revoke_invite(hid: UUID, iid: UUID, user: User, db: DB):
                    {"i": iid, "h": hid}).rowcount
     if not n:
         raise not_found("Invite not found or no longer pending")
+    audit.log(db, user.id, "invite.revoke", "household", "Revoked an invite", entity_id=iid, household_id=hid)
 
 
 @router.post("/invites/accept", response_model=HouseholdOut)
@@ -123,4 +130,6 @@ def accept_invite(body: AcceptInviteIn, user: User, db: DB):
     row = db.execute(text("""SELECT h.id, h.name, m.role FROM households h
                               JOIN memberships m ON m.household_id = h.id AND m.user_id = :u
                              WHERE h.id = :h"""), {"h": hid, "u": user.id}).one()
+    me = db.execute(text("SELECT display_name FROM users WHERE id = :u"), {"u": user.id}).scalar()
+    audit.log(db, user.id, "member.join", "household", f"{me} joined as {row.role}", entity_id=user.id, household_id=hid)
     return HouseholdOut(**row._mapping)

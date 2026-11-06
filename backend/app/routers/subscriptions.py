@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
 
+from app import audit
 from app.categorise.rules import merchant_key
 from app.deps import DB, User, not_found
 from app.recurring import add_period
@@ -208,6 +209,8 @@ def create_subscription(hid: UUID, body: SubscriptionIn, user: User, db: DB):
          "cy": body.cycle, "n": body.next_renewal, "ar": body.auto_renew,
          "st": "trial" if body.trial_ends else "active", "te": body.trial_ends,
          "k": merchant_key(body.provider), "notes": body.notes}).scalar_one()
+    audit.log(db, user.id, "subscription.create", "subscription", f"Added subscription {body.provider.strip()}",
+              entity_id=sid, household_id=hid)
     return build(db, hid, _get(db, sid), date.today())
 
 
@@ -232,6 +235,8 @@ def create_from_recurring(hid: UUID, body: FromRecurringIn, user: User, db: DB):
         VALUES (:h, :u, :p, :a, :c, :cy, :n, :k, :r) RETURNING id"""),
         {"h": hid, "u": user.id, "p": rs.name, "a": abs(rs.expected_amount), "c": rs.currency, "cy": rs.cadence,
          "n": rs.next_date, "k": rs.merchant_key, "r": rs.id}).scalar_one()
+    audit.log(db, user.id, "subscription.create", "subscription", f"Tracking {rs.name} as a subscription",
+              entity_id=sid, household_id=hid)
     return build(db, hid, _get(db, sid), date.today())
 
 
@@ -265,6 +270,8 @@ def update_subscription(sid: UUID, body: SubscriptionUpdate, user: User, db: DB)
     if fields:
         sets = ", ".join(f"{k} = :{k}" for k in fields)  # keys from the schema (+2 internal), never the client
         db.execute(text(f"UPDATE subscriptions SET {sets}, updated_at = now() WHERE id = :id"), {**fields, "id": sid})
+        audit.log(db, user.id, "subscription.update", "subscription", f"Updated {r.provider}", entity_id=sid,
+                  household_id=r.household_id, before={k: getattr(r, k, None) for k in fields}, after=fields)
     return build(db, r.household_id, _get(db, sid), date.today())
 
 
@@ -275,6 +282,8 @@ def cancel_subscription(sid: UUID, body: CancelIn, user: User, db: DB):
     db.execute(text("""UPDATE subscriptions SET status = 'cancelled', cancelled_on = :c, access_until = :a,
                               auto_renew = false, updated_at = now() WHERE id = :id"""),
                {"c": body.cancelled_on, "a": body.access_until, "id": sid})
+    audit.log(db, user.id, "subscription.cancel", "subscription", f"Marked {r.provider} cancelled on {body.cancelled_on}",
+              entity_id=sid, household_id=r.household_id)
     return build(db, r.household_id, _get(db, sid), date.today())
 
 
@@ -283,10 +292,14 @@ def reactivate_subscription(sid: UUID, user: User, db: DB):
     r = _get(db, sid)
     db.execute(text("""UPDATE subscriptions SET status = 'active', cancelled_on = NULL, access_until = NULL,
                               auto_renew = true, trial_ends = NULL, updated_at = now() WHERE id = :id"""), {"id": sid})
+    audit.log(db, user.id, "subscription.reactivate", "subscription", f"Resubscribed to {r.provider}",
+              entity_id=sid, household_id=r.household_id)
     return build(db, r.household_id, _get(db, sid), date.today())
 
 
 @router.delete("/subscriptions/{sid}", status_code=204)
 def delete_subscription(sid: UUID, user: User, db: DB):
-    _get(db, sid)
+    r = _get(db, sid)
     db.execute(text("DELETE FROM subscriptions WHERE id = :id"), {"id": sid})
+    audit.log(db, user.id, "subscription.delete", "subscription", f"Removed {r.provider} from the list",
+              entity_id=sid, household_id=r.household_id)

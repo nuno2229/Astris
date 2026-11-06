@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import text
 
+from app import audit
 from app.deps import DB, User, not_found
 from app.routers.households import my_role
 from datetime import date
@@ -135,9 +136,12 @@ class CashCountOut(BaseModel):
 @router.put("/accounts/{aid}/opening", response_model=AccountOut)
 def set_opening(aid: UUID, body: OpeningIn, user: User, db: DB):
     """Starting balance (E08-02). For a cash wallet, the balance is this plus every entry since the date."""
-    require_own_account(db, user, aid)
+    acc = require_own_account(db, user, aid)
     db.execute(text("UPDATE accounts SET opening_balance = :b, opening_date = :d WHERE id = :a"),
                {"b": body.balance, "d": body.date, "a": aid})
+    audit.log(db, user.id, "account.opening", "account", f"{acc.name}: starting balance set to {body.balance}",
+              entity_id=aid, account_id=aid, before={"balance": acc.opening_balance, "date": acc.opening_date},
+              after={"balance": body.balance, "date": body.date})
     return get_account(db, user, aid)
 
 
@@ -155,11 +159,14 @@ def cash_count(aid: UUID, body: CashCountIn, user: User, db: DB):
     adj = (body.counted - Decimal(expected)).quantize(Decimal("0.01"))
     if adj != 0:
         import uuid
+        adj_id = uuid.uuid4()
         db.execute(text("""
-            INSERT INTO transactions (account_id, posted_on, amount, currency, description, category, category_source,
+            INSERT INTO transactions (id, account_id, posted_on, amount, currency, description, category, category_source,
                                       category_confidence, needs_review, ai_status, fingerprint, source, created_by)
-            VALUES (:a, :d, :amt, :c, :desc, 'Cash', 'user', 1, false, 'done', :fp, 'adjustment', :u)"""),
-            {"a": aid, "d": body.date, "amt": adj, "c": acc.currency,
+            VALUES (:id, :a, :d, :amt, :c, :desc, 'Cash', 'user', 1, false, 'done', :fp, 'adjustment', :u)"""),
+            {"id": adj_id, "a": aid, "d": body.date, "amt": adj, "c": acc.currency,
              "desc": "Cash count: unrecorded spending" if adj < 0 else "Cash count: extra cash found",
              "fp": f"adjust:{uuid.uuid4()}", "u": user.id})
+        audit.log(db, user.id, "cash.count", "account", f"{acc.name}: counted {body.counted}, adjusted {adj}",
+                  entity_id=aid, account_id=aid, after={"adjustment_id": adj_id, "counted": body.counted, "adjustment": adj})
     return CashCountOut(expected=expected, counted=body.counted, adjustment=adj, account=get_account(db, user, aid))

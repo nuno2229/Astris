@@ -94,6 +94,8 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
         </>
       )}
 
+      <p style={{ marginTop: 18 }}><a href="#/history">Change history</a></p>
+
       <h2>You</h2>
       <div className="panel stack">
         <div><strong>{ctx.me.display_name}</strong> <span className="muted small">{ctx.me.email}</span></div>

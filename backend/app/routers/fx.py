@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
+from app import audit
 from app.deps import DB, User
 from app.routers.households import my_role
 
@@ -85,6 +86,8 @@ def set_rate(hid: UUID, body: RateIn, user: User, db: DB):
         RETURNING from_currency, to_currency, rate, as_of, source"""),
         {"h": hid, "f": body.from_currency, "t": body.to_currency, "r": body.rate, "d": body.as_of or date.today(),
          "u": user.id}).one()
+    audit.log(db, user.id, "fx.set", "household", f"Exchange rate: 1 {body.from_currency} = {body.rate} {body.to_currency}",
+              household_id=hid)
     return RateOut(**row._mapping)
 
 
@@ -92,8 +95,11 @@ def set_rate(hid: UUID, body: RateIn, user: User, db: DB):
 def delete_rate(hid: UUID, frm: str, to: str, user: User, db: DB):
     if my_role(db, hid) not in ("owner", "admin"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an admin can set exchange rates")
-    db.execute(text("DELETE FROM fx_rates WHERE household_id = :h AND from_currency = :f AND to_currency = :t"),
-               {"h": hid, "f": frm.upper()[:3], "t": to.upper()[:3]})
+    n = db.execute(text("DELETE FROM fx_rates WHERE household_id = :h AND from_currency = :f AND to_currency = :t"),
+                   {"h": hid, "f": frm.upper()[:3], "t": to.upper()[:3]}).rowcount
+    if n:
+        audit.log(db, user.id, "fx.delete", "household", f"Removed exchange rate {frm.upper()[:3]}→{to.upper()[:3]}",
+                  household_id=hid)
 
 
 class AutoOut(BaseModel):
@@ -128,6 +134,8 @@ def put_auto(hid: UUID, body: AutoIn, user: User, db: DB):
                        ON CONFLICT (household_id) DO UPDATE SET fx_auto = EXCLUDED.fx_auto,
                            updated_by = EXCLUDED.updated_by, updated_at = now()"""),
                {"h": hid, "a": body.enabled, "u": user.id})
+    audit.log(db, user.id, "settings.fx_auto", "household", f"Daily ECB rates {'on' if body.enabled else 'off'}",
+              household_id=hid)
     if body.enabled:
         from app.categorise.worker import worker
         worker.wake_fx()

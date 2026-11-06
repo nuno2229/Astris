@@ -18,6 +18,7 @@ from app.routers.households import my_role
 from app.schemas import ImportResult, ManualTxIn, MoveToWalletIn, TransactionOut, TransactionUpdate, TransactionUpdated
 from app.categorise import rules as cat_rules
 from app.categorise.service import apply_rules, correct
+from app import audit
 from app.categorise.worker import worker
 from app.recurring import detect as detect_recurring
 from app.routers.recurring import RecurringOut, household_recurring
@@ -91,6 +92,8 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     batch_id, total, new = save_parsed(db, user.id, acc, file.filename or "upload", parsed)
     after_import(db, user.id, [aid])
+    audit.log(db, user.id, "import.batch", "import", f"Imported {file.filename or 'a statement'}: {new} new",
+              entity_id=batch_id, account_id=aid, after={"batch_id": batch_id, "rows_new": new})
     return ImportResult(batch_id=batch_id, format=parsed.format, rows_total=total, rows_new=new,
                         rows_duplicate=total - new, warnings=parsed.warnings)
 
@@ -98,9 +101,11 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
 @router.delete("/imports/{bid}", status_code=204)
 def undo_import(bid: UUID, user: User, db: DB):
     """Undo a whole import (removes only the rows that import added)."""
+    b = db.execute(text("SELECT account_id, filename FROM import_batches WHERE id = :b"), {"b": bid}).first()
     n = db.execute(text("DELETE FROM import_batches WHERE id = :b"), {"b": bid}).rowcount
     if not n:
         raise not_found("Import not found")
+    audit.log(db, user.id, "import.undo", "import", f"Removed import {b.filename}", entity_id=bid, account_id=b.account_id)
 
 
 @router.get("/accounts/{aid}/transactions", response_model=list[TransactionOut])
@@ -264,7 +269,20 @@ def update_transaction(tid: UUID, body: TransactionUpdate, user: User, db: DB):
         raise not_found("Transaction not found")
     if row.owner_user_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can change this")
+    before = db.execute(text("""SELECT t.category, t.merchant, t.category_source, t.category_confidence, t.needs_review,
+                                       t.merchant_key, t.description, t.account_id FROM transactions t WHERE t.id = :t"""),
+                        {"t": tid}).one()
+    prev_rule = db.execute(text("SELECT category, merchant FROM merchant_rules WHERE user_id = :u AND merchant_key = :k"),
+                           {"u": user.id, "k": before.merchant_key}).first() if before.merchant_key else None
     n = correct(db, user.id, tid, body.category, (body.merchant or "").strip() or None, body.remember)
+    audit.log(db, user.id, "tx.category", "transaction",
+              f"{before.merchant or before.description}: {before.category or 'no category'} → {body.category}"
+              + (f" (+{n} more)" if n else ""),
+              entity_id=tid, account_id=before.account_id, reason=body.reason,
+              before={"category": before.category, "merchant": before.merchant, "category_source": before.category_source,
+                      "category_confidence": before.category_confidence, "needs_review": before.needs_review,
+                      "rule": dict(prev_rule._mapping) if prev_rule else None},
+              after={"category": body.category, "rule_key": before.merchant_key if body.remember else None})
     tx = db.execute(text(f"SELECT {_TX_COLS} FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE t.id = :t"),
                     {"t": tid}).one()
     return TransactionUpdated(transaction=TransactionOut(**tx._mapping), also_updated=n)
@@ -308,16 +326,21 @@ def add_manual(aid: UUID, body: ManualTxIn, user: User, db: DB):
          "oa": body.original_amount, "oc": body.original_currency}).scalar_one()
     if not body.category:
         apply_rules(db, user.id)
+    audit.log(db, user.id, "tx.create", "transaction", f"Added {body.description.strip()} ({body.amount} {acc.currency})",
+              entity_id=tid, account_id=aid, after=audit.tx_row(db, tid))
     return _tx_out(db, tid)
 
 
 @router.delete("/transactions/{tid}", status_code=204)
-def delete_manual(tid: UUID, user: User, db: DB):
+def delete_manual(tid: UUID, user: User, db: DB, reason: Annotated[str | None, Query(max_length=300)] = None):
     """Only entries you typed in (or cash-count adjustments) can be deleted; statement lines are the record (§2)."""
     row = _own_tx(db, user, tid)
     if row.source not in ("manual", "adjustment"):
         raise HTTPException(status.HTTP_409_CONFLICT, "Imported statement lines can't be deleted. Undo the import instead.")
+    snapshot = audit.tx_row(db, tid)
     db.execute(text("DELETE FROM transactions WHERE id = :t"), {"t": tid})
+    audit.log(db, user.id, "tx.delete", "transaction", f"Deleted {row.description} ({row.amount} {row.currency})",
+              entity_id=tid, account_id=row.account_id, before=snapshot, reason=reason)
 
 
 @router.post("/transactions/{tid}/move-to-wallet", response_model=TransactionOut)
@@ -349,6 +372,8 @@ def move_to_wallet(tid: UUID, body: MoveToWalletIn, user: User, db: DB):
         VALUES (:w, :d, :amt, :c, :desc, 'Cash', 'user', 1, false, 'done', :fp, 'transfer', :u, :g)"""),
         {"w": wallet.id, "d": tx.posted_on, "amt": amount, "c": wallet.currency,
          "desc": f"Cash from {tx.account_name}", "fp": f"transfer:{group}", "u": user.id, "g": group})
+    audit.log(db, user.id, "tx.move_to_wallet", "transaction", f"Moved {abs(tx.amount)} {tx.account_currency} cash into a wallet",
+              entity_id=tid, account_id=tx.account_id, after={"transfer_group": group, "wallet_id": wallet.id})
     return _tx_out(db, tid)
 
 
@@ -362,3 +387,5 @@ def unlink_transfer(group: UUID, user: User, db: DB):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can change this")
     db.execute(text("DELETE FROM transactions WHERE transfer_group = :g AND source = 'transfer'"), {"g": group})
     db.execute(text("UPDATE transactions SET transfer_group = NULL WHERE transfer_group = :g"), {"g": group})
+    acct = db.execute(text("SELECT account_id FROM transactions WHERE id = :t"), {"t": rows[0].id}).scalar()
+    audit.log(db, user.id, "tx.unlink", "transaction", "Undid a cash move into a wallet", account_id=acct)

@@ -255,3 +255,4 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
   padding: 12px; border-radius: var(--r-sheet); background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(12px); box-shadow: 0 -1px 0 var(--line); z-index: 5; }
 @media (min-width: 900px) { .commit-bar { bottom: 16px; } }
+.list .title.wrap, .list .meta.wrap { white-space: normal; }

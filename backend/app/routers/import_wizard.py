@@ -11,6 +11,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from app import audit
 from app.config import get_settings
 from app.deps import DB, User, not_found
 from app.importers.base import ImportError_, assign_fingerprints
@@ -239,6 +240,10 @@ async def commit(body: CommitIn, user: User, db: DB):
     db.execute(text("UPDATE import_runs SET rows_new = :n WHERE id = :id"), {"n": total_new, "id": run_id})
     db.execute(text("DELETE FROM import_previews WHERE id = ANY(:ids)"), {"ids": [p.id for p in previews]})
     after_import(db, user.id, [p.account_id for p in previews])
+    for aid in dict.fromkeys(p.account_id for p in previews):
+        names = [p.filename for p in previews if p.account_id == aid]
+        audit.log(db, user.id, "import.run", "import", f"Imported {len(names)} file(s): {', '.join(names)[:200]}",
+                  entity_id=run_id, account_id=aid, after={"run_id": run_id, "rows_new": total_new})
     return RunOut(id=run_id, files=len(previews), rows_new=total_new, details=details)
 
 
@@ -260,3 +265,4 @@ def rollback(rid: UUID, user: User, db: DB):
     db.execute(text("DELETE FROM import_runs WHERE id = :id"), {"id": rid})   # cascades batches -> transactions
     for a in accounts:
         detect_recurring(db, user.id, a)
+        audit.log(db, user.id, "import.rollback", "import", "Undid a multi-file import", entity_id=rid, account_id=a)
