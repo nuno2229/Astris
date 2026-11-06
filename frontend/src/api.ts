@@ -44,7 +44,8 @@ export interface Tx { id: string; account_id: string; posted_on: string; amount:
   category_confidence: string | null; needs_review: boolean; editable: boolean; merchant_key: string | null }
 export interface Totals { currency: string; spent: string; received: string; spent_today: string }
 export interface Summary { household_id: string; period_start: string; period_end: string; included: Totals[];
-  excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number }
+  excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number;
+  upcoming: Recurring[]; missed: Recurring[] }
 export interface ImportResult { batch_id: string; format: string; rows_total: number; rows_new: number;
   rows_duplicate: number; warnings: string[] }
 
@@ -58,4 +59,20 @@ export function money(v: string | number | null | undefined, currency: string, s
 
 export function shortDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+export interface Recurring { id: string; account_id: string; name: string; category: string | null;
+  cadence: "weekly" | "fortnightly" | "monthly" | "yearly"; direction: "in" | "out"; expected_amount: string;
+  previous_amount: string | null; currency: string; occurrences: number; last_date: string; next_date: string;
+  status: "active" | "missed" | "dismissed"; awaiting_statement: boolean; editable: boolean }
+
+export function relDay(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const n = Math.round((+d - +t) / 864e5);
+  if (n === 0) return "today";
+  if (n === 1) return "tomorrow";
+  if (n === -1) return "yesterday";
+  if (n > 1 && n < 7) return `in ${n} days`;
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }

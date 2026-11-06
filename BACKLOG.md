@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.8 |
+| **Backlog version** | 0.9 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -116,11 +116,11 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E05-03** Confidence score; uncertain items flagged rather than silently guessed — `Review` ("Needs a category" filter + Home prompt)
 - [x] **E05-04** Rules-based fallback when no model is configured (§22) — `Review`
 
-### E06 · Recurring & scheduled transactions — `Todo` · §5, §25.6
-- [ ] **E06-01** Auto-detect recurring charges (rent, subscriptions, standing orders, dividends) and scheduled income
-- [ ] **E06-02** Store pattern (daily/weekly/monthly/yearly), next occurrence and expected amount; update when they drift
-- [ ] **E06-03** Missed-payment detection (expected charge didn't appear)
-- [ ] **E06-04** Upcoming due dates surfaced
+### E06 · Recurring & scheduled transactions — `Review` · §5, §25.6
+- [x] **E06-01** Auto-detect recurring charges (rent, subscriptions, standing orders, dividends) and scheduled income — `Review` (weekly / fortnightly / monthly / yearly; calendar source still open, G-5)
+- [x] **E06-02** Store pattern (daily/weekly/monthly/yearly), next occurrence and expected amount; update when they drift — `Review` (price changes >10% flagged with old amount; daily not detected, mostly misfires on coffee)
+- [x] **E06-03** Missed-payment detection (expected charge didn't appear) — `Review` (only when imported statements cover the due date + grace)
+- [x] **E06-04** Upcoming due dates surfaced — `Review` (Home "Coming up", Regular payments screen)
 
 ### E07 · Subscription registry — `Todo` · §11, §25.7
 - [ ] **E07-01** Registry separate from the ledger: provider, cost, cycle, renewal date, next renewal, auto-renew, status
@@ -281,6 +281,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.9 | E06 recurring payments (detection, next due, missed, price change, dismiss). Security: LLM URL origin-only + total deadline. 99 tests. |
 | 2026-11-06 | 0.8 | E05 categorisation: rules + learned merchant rules + background local-LLM pass with injection guard; review flow in UI. G-13, G-14 added. |
 | 2026-11-05 | 0.7 | E03: MT940, text PDF, scanned PDF / photo OCR import. G-12 added. |
 | 2026-11-05 | 0.6 | UI redesign; security fixes; summary gains daily spend series. 61 tests. |

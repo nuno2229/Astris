@@ -172,7 +172,11 @@ details.table-view tr + tr td { border-top: 1px solid var(--line); }
 .btn.danger { background: transparent; color: var(--danger); }
 .btn.block { width: 100%; }
 .btn:disabled { opacity: 0.55; cursor: default; transform: none; }
-.iconbtn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: var(--r-ctl); color: var(--muted); }
+.iconbtn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: var(--r-ctl); color: var(--muted);
+  border: 0; background: transparent; cursor: pointer; padding: 0; }
+.iconbtn:hover { color: var(--text); background: var(--surface-2); }
+.list li .iconbtn { margin-right: -10px; }
+.list li .iconbtn svg { width: 18px; height: 18px; }
 .iconbtn svg { width: 22px; height: 22px; }
 .iconbtn[aria-current="page"] { color: var(--accent); }
 

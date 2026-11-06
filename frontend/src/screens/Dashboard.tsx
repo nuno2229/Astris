@@ -3,6 +3,7 @@ import { api, Household, HouseholdAccount, money, Summary } from "../api";
 import type { Ctx } from "../App";
 import Constellation from "./Constellation";
 import TxList from "./TxList";
+import { RecurringRow } from "./Recurring";
 
 type SummaryWithDaily = Summary & { daily: { currency: string; day: string; spent: string }[] };
 
@@ -47,6 +48,12 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
       {others.map((t) => (
         <p key={t.currency} className="note">Also {money(t.spent, t.currency)} spent in {t.currency}.</p>
       ))}
+      {s.missed.map((m) => (
+        <a key={m.id} className="callout review-link" href="#/recurring">
+          <span><strong>{m.name}</strong> didn't arrive as expected ({money(m.expected_amount, m.currency, true)})</span>
+          <span aria-hidden="true">›</span>
+        </a>
+      ))}
       {s.needs_review > 0 && (
         <a className="callout review-link" href="#/activity/review">
           <span><strong>{s.needs_review}</strong> transaction{s.needs_review === 1 ? " needs" : "s need"} a category</span>
@@ -69,6 +76,14 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
           Counts {s.accounts_included} shared account{s.accounts_included === 1 ? "" : "s"}. Transfers between your own accounts
           currently count as spending.
         </p>
+      )}
+
+      {s.upcoming.length > 0 && (
+        <>
+          <h2>Coming up</h2>
+          <ul className="list">{s.upcoming.map((r) => <RecurringRow key={r.id} r={r} />)}</ul>
+          <p style={{ marginTop: 12 }}><a href="#/recurring">All regular payments</a></p>
+        </>
       )}
 
       <h2>Recent</h2>

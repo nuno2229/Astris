@@ -10,6 +10,7 @@ import HouseholdScreen from "./screens/Household";
 import Onboarding from "./screens/Onboarding";
 import Join from "./screens/Join";
 import Settings from "./screens/Settings";
+import RecurringScreen from "./screens/Recurring";
 
 export interface Ctx {
   me: Me;
@@ -93,6 +94,7 @@ export default function App() {
         {household && tab === "accounts" && <Accounts ctx={ctx} household={household} />}
         {household && tab === "household" && <HouseholdScreen ctx={ctx} household={household} />}
         {household && tab === "settings" && <Settings household={household} />}
+        {household && tab === "recurring" && <RecurringScreen household={household} />}
       </main>
     </div>
   );

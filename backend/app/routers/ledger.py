@@ -1,5 +1,5 @@
 """Statement import into the ledger + transaction lists + dashboard summary (M1)."""
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -19,6 +19,8 @@ from app.schemas import ImportResult, TransactionOut, TransactionUpdate, Transac
 from app.categorise import rules as cat_rules
 from app.categorise.service import apply_rules, correct
 from app.categorise.worker import worker
+from app.recurring import detect as detect_recurring
+from app.routers.recurring import RecurringOut, household_recurring
 
 router = APIRouter(prefix="/api", tags=["ledger"])
 
@@ -65,6 +67,7 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
             ON CONFLICT (account_id, fingerprint) DO NOTHING"""), r).rowcount
     total = len(rows)
     apply_rules(db, user.id, batch_id)  # instant offline categories; the LLM refines in the background
+    detect_recurring(db, user.id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
     worker.wake()
     db.execute(text("UPDATE import_batches SET rows_total = :t, rows_new = :n, rows_duplicate = :d WHERE id = :b"),
                {"t": total, "n": new, "d": total - new, "b": batch_id})
@@ -140,6 +143,8 @@ class Summary(BaseModel):
     recent: list[TransactionOut]
     daily: list[DaySpend] = []       # included accounts only, days with spending (§17 time series, M1 scale)
     needs_review: int = 0            # transactions whose category is uncertain (E05-03)
+    upcoming: list[RecurringOut] = []  # regular payments due in the next 14 days (E06-04)
+    missed: list[RecurringOut] = []    # expected but never arrived (E06-03)
 
 
 @router.get("/households/{hid}/summary", response_model=Summary)
@@ -176,6 +181,7 @@ def household_summary(hid: UUID, user: User, db: DB,
          WHERE t.posted_on >= :s AND t.posted_on < :e AND t.amount < 0
          GROUP BY t.currency, t.posted_on ORDER BY t.posted_on"""), {"h": hid, "s": start, "e": end}).all()
     recent = household_transactions(hid, user, db, None, False, None, 12, 0)
+    rec = household_recurring(db, hid)
     review_count = db.execute(text("""
         SELECT count(*) FROM transactions t
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
@@ -187,7 +193,9 @@ def household_summary(hid: UUID, user: User, db: DB,
     return Summary(household_id=hid, period_start=start, period_end=end, included=pick("include"),
                    excluded=pick("hide"), accounts_included=counts.get("include", 0),
                    accounts_excluded=counts.get("hide", 0), recent=recent,
-                   daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count)
+                   daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count,
+                   upcoming=[r for r in rec if r.status == "active" and r.next_date <= today + timedelta(days=14)][:6],
+                   missed=[r for r in rec if r.status == "missed"])
 
 
 @router.get("/categories", response_model=list[str])
