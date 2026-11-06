@@ -33,7 +33,7 @@ export default function TxSheet({ tx, categories, wallets = [], goals = [], onCl
   };
 
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()}
+    <dialog ref={ref} className="sheet" onClose={(e) => { if (e.target === e.currentTarget) onClose(); }} onClick={(e) => e.target === ref.current && ref.current?.close()}
       aria-labelledby="sheet-title">
       <div className="sheet-body stack">
         <div className="grabber" aria-hidden="true" />

@@ -291,3 +291,5 @@ dialog.sheet::backdrop { background: rgb(5 8 20 / 0.55); }
 .tbar:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 .two-col { display: grid; gap: 0 20px; }
 @media (min-width: 900px) { .two-col { grid-template-columns: 1fr 1fr; } }
+.scan-video { width: 100%; max-height: 40dvh; border-radius: 16px; background: #000; object-fit: cover; }
+label.btn { display: inline-flex; cursor: pointer; color: var(--text); }

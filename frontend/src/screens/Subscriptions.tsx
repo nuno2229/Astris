@@ -116,7 +116,7 @@ function SubSheet({ household, sub, currency, onClose, onDone }: {
   };
 
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="sub-title">
+    <dialog ref={ref} className="sheet" onClose={(e) => { if (e.target === e.currentTarget) onClose(); }} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="sub-title">
       <form className="sheet-body stack" onSubmit={save}>
         <div className="grabber" aria-hidden="true" />
         <h2 id="sub-title" style={{ margin: 0 }}>{sub ? sub.provider : "Add a subscription"}</h2>

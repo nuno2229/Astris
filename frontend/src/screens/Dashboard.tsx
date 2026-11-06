@@ -95,6 +95,15 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
         </p>
       )}
 
+      {s.stock && (s.stock.expiring.length > 0 || s.stock.expired > 0 || s.stock.low.length > 0) && (
+        <a className="callout review-link" href="#/pantry" style={{ marginTop: 14 }}>
+          <span>{[s.stock.expiring.length ? `Use soon: ${s.stock.expiring.map((e) => e.name).join(", ")}` : "",
+                  s.stock.expired ? `${s.stock.expired} expired` : "",
+                  s.stock.low.length ? `Running low: ${s.stock.low.join(", ")}` : ""].filter(Boolean).join(". ")}</span>
+          <span aria-hidden="true">›</span>
+        </a>
+      )}
+
       <h2>Budgets</h2>
       {s.budgets.length === 0 ? (
         <p className="note" style={{ marginTop: 0 }}>Want a heads-up before you overspend? <a href="#/budgets">Set a budget</a>.</p>

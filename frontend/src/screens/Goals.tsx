@@ -65,7 +65,7 @@ function NewGoal({ household, currency, onClose, onDone }: { household: Househol
     catch (err) { setError((err as Error).message); }
   };
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="ng">
+    <dialog ref={ref} className="sheet" onClose={(e) => { if (e.target === e.currentTarget) onClose(); }} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="ng">
       <form className="sheet-body stack" onSubmit={submit}>
         <div className="grabber" aria-hidden="true" />
         <h2 id="ng" style={{ margin: 0 }}>New savings goal</h2>
@@ -93,7 +93,7 @@ function GoalSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const add = (e: FormEvent) => { e.preventDefault(); run(async () => { const r = await api.post<Goal>(`/api/goals/${id}/contributions`, { amount: (dir === "out" ? "-" : "") + amt, note: note || null }); setAmt(""); setNote(""); return r; }); };
 
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="gs">
+    <dialog ref={ref} className="sheet" onClose={(e) => { if (e.target === e.currentTarget) onClose(); }} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="gs">
       <div className="sheet-body stack">
         <div className="grabber" aria-hidden="true" />
         {!g ? <div className="muted">Loading…</div> : <>

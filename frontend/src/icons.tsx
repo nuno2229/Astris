@@ -12,3 +12,5 @@ export const StarMark = ({ className = "mark" }: { className?: string }) => (
 );
 export const ChevronDown = () => <svg viewBox="0 0 24 24" {...p}><path d="M6 9l6 6 6-6" /></svg>;
 export const BillsIcon = () => <svg viewBox="0 0 24 24" {...p}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>;
+export const PantryIcon = () => <svg viewBox="0 0 24 24" {...p}><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M4 9h16M4 15h16M9 6h1M9 12h1M9 18h1" /></svg>;
+export const MoreIcon = () => <svg viewBox="0 0 24 24" {...p}><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></svg>;

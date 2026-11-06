@@ -98,6 +98,11 @@ class Worker:
                 except Exception:
                     log.exception("preview purge failed")
                 try:
+                    from app.routers.inventory import run_weekly
+                    run_weekly(lambda: Session(get_engine()))
+                except Exception:
+                    log.exception("weekly shop list failed")
+                try:
                     run_notifications()
                 except Exception:
                     log.exception("notification round failed")

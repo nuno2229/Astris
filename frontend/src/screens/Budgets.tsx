@@ -94,7 +94,7 @@ function NewBudget({ household, currency, onClose, onDone }: { household: Househ
     } catch (err) { setError((err as Error).message); }
   };
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="nb">
+    <dialog ref={ref} className="sheet" onClose={(e) => { if (e.target === e.currentTarget) onClose(); }} onClick={(e) => e.target === ref.current && ref.current?.close()} aria-labelledby="nb">
       <form className="sheet-body stack" onSubmit={submit}>
         <div className="grabber" aria-hidden="true" />
         <h2 id="nb" style={{ margin: 0 }}>New budget</h2>

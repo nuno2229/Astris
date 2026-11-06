@@ -29,7 +29,7 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
     today = today or date.today()
     p = db.execute(text("SELECT * FROM notification_prefs WHERE user_id = :u"), {"u": user}).first()
     renew_days = p.renew_days if p else 3
-    want = {k: (getattr(p, k) if p else True) for k in ("renewals", "trials", "cancelled_charges", "missed_payments", "budgets")}
+    want = {k: (getattr(p, k) if p else True) for k in ("renewals", "trials", "cancelled_charges", "missed_payments", "budgets", "stock")}
     want["daily_summary"] = bool(p.daily_summary) if p else False
     out = []
     for h in db.execute(text("""SELECT h.id, h.name FROM households h JOIN memberships m ON m.household_id = h.id
@@ -62,6 +62,13 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
                             "detailed": f"{b.label} ({'you' if b.scope == 'personal' else h.name}): {b.message}. "
                                         f"{_money(b.spent, b.currency)} of {_money(b.amount, b.currency)} this "
                                         f"{ {'daily': 'day', 'weekly': 'week', 'monthly': 'month'}[b.period] }."})
+        if want["stock"]:
+            from app.routers.inventory import household_stock
+            for pr in household_stock(db, h.id):
+                for lot in pr.lots:
+                    if lot.state == "soon":
+                        out.append({"key": f"expiry:{lot.id}:{lot.expires_on}", "minimal": "Something in the pantry expires soon.",
+                                    "detailed": f"{pr.name} ({h.name}) expires {_when(lot.expires_on, today)}."})
         if want["daily_summary"]:
             from datetime import datetime
             if datetime.now().hour >= 8:   # send in the morning, about yesterday

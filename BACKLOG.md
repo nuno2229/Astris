@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.19 |
+| **Backlog version** | 0.20 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-05 |
 | **Owner** | PO |
@@ -171,15 +171,15 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E13-05** Attribution-aware rollups plus an optional "excluded accounts" breakdown — `Review`
 - [x] **E13-06** Charts render on mobile and desktop — `Review`
 
-### E14 · Inventory, barcode & expiry — `Todo` · §15, §25.14
-- [ ] **E14-01** Household stock table: product, quantity on hand, restock threshold
-- [ ] **E14-02** On-device offline barcode decoder; scan to add/increment
-- [ ] **E14-03** Multiple barcodes per scan, batch scans, dedupe/merge on the same barcode, unknown SKU → create or skip
-- [ ] **E14-04** Record who scanned and when (audit, E10)
-- [ ] **E14-05** Expiry date and days remaining; expiring-soon alerts; auto-expire on/after the date
-- [ ] **E14-06** Unit standardisation (g/kg/l/ml → household unit); flag items with no barcode/expiry
-- [ ] **E14-07** Low-stock weekly shop engine: suggested list, configurable trigger (e.g. Sunday), history of generated lists; cheapest-store cross-reference — `Blocked (D-1)` for the price part
-- [ ] **E14-08** Tenant-scoped stock queries (§15.4)
+### E14 · Inventory, barcode & expiry — `Review` · §15, §25.14
+- [x] **E14-01** Household stock table: product, quantity on hand, restock threshold — `Review` (Pantry tab; batches per use-by date)
+- [x] **E14-02** On-device offline barcode decoder; scan to add/increment — `Review` (browser BarcodeDetector or bundled ZXing; live camera needs HTTPS (G-4), photo scanning works anywhere)
+- [x] **E14-03** Multiple barcodes per scan, batch scans, dedupe/merge on the same barcode, unknown SKU → create or skip — `Review`
+- [x] **E14-04** Record who scanned and when (audit, E10) — `Review`
+- [x] **E14-05** Expiry date and days remaining; expiring-soon alerts; auto-expire on/after the date — `Review` (expired batches flagged with one-tap clear; alerts in app + notifications)
+- [x] **E14-06** Unit standardisation (g/kg/l/ml → household unit); flag items with no barcode/expiry — `Review`
+- [x] **E14-07** Low-stock weekly shop engine: suggested list, configurable trigger (e.g. Sunday), history of generated lists — `Review`; cheapest-store part waits for E18; moving items onto a real shopping list waits for E17
+- [x] **E14-08** Tenant-scoped stock queries (§15.4) — `Review` (RLS + isolation tests; same barcode in two households = two products)
 
 ### E15 · In-app AI copilot — `Todo` · §14, §23, §25.15
 - [ ] **E15-01** Floating, collapsible chat available app-wide (mobile included)
@@ -290,6 +290,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-06 | 0.20 | E14 pantry: products, batches with use-by, offline barcode scanning (camera/photo/typed), weekly shop suggestions, expiry alerts. Nav: Home, Activity, Bills, Pantry, More. |
 | 2026-11-06 | 0.19 | E13 Insights (categories vs usual/budget, 12-month trend, weekly averages, top shops, who spent, seasonality, separate accounts). |
 | 2026-11-06 | 0.18 | E12 budgets/limits/alerts + daily summary. Goal & budget edit permissions hardened. D-7 resolved. |
 | 2026-11-06 | 0.17 | E11 savings goals. v0.1.2 image published. G-6 interim. |

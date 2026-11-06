@@ -24,6 +24,7 @@ class Prefs(BaseModel):
     missed_payments: bool = True
     budgets: bool = True
     daily_summary: bool = False
+    stock: bool = True
 
 
 class ChannelIn(BaseModel):
@@ -88,13 +89,13 @@ def get_notifications(user: User, db: DB):
 def put_prefs(body: Prefs, user: User, db: DB):
     db.execute(text("""
         INSERT INTO notification_prefs (user_id, renew_days, renewals, trials, cancelled_charges, missed_payments,
-                                        budgets, daily_summary)
-        VALUES (:u, :rd, :r, :t, :c, :m, :b, :ds)
+                                        budgets, daily_summary, stock)
+        VALUES (:u, :rd, :r, :t, :c, :m, :b, :ds, :st)
         ON CONFLICT (user_id) DO UPDATE SET renew_days = EXCLUDED.renew_days, renewals = EXCLUDED.renewals,
             trials = EXCLUDED.trials, cancelled_charges = EXCLUDED.cancelled_charges, missed_payments = EXCLUDED.missed_payments,
-            budgets = EXCLUDED.budgets, daily_summary = EXCLUDED.daily_summary"""),
+            budgets = EXCLUDED.budgets, daily_summary = EXCLUDED.daily_summary, stock = EXCLUDED.stock"""),
         {"u": user.id, "rd": body.renew_days, "r": body.renewals, "t": body.trials, "c": body.cancelled_charges,
-         "m": body.missed_payments, "b": body.budgets, "ds": body.daily_summary})
+         "m": body.missed_payments, "b": body.budgets, "ds": body.daily_summary, "st": body.stock})
     return body
 
 
