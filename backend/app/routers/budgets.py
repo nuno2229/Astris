@@ -109,7 +109,7 @@ def _accounts_clause(b) -> str:
         return "a.owner_user_id = :owner"
     return """t.account_id IN (SELECT ha.account_id FROM household_accounts ha
                  JOIN accounts a2 ON a2.id = ha.account_id
-                 JOIN memberships ow ON ow.household_id = ha.household_id AND ow.user_id = a2.owner_user_id
+                 JOIN household_people ow ON ow.household_id = ha.household_id AND ow.user_id = a2.owner_user_id
                 WHERE ha.household_id = :h AND ha.attribution = 'include')"""
 
 

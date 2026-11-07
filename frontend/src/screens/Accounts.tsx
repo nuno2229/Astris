@@ -60,7 +60,9 @@ export default function Accounts({ ctx, household }: { ctx: Ctx; household: Hous
               <li key={a.id}>
                 <div className="main">
                   <div className="title">{a.name}</div>
-                  <div className="meta">{a.owner_name}'s, {a.attribution === "include" ? "counted in totals" : "kept separate"}</div>
+                  <div className="meta">{a.until
+                    ? `${a.owner_name} left; their transactions up to ${new Date(a.until + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} still count`
+                    : `${a.owner_name}'s, ${a.attribution === "include" ? "counted in totals" : "kept separate"}`}</div>
                 </div>
                 <div className="amt">{money(a.balance, a.currency)}</div>
               </li>
@@ -94,6 +96,7 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
         <p className="muted small" style={{ marginTop: 8 }}>{SHARE_HELP[share]}</p>
       </div>
       {a.is_mine && <AiChoice account={a} household={household} />}
+      {a.is_mine && <KeptHistory account={a} />}
       {a.type === "cash" ? <CashWallet a={a} onChanged={onChanged} /> : <>
       <a className="btn" href={`#/import/${a.id}`}>Import statements</a>
       <p className="muted small" style={{ marginTop: -6 }}>CSV, OFX, MT940 or PDF from your bank, or a photo of a paper statement.</p>
@@ -155,5 +158,23 @@ function AiChoice({ account: a, household }: { account: Account; household: Hous
       </select>
       {error && <div className="error" role="alert">{error}</div>}
     </label>
+  );
+}
+
+/** Households you left but let keep this account's past transactions (G-9). You can take them back. */
+function KeptHistory({ account: a }: { account: Account }) {
+  const [kept, setKept] = useState<{ household_id: string; household: string | null; until: string }[]>([]);
+  const load = () => api.get<typeof kept>(`/api/accounts/${a.id}/kept-history`).then(setKept).catch(() => setKept([]));
+  useEffect(() => { load(); }, [a.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!kept.length) return null;
+  return (
+    <div className="stack" style={{ gap: 6 }}>
+      {kept.map((k) => (
+        <div key={k.household_id} className="row small" style={{ justifyContent: "space-between" }}>
+          <span className="muted">{k.household ?? "A household you left"} still sees this account's transactions up to {new Date(k.until + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}.</span>
+          <button className="btn quiet" onClick={async () => { if (confirm("Take these transactions back? They'll disappear from that household's history and totals.")) { await api.del(`/api/accounts/${a.id}/kept-history/${k.household_id}`); load(); } }}>Take back</button>
+        </div>
+      ))}
+    </div>
   );
 }

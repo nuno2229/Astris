@@ -87,9 +87,9 @@ def delete_account(aid: UUID, user: User, db: DB):
 def household_accounts(hid: UUID, user: User, db: DB):
     my_role(db, hid)
     rows = db.execute(text(f"""
-        SELECT x.*, ha.attribution FROM ({_ACCOUNT_SELECT}) x
+        SELECT x.*, ha.attribution, ha.until FROM ({_ACCOUNT_SELECT}) x
           JOIN household_accounts ha ON ha.account_id = x.id AND ha.household_id = :h
-          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = x.owner_user_id
+          JOIN household_people ow ON ow.household_id = :h AND ow.user_id = x.owner_user_id
          ORDER BY x.owner_name, x.name"""), {"u": user.id, "h": hid})
     return [HouseholdAccountOut(**r._mapping) for r in rows]
 
@@ -223,3 +223,32 @@ def set_ai_choice(aid: UUID, body: AiChoiceIn, user: User, db: DB):
     label = {"auto": "automatic", "off": "off"}.get(body.mode) or next((o.name for o in out.options if o.household_id == hid), "a household")
     audit.log(db, user.id, "account.ai", "account", f"AI labelling for {acc.name}: {label}", entity_id=aid, account_id=aid)
     return out
+
+
+# ---------- history left with households you've left (G-9) ----------
+
+class KeptShare(BaseModel):
+    household_id: UUID
+    household: str | None
+    until: date
+
+
+@router.get("/accounts/{aid}/kept-history", response_model=list[KeptShare])
+def kept_history(aid: UUID, user: User, db: DB):
+    require_own_account(db, user, aid)
+    rows = db.execute(text("""SELECT ha.household_id, f.household_name AS household, ha.until FROM household_accounts ha
+                               LEFT JOIN former_members f ON f.household_id = ha.household_id AND f.user_id = :u
+                               WHERE ha.account_id = :a AND ha.frozen_at IS NOT NULL ORDER BY ha.until"""),
+                       {"a": aid, "u": user.id}).all()
+    return [KeptShare(**r._mapping) for r in rows]
+
+
+@router.delete("/accounts/{aid}/kept-history/{hid}", status_code=204)
+def withdraw_history(aid: UUID, hid: UUID, user: User, db: DB):
+    """Take your past transactions back from a household you left."""
+    acc = require_own_account(db, user, aid)
+    if not db.execute(text("DELETE FROM household_accounts WHERE account_id = :a AND household_id = :h AND frozen_at IS NOT NULL"),
+                      {"a": aid, "h": hid}).rowcount:
+        raise not_found("Nothing kept there")
+    audit.log(db, user.id, "account.withdraw_history", "account", f"Took {acc.name}'s history back from a household you left",
+              entity_id=aid, account_id=aid)

@@ -85,7 +85,7 @@ _BASE = """
   FROM transactions t
   JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
   JOIN accounts a ON a.id = t.account_id
-  JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+  JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
   JOIN users u ON u.id = a.owner_user_id
  WHERE t.transfer_group IS NULL AND ha.attribution = :attr
 """

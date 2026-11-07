@@ -38,7 +38,7 @@ export interface Invite { id: string; email: string | null; role: Role; created_
 export interface Account { id: string; name: string; type: "bank" | "card" | "cash"; currency: string;
   institution: string | null; owner_user_id: string; owner_name: string; is_mine: boolean; balance: string | null;
   opening_balance: string; opening_date: string | null }
-export interface HouseholdAccount extends Account { attribution: "include" | "hide" }
+export interface HouseholdAccount extends Account { attribution: "include" | "hide"; until?: string | null }
 export interface Tx { id: string; account_id: string; posted_on: string; amount: string; currency: string;
   description: string; merchant: string | null; counterparty: string | null; category: string | null;
   running_balance: string | null; category_source: "rule" | "llm" | "user" | "user_rule" | null;

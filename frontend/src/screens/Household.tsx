@@ -3,6 +3,7 @@ import { api, Household, HouseholdDetail, Invite } from "../api";
 import type { Ctx } from "../App";
 
 export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; household: Household }) {
+  const [leaving, setLeaving] = useState(false);
   const [d, setD] = useState<HouseholdDetail | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [fresh, setFresh] = useState<Invite | null>(null);
@@ -106,12 +107,20 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
           <input placeholder="New household name" value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
           <button className="btn">Create</button>
         </form>
-        {household.role !== "owner" && (
-          <button className="btn danger" onClick={() => confirm(`Leave ${household.name}? Your shared accounts will no longer be visible to its members.`)
-            && act(async () => { await api.del(`/api/households/${household.id}/members/${ctx.me.id}`); await ctx.reloadHouseholds(); })}>
-            Leave {household.name}
-          </button>
-        )}
+        {household.role !== "owner" && (leaving ? (
+          <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+            <strong>Leave {household.name}?</strong>
+            <span className="small muted">You'll lose access straight away. What should happen to the transactions you shared?</span>
+            <button className="btn danger" onClick={() => act(async () => { await api.del(`/api/households/${household.id}/members/${ctx.me.id}`); await ctx.reloadHouseholds(); })}>
+              Leave and take my transactions with me</button>
+            <button className="btn danger" onClick={() => act(async () => { await api.del(`/api/households/${household.id}/members/${ctx.me.id}?keep_history=true`); await ctx.reloadHouseholds(); })}>
+              Leave, but keep my past transactions here</button>
+            <span className="small muted">Kept transactions stop at today: nothing you import later is shown. You can take them back any time from Accounts.</span>
+            <button className="btn quiet" onClick={() => setLeaving(false)}>Cancel</button>
+          </div>
+        ) : (
+          <button className="btn danger" onClick={() => setLeaving(true)}>Leave {household.name}</button>
+        ))}
         <button className="btn quiet" onClick={ctx.signOut}>Sign out</button>
       </div>
     </>

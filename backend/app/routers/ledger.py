@@ -150,7 +150,7 @@ def household_transactions(hid: UUID, user: User, db: DB,
         SELECT {_TX_COLS} FROM transactions t
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
           JOIN accounts a ON a.id = t.account_id
-          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+          JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE (CAST(:q AS text) IS NULL OR t.description ILIKE '%' || CAST(:q AS text) || '%'
                 OR t.merchant ILIKE '%' || CAST(:q AS text) || '%')
            AND (NOT :review OR t.needs_review)
@@ -218,21 +218,21 @@ def household_summary(hid: UUID, user: User, db: DB,
           FROM transactions t
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
           JOIN accounts a ON a.id = t.account_id
-          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+          JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE t.posted_on >= :s AND t.posted_on < :e AND t.transfer_group IS NULL
          GROUP BY ha.attribution, t.currency ORDER BY t.currency"""),
         {"h": hid, "s": start, "e": end, "today": today}).all()
     counts = dict(db.execute(text("""
         SELECT ha.attribution, count(*) FROM household_accounts ha
           JOIN accounts a ON a.id = ha.account_id
-          JOIN memberships ow ON ow.household_id = ha.household_id AND ow.user_id = a.owner_user_id
+          JOIN household_people ow ON ow.household_id = ha.household_id AND ow.user_id = a.owner_user_id
          WHERE ha.household_id = :h GROUP BY ha.attribution"""), {"h": hid}).all())
     daily = db.execute(text("""
         SELECT t.currency, t.posted_on AS day, SUM(-t.amount) AS spent
           FROM transactions t
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND ha.attribution = 'include'
           JOIN accounts a ON a.id = t.account_id
-          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+          JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE t.posted_on >= :s AND t.posted_on < :e AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL
          GROUP BY t.currency, t.posted_on ORDER BY t.posted_on"""), {"h": hid, "s": start, "e": end}).all()
     recent = household_transactions(hid, user, db, None, False, None, 12, 0)

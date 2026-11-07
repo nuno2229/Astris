@@ -58,9 +58,18 @@ def rename_household(hid: UUID, body: HouseholdIn, user: User, db: DB):
 
 
 @router.delete("/households/{hid}/members/{uid}", status_code=204)
-def remove_member(hid: UUID, uid: UUID, user: User, db: DB):
-    """Leave (uid = me) or remove someone. Access ends immediately: membership drives every RLS policy."""
+def remove_member(hid: UUID, uid: UUID, user: User, db: DB, keep_history: bool = False):
+    """Leave (uid = me) or remove someone. Access ends immediately: membership drives every RLS policy.
+    Leaving, you choose whether the household keeps your past transactions (keep_history, G-9)."""
     role = my_role(db, hid)
+    if uid == user.id:
+        if role == "owner":
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "The owner can't leave. Make someone else the owner first, or delete the household.")
+        db.execute(text("SELECT leave_household(:h, :k)"), {"h": hid, "k": keep_history})
+        who = db.execute(text("SELECT display_name FROM users WHERE id = :u"), {"u": uid}).scalar() or "a member"
+        audit.log(db, user.id, "member.leave", "household",
+                  f"{who} left the household" + (" (past transactions kept)" if keep_history else ""), entity_id=uid, household_id=hid)
+        return
     if uid != user.id and role not in ("owner", "admin"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or an admin can remove members")
     deleted = db.execute(text("DELETE FROM memberships WHERE household_id = :h AND user_id = :u"),
@@ -130,6 +139,10 @@ def accept_invite(body: AcceptInviteIn, user: User, db: DB):
     row = db.execute(text("""SELECT h.id, h.name, m.role FROM households h
                               JOIN memberships m ON m.household_id = h.id AND m.user_id = :u
                              WHERE h.id = :h"""), {"h": hid, "u": user.id}).one()
+    # rejoining after leaving with history kept: back to normal sharing (re-share accounts as you like)
+    db.execute(text("DELETE FROM former_members WHERE household_id = :h AND user_id = :u"), {"h": hid, "u": user.id})
+    db.execute(text("""DELETE FROM household_accounts WHERE household_id = :h AND frozen_at IS NOT NULL
+                        AND account_id IN (SELECT id FROM accounts WHERE owner_user_id = :u)"""), {"h": hid, "u": user.id})
     me = db.execute(text("SELECT display_name FROM users WHERE id = :u"), {"u": user.id}).scalar()
     audit.log(db, user.id, "member.join", "household", f"{me} joined as {row.role}", entity_id=user.id, household_id=hid)
     return HouseholdOut(**row._mapping)

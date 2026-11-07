@@ -117,6 +117,7 @@ class ShareIn(BaseModel):
 
 class HouseholdAccountOut(AccountOut):
     attribution: Literal["include", "hide"]
+    until: date | None = None        # a former member's history, visible up to this day (G-9)
 
 
 class TransactionOut(BaseModel):
