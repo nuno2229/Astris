@@ -3,10 +3,10 @@ Fully offline: barcodes are decoded in the browser; unknown codes are named by t
 from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -97,6 +97,7 @@ class ProductOut(BaseModel):
 class ScanResult(BaseModel):
     added: list[dict]
     unknown: list[str]
+    known_names: dict[str, dict] = {}   # unknown codes we can name from the server's product list (G-8, P-7)
 
 
 class Suggestion(BaseModel):
@@ -199,7 +200,8 @@ def scan(hid: UUID, body: ScanIn, user: User, db: DB):
     if added:
         audit.log(db, user.id, "stock.scan", "stock", "Scanned in " + ", ".join(f"{a['quantity']}× {a['name']}" for a in added)[:250],
                   household_id=hid)
-    return ScanResult(added=added, unknown=unknown)
+    from app import catalog
+    return ScanResult(added=added, unknown=unknown, known_names=catalog.lookup(db, unknown))
 
 
 @router.post("/households/{hid}/products", response_model=ProductOut, status_code=201)
@@ -214,6 +216,8 @@ def create_product(hid: UUID, body: ProductIn, user: User, db: DB):
         {"h": hid, "b": body.barcode, "n": body.name.strip(), "br": body.brand, "sq": body.size_qty, "su": body.size_unit,
          "rb": body.restock_below, "loc": body.location, "u": user.id}).scalar_one()
     _add_lot(db, pid, body.quantity, body.expires_on, user.id)
+    from app import catalog
+    catalog.share(db, hid, body.barcode, body.name, body.brand, body.size_qty, body.size_unit)
     audit.log(db, user.id, "stock.product", "stock", f"Added {body.name.strip()} to the pantry ({body.quantity:g})", entity_id=pid,
               household_id=hid)
     return build(db, _product(db, pid))
@@ -228,6 +232,9 @@ def update_product(pid: UUID, body: ProductUpdate, user: User, db: DB):
     if fields:
         sets = ", ".join(f"{k} = :{k}" for k in fields)   # keys from the schema only
         db.execute(text(f"UPDATE products SET {sets} WHERE id = :id"), {**fields, "id": pid})
+        q = _product(db, pid)
+        from app import catalog
+        catalog.share(db, q.household_id, q.barcode, q.name, q.brand, q.size_qty, q.size_unit)
     return build(db, _product(db, pid))
 
 
@@ -363,3 +370,56 @@ def run_weekly(db_factory, today: date | None = None) -> int:
                 generate_suggestions(s, t.household_id, "weekly")
                 made += 1
     return made
+
+
+# ---------- product names shared across the server (G-8) and use-by dates from a photo (P-7) ----------
+
+class ShareIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/households/{hid}/share-products")
+def get_share(hid: UUID, user: User, db: DB):
+    role = my_role(db, hid)
+    on = bool(db.execute(text("SELECT share_products FROM household_settings WHERE household_id = :h"), {"h": hid}).scalar())
+    known = db.execute(text("SELECT count(*) FROM product_catalog")).scalar()
+    return {"enabled": on, "can_change": role == "owner", "catalog_size": known}
+
+
+@router.put("/households/{hid}/share-products")
+def set_share(hid: UUID, body: ShareIn, user: User, db: DB):
+    if my_role(db, hid) != "owner":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the household owner can change this")
+    db.execute(text("""INSERT INTO household_settings (household_id, share_products, updated_by) VALUES (:h, :e, :u)
+                       ON CONFLICT (household_id) DO UPDATE SET share_products = EXCLUDED.share_products,
+                           updated_by = EXCLUDED.updated_by, updated_at = now()"""), {"h": hid, "e": body.enabled, "u": user.id})
+    if body.enabled:      # offer the names already in the pantry
+        from app import catalog
+        for p in db.execute(text("SELECT * FROM products WHERE household_id = :h AND barcode IS NOT NULL"), {"h": hid}).all():
+            catalog.share(db, hid, p.barcode, p.name, p.brand, p.size_qty, p.size_unit)
+    audit.log(db, user.id, "settings.share_products", "household",
+              f"Sharing product names with other households {'on' if body.enabled else 'off'}", household_id=hid)
+    return get_share(hid, user, db)
+
+
+@router.post("/households/{hid}/read-date")
+async def read_date(hid: UUID, user: User, db: DB, file: Annotated[UploadFile, File()]):
+    """Read a use-by / best-before date from a photo of the packaging. Nothing is stored."""
+    from fastapi.concurrency import run_in_threadpool
+    from app.expiry import find_dates
+    from app.importers.base import ImportError_
+    from app.importers.pdf_import import _extract, ocr_available
+    my_role(db, hid)
+    if not ocr_available():
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Text reading isn't installed on this server")
+    raw = await file.read(8 * 1024 * 1024 + 1)
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Photo too large")
+    if not (raw[:3] == b"\xff\xd8\xff" or raw[:4] == b"\x89PNG" or (raw[:4] == b"RIFF" and raw[8:12] == b"WEBP")):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Use a JPEG, PNG or WebP photo")
+    try:
+        lines = (await run_in_threadpool(_extract, "image", raw))["lines"]
+    except ImportError_ as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+    dates = find_dates(lines)
+    return {"dates": [d.isoformat() for d in dates], "best": dates[0].isoformat() if dates else None}

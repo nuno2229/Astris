@@ -64,3 +64,16 @@ On every start the container waits for Postgres, creates roles and the database 
      ```
      Restore **replaces all data** with the backup's. It needs the schema-owner credentials the container already has.
 - **Personal export:** anyone can download their own data (Settings → Your data) as JSON.
+
+## Naming scanned products offline (optional)
+
+Scanned barcodes can be named automatically without the internet. Load the UK part of the Open Food Facts product list once:
+
+1. Download `en.openfoodfacts.org.products.csv.gz` from <https://world.openfoodfacts.org/data> (about 1 GB) into your appdata folder, e.g. `/mnt/user/appdata/astris/`.
+2. Run it through the container (only UK products are kept, no prices):
+   ```sh
+   docker exec -it astris python -m app.catalog import-off /data/en.openfoodfacts.org.products.csv.gz
+   ```
+3. Delete the download afterwards if you like. Run it again now and then to refresh.
+
+Households can also choose to share the names they give products (Shopping → Pantry → "Share product names"). Only barcode, name and size are shared, never prices or who bought it.

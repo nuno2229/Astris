@@ -107,6 +107,8 @@ class SettlementOut(BaseModel):
     settled_on: date
     note: str | None
     mine: bool
+    confirmed: bool = True
+    can_confirm: bool = False           # you're the receiver of a pending payment
 
 
 class Balances(BaseModel):
@@ -137,11 +139,14 @@ def balances(db, hid: UUID) -> list[Owes]:
           JOIN accounts a ON a.id = t.account_id
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
                AND (ha.frozen_at IS NULL OR (t.posted_on <= ha.until AND t.created_at <= ha.frozen_at))
+          JOIN memberships md ON md.household_id = :h AND md.user_id = s.for_user          -- both still in this household
+          JOIN memberships mc ON mc.household_id = :h AND mc.user_id = a.owner_user_id
          WHERE s.for_user IS NOT NULL AND s.for_user <> a.owner_user_id AND t.transfer_group IS NULL
          GROUP BY 1, 2, 3"""), {"h": hid}):
         owed[(r.debtor, r.creditor, r.currency)] += Decimal(r.v)
     for r in db.execute(text("""SELECT from_user, to_user, currency, sum(amount) AS v FROM settlements
-                                 WHERE household_id = :h AND from_user IS NOT NULL AND to_user IS NOT NULL GROUP BY 1, 2, 3"""), {"h": hid}):
+                                 WHERE household_id = :h AND confirmed AND from_user IS NOT NULL AND to_user IS NOT NULL
+                                 GROUP BY 1, 2, 3"""), {"h": hid}):
         owed[(r.from_user, r.to_user, r.currency)] -= Decimal(r.v)
     names = {r.id: r.display_name for r in db.execute(text("SELECT id, display_name FROM users"))}
     out, done = [], set()
@@ -165,7 +170,8 @@ def get_balances(hid: UUID, user: User, db: DB):
     if not on:
         return Balances(enabled=False, can_change=role == "owner")
     st = [SettlementOut(id=r.id, from_name=r.from_nm, to_name=r.to_nm, amount=Decimal(r.amount).quantize(Q), currency=r.currency,
-                        settled_on=r.settled_on, note=r.note, mine=r.created_by == user.id)
+                        settled_on=r.settled_on, note=r.note, mine=r.created_by == user.id or r.to_user == user.id,
+                        confirmed=r.confirmed, can_confirm=not r.confirmed and r.to_user == user.id)
           for r in db.execute(text("""SELECT s.*, fu.display_name AS from_nm, tu.display_name AS to_nm FROM settlements s
                                        LEFT JOIN users fu ON fu.id = s.from_user LEFT JOIN users tu ON tu.id = s.to_user
                                       WHERE s.household_id = :h ORDER BY s.settled_on DESC, s.created_at DESC LIMIT 20"""), {"h": hid})]
@@ -193,14 +199,31 @@ def settle(hid: UUID, body: SettlementIn, user: User, db: DB):
     other = body.to_user if body.from_user == user.id else body.from_user
     if not db.execute(text("SELECT 1 FROM memberships WHERE household_id = :h AND user_id = :u"), {"h": hid, "u": other}).first():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "They're not in this household")
-    db.execute(text("""INSERT INTO settlements (household_id, from_user, to_user, amount, currency, settled_on, note)
-                       VALUES (:h, :f, :t, :a, :c, :d, :n)"""),
+    owed = next((o.amount for o in balances(db, hid) if o.from_user == body.from_user and o.to_user == body.to_user
+                 and o.currency == body.currency), Decimal(0))
+    if body.amount > owed:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"That's more than is owed ({owed:.2f} {body.currency})" if owed else "Nothing is owed that way")
+    # the receiver's word confirms it; a payer's record waits for the receiver to confirm (no clearing your own debt)
+    db.execute(text("""INSERT INTO settlements (household_id, from_user, to_user, amount, currency, settled_on, note, confirmed)
+                       VALUES (:h, :f, :t, :a, :c, :d, :n, :ok)"""),
                {"h": hid, "f": body.from_user, "t": body.to_user, "a": body.amount, "c": body.currency,
-                "d": body.settled_on or date.today(), "n": body.note})
+                "d": body.settled_on or date.today(), "n": body.note, "ok": body.to_user == user.id})
     names = dict(db.execute(text("SELECT id, display_name FROM users WHERE id IN (:f, :t)"), {"f": body.from_user, "t": body.to_user}).all())
     audit.log(db, user.id, "settle.add", "household",
               f"{names.get(body.from_user)} paid {names.get(body.to_user)} {body.amount} {body.currency}", household_id=hid)
     return get_balances(hid, user, db)
+
+
+@router.post("/settlements/{sid}/confirm", response_model=Balances)
+def confirm_settlement(sid: UUID, user: User, db: DB):
+    s = db.execute(text("SELECT household_id, amount, currency FROM settlements WHERE id = :s"), {"s": sid}).first()
+    if s is None:
+        raise not_found("Settlement not found")
+    if not db.execute(text("UPDATE settlements SET confirmed = true WHERE id = :s AND to_user = :u"), {"s": sid, "u": user.id}).rowcount:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the person who received it can confirm it")
+    audit.log(db, user.id, "settle.confirm", "household", f"Confirmed receiving {s.amount:.2f} {s.currency}", household_id=s.household_id)
+    return get_balances(s.household_id, user, db)
 
 
 @router.delete("/settlements/{sid}", status_code=204)
@@ -209,5 +232,5 @@ def remove_settlement(sid: UUID, user: User, db: DB):
     if s is None:
         raise not_found("Settlement not found")
     if not db.execute(text("DELETE FROM settlements WHERE id = :s"), {"s": sid}).rowcount:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever recorded it can remove it")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever recorded it, or the person who received it, can remove it")
     audit.log(db, user.id, "settle.remove", "household", f"Removed a settlement of {s.amount:.2f} {s.currency}", household_id=s.household_id)

@@ -169,7 +169,7 @@ function Categories({ household }: { household: Household }) {
 
 interface Balances { enabled: boolean; can_change: boolean;
   owes: { from_user: string; from_name: string; to_user: string; to_name: string; amount: string; currency: string }[];
-  settlements: { id: string; from_name: string | null; to_name: string | null; amount: string; currency: string; settled_on: string; note: string | null; mine: boolean }[] }
+  settlements: { id: string; from_name: string | null; to_name: string | null; amount: string; currency: string; settled_on: string; note: string | null; mine: boolean; confirmed: boolean; can_confirm: boolean }[] }
 
 /** Who owes whom from split payments, and recording paying it back (P-4). A household option. */
 function SettleUp({ household, me, currency, members }: { household: Household; me: string; currency: string; members: Member[] }) {
@@ -217,6 +217,7 @@ function SettleUp({ household, me, currency, members }: { household: Household; 
               <button aria-pressed={pay.dir === "paid"} onClick={() => setPay({ ...pay, dir: "paid" })}>I paid</button>
               <button aria-pressed={pay.dir === "got"} onClick={() => setPay({ ...pay, dir: "got" })}>I was paid</button>
             </div>
+            {pay.dir === "paid" && <span className="small muted">They'll be asked to confirm they got it.</span>}
             <div className="row" style={{ flexWrap: "nowrap" }}>
               {others.length > 1 && (
                 <select aria-label="Who" value={pay.other} onChange={(e) => setPay({ ...pay, other: e.target.value })}>
@@ -236,10 +237,16 @@ function SettleUp({ household, me, currency, members }: { household: Household; 
             setPay({ other: mine?.to_user ?? others[0].user_id, dir: "paid", amount: mine?.amount ?? "" });
           }}>Record a payment</button>
         )}
-        {b.settlements.length > 0 && (
+        {b.settlements.filter((s) => !s.confirmed).map((s) => (
+          <div key={s.id} className="callout small row" style={{ justifyContent: "space-between" }}>
+            <span>{s.from_name ?? "Former member"} says they paid {s.to_name ?? "Former member"} {money(s.amount, s.currency)}{s.can_confirm ? "." : ". Waiting for them to confirm."}</span>
+            {s.can_confirm && <button className="btn" onClick={() => run(() => api.post(`/api/settlements/${s.id}/confirm`))}>Confirm</button>}
+          </div>
+        ))}
+        {b.settlements.some((s) => s.confirmed) && (
           <details className="small">
             <summary>Recent payments</summary>
-            {b.settlements.map((s) => (
+            {b.settlements.filter((s) => s.confirmed).map((s) => (
               <div key={s.id} className="row" style={{ justifyContent: "space-between" }}>
                 <span className="muted">{s.from_name ?? "Former member"} paid {s.to_name ?? "Former member"} {money(s.amount, s.currency)}, {new Date(s.settled_on + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
                 {s.mine && <button className="linkish" aria-label="Remove this payment" onClick={() => run(() => api.del(`/api/settlements/${s.id}`))}>×</button>}

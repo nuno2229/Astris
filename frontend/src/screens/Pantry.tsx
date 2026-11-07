@@ -85,8 +85,8 @@ export default function Pantry({ household, embedded }: { household: Household; 
             {DAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
           </select>
         </label>
-        <span className="muted small">Shop prices and a proper shopping list come later.</span>
       </div>
+      <ShareProducts household={household} />
 
       {open === "scan" && <Scanner household={household} onClose={() => { setOpen(null); load(); }} />}
       {open === "new" && <ProductSheet household={household} product={null} onClose={() => { setOpen(null); load(); }} />}
@@ -120,12 +120,13 @@ function ProductList({ list, onOpen }: { list: Product[]; onOpen: (p: Product) =
   );
 }
 
-function ProductSheet({ household, product, onClose, barcode, quantity }: {
-  household: Household; product: Product | null; onClose: () => void; barcode?: string; quantity?: number }) {
+function ProductSheet({ household, product, onClose, barcode, quantity, known }: {
+  household: Household; product: Product | null; onClose: () => void; barcode?: string; quantity?: number; known?: Known }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [p, setP] = useState(product);
-  const [f, setF] = useState({ name: product?.name ?? "", brand: product?.brand ?? "", size_qty: product?.size_qty ? n(product.size_qty) : "",
-    size_unit: product?.size_unit ?? "item", restock_below: product?.restock_below ? n(product.restock_below) : "", location: product?.location ?? "",
+  const [f, setF] = useState({ name: product?.name ?? known?.name ?? "", brand: product?.brand ?? known?.brand ?? "",
+    size_qty: product?.size_qty ? n(product.size_qty) : known?.size_qty ? n(known.size_qty) : "",
+    size_unit: product?.size_unit ?? known?.size_unit ?? "item", restock_below: product?.restock_below ? n(product.restock_below) : "", location: product?.location ?? "",
     quantity: String(quantity ?? 1), expires_on: "" });
   const [addQty, setAddQty] = useState("1");
   const [addExp, setAddExp] = useState("");
@@ -169,6 +170,7 @@ function ProductSheet({ household, product, onClose, barcode, quantity }: {
             <div className="row" style={{ flexWrap: "nowrap", alignItems: "flex-end" }}>
               <label style={{ width: 80 }}>Add<input value={addQty} onChange={(e) => setAddQty(e.target.value)} inputMode="decimal" /></label>
               <label style={{ flex: 1 }}>Use by (optional)<input type="date" value={addExp} onChange={(e) => setAddExp(e.target.value)} /></label>
+              <ReadDate household={household} compact onDate={setAddExp} />
               <button className="btn" onClick={() => run(() => api.post<Product>(`/api/products/${p.id}/lots`, { quantity: addQty, expires_on: addExp || null }))}>Add</button>
             </div>
           </>
@@ -191,6 +193,9 @@ function ProductSheet({ household, product, onClose, barcode, quantity }: {
               <label style={{ flex: 2 }}>Use by (optional)<input type="date" value={f.expires_on} onChange={(e) => setF({ ...f, expires_on: e.target.value })} /></label>
             </div>
           )}
+          {!p && (
+            <ReadDate household={household} onDate={(d) => setF((x) => ({ ...x, expires_on: d }))} />
+          )}
           {error && <div className="error" role="alert">{error}</div>}
           <div className="row">
             <button className="btn primary">{p ? "Save details" : "Add to pantry"}</button>
@@ -211,8 +216,8 @@ function Scanner({ household, onClose }: { household: Household; onClose: () => 
   const [live, setLive] = useState(false);
   const [manual, setManual] = useState("");
   const [msg, setMsg] = useState("");
-  const [unknown, setUnknown] = useState<{ code: string; qty: number }[]>([]);
-  const [naming, setNaming] = useState<{ code: string; qty: number } | null>(null);
+  const [unknown, setUnknown] = useState<{ code: string; qty: number; known?: Known }[]>([]);
+  const [naming, setNaming] = useState<{ code: string; qty: number; known?: Known } | null>(null);
   const add = (c: string) => setCodes((x) => ({ ...x, [c]: (x[c] ?? 0) + 1 }));
   useEffect(() => { ref.current?.showModal(); return () => stopRef.current?.(); }, []);
 
@@ -230,9 +235,9 @@ function Scanner({ household, onClose }: { household: Household; onClose: () => 
   const submit = async () => {
     const list = Object.entries(codes).flatMap(([c, k]) => Array(k).fill(c));
     if (!list.length) return;
-    const r = await api.post<{ added: { name: string; quantity: number }[]; unknown: string[] }>(`/api/households/${household.id}/scan`, { codes: list });
+    const r = await api.post<{ added: { name: string; quantity: number }[]; unknown: string[]; known_names?: Record<string, Known> }>(`/api/households/${household.id}/scan`, { codes: list });
     setMsg(r.added.length ? "Added " + r.added.map((a) => `${a.quantity}× ${a.name}`).join(", ") + "." : "");
-    setUnknown(r.unknown.map((c) => ({ code: c, qty: codes[c] })));
+    setUnknown(r.unknown.map((c) => ({ code: c, qty: codes[c], known: r.known_names?.[c] })));
     setCodes({});
   };
 
@@ -271,16 +276,59 @@ function Scanner({ household, onClose }: { household: Household; onClose: () => 
           <div className="callout stack" style={{ gap: 8 }}>
             <strong>New to your pantry</strong>
             {unknown.map((u) => (
-              <div key={u.code} className="row"><span className="code" style={{ flex: 1 }}>{u.code} × {u.qty}</span>
-                <button className="btn" onClick={() => setNaming(u)}>Name it</button>
+              <div key={u.code} className="row"><span style={{ flex: 1 }}>{u.known ? <>{u.known.name} <span className="muted small">× {u.qty}</span></> : <span className="code">{u.code} × {u.qty}</span>}</span>
+                <button className="btn" onClick={() => setNaming(u)}>{u.known ? "Add" : "Name it"}</button>
                 <button className="btn quiet" onClick={() => setUnknown(unknown.filter((x) => x.code !== u.code))}>Skip</button></div>
             ))}
           </div>
         )}
         <button className="btn quiet" onClick={() => ref.current?.close()}>Done</button>
       </div>
-      {naming && <ProductSheet household={household} product={null} barcode={naming.code} quantity={naming.qty}
+      {naming && <ProductSheet household={household} product={null} barcode={naming.code} quantity={naming.qty} known={naming.known}
         onClose={() => { setUnknown((x) => x.filter((y) => y.code !== naming.code)); setNaming(null); }} />}
     </dialog>
+  );
+}
+
+interface Known { name: string; brand: string | null; size_qty: string | null; size_unit: string | null; source: string }
+
+/** Read a use-by / best-before date from a photo of the pack (P-7). The photo isn't kept. */
+function ReadDate({ household, onDate, compact }: { household: Household; onDate: (d: string) => void; compact?: boolean }) {
+  const [state, setState] = useState<"" | "reading" | "none" | "error">("");
+  const [msg, setMsg] = useState("");
+  const read = async (file: File) => {
+    setState("reading"); setMsg("");
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const r = await api.post<{ best: string | null }>(`/api/households/${household.id}/read-date`, fd);
+      if (r.best) { onDate(r.best); setState(""); setMsg(`Read ${new Date(r.best + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}. Check it's right.`); }
+      else { setState("none"); setMsg("Couldn't find a date. Try a closer photo of the date, or type it."); }
+    } catch (e) { setState("error"); setMsg((e as Error).message); }
+  };
+  return (
+    <div className="stack" style={{ gap: 4, alignSelf: compact ? "flex-end" : undefined }}>
+      <label className="btn quiet" style={{ alignSelf: "flex-start" }}>{state === "reading" ? "Reading…" : compact ? "Photo" : "Read the date from a photo"}
+        <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => e.target.files?.[0] && read(e.target.files[0])} /></label>
+      {msg && <span className={"small " + (state ? "flag" : "muted")} role="status">{msg}</span>}
+    </div>
+  );
+}
+
+/** G-8: offer this household's product names (never prices) to other households on this server. Owner's choice. */
+function ShareProducts({ household }: { household: Household }) {
+  const [st, setSt] = useState<{ enabled: boolean; can_change: boolean; catalog_size: number } | null>(null);
+  useEffect(() => { api.get<typeof st>(`/api/households/${household.id}/share-products`).then(setSt).catch(() => setSt(null)); }, [household.id]);
+  if (!st) return null;
+  return (
+    <div className="panel stack" style={{ marginTop: 12 }}>
+      <label className="check">
+        <input type="checkbox" checked={st.enabled} disabled={!st.can_change}
+          onChange={(e) => api.put<typeof st>(`/api/households/${household.id}/share-products`, { enabled: e.target.checked }).then(setSt)} />
+        <span>Share product names with other households on this server
+          <span className="muted small"> (barcode, name and size only: never prices, and never who bought it)</span></span>
+      </label>
+      {st.catalog_size > 0 && <span className="muted small">{st.catalog_size.toLocaleString()} products can be named automatically when scanned.</span>}
+    </div>
   );
 }

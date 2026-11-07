@@ -50,20 +50,39 @@ def test_settle_up():
         {"amount": "-45", "category": "Groceries", "for_user": a.me["id"]}, {"amount": "-45", "category": "Groceries", "for_user": b.me["id"]}]})
     owes = b.get(f"/api/households/{hid}/balances").json()["owes"]
     assert owes == [{"from_user": b.me["id"], "from_name": "B", "to_user": a.me["id"], "to_name": "A", "amount": "45.00", "currency": "GBP"}]
-    # B pays back £40; can't record a payment between two other people
+    # B says they paid £40: pending until A confirms; B can't clear their own debt
     assert b.post(f"/api/households/{hid}/settlements", json={"from_user": b.me["id"], "to_user": a.me["id"], "amount": "40", "currency": "GBP"}).status_code == 201
     out = a.get(f"/api/households/{hid}/balances").json()
-    assert out["owes"][0]["amount"] == "5.00" and out["settlements"][0]["mine"] is False
+    assert out["owes"][0]["amount"] == "45.00" and out["settlements"][0]["can_confirm"] is True
+    sid = out["settlements"][0]["id"]
+    assert b.post(f"/api/settlements/{sid}/confirm").status_code == 403
+    assert a.post(f"/api/settlements/{sid}/confirm").json()["owes"][0]["amount"] == "5.00"
+    # A records £5 received: confirmed straight away; can't record more than is owed
+    assert a.post(f"/api/households/{hid}/settlements", json={"from_user": b.me["id"], "to_user": a.me["id"], "amount": "6", "currency": "GBP"}).status_code == 422
+    assert a.post(f"/api/households/{hid}/settlements", json={"from_user": b.me["id"], "to_user": a.me["id"], "amount": "5", "currency": "GBP"}).status_code == 201
+    assert a.get(f"/api/households/{hid}/balances").json()["owes"] == []
     c = make_user("c")
     invite_and_join(a, c, hid)
     assert c.post(f"/api/households/{hid}/settlements", json={"from_user": b.me["id"], "to_user": a.me["id"], "amount": "5", "currency": "GBP"}).status_code == 422
     # a split for someone outside the households the account is in is refused
     assert a.put(f"/api/transactions/{tx['id']}/splits", json={"parts": [
         {"amount": "-45", "for_user": a.me["id"]}, {"amount": "-45", "for_user": make_user("y").me["id"]}]}).status_code == 422
-    # only the recorder can remove a settlement
-    sid = out["settlements"][0]["id"]
-    assert a.delete(f"/api/settlements/{sid}").status_code == 403
+    # removing: the recorder or the receiver
+    assert c.delete(f"/api/settlements/{sid}").status_code == 403
     assert b.delete(f"/api/settlements/{sid}").status_code == 204
+
+
+def test_split_for_someone_in_another_household_doesnt_count_here():
+    a, b, hid, acc, tx = setup()
+    other = create_household(a, "Other")
+    c = make_user("c")
+    invite_and_join(a, c, other)
+    a.put(f"/api/households/{other}/accounts/{acc}", json={"attribution": "include"})
+    for h in (hid, other):
+        a.put(f"/api/households/{h}/splits-enabled", json={"enabled": True})
+    a.put(f"/api/transactions/{tx['id']}/splits", json={"parts": [{"amount": "-45", "for_user": a.me["id"]}, {"amount": "-45", "for_user": c.me["id"]}]})
+    assert a.get(f"/api/households/{hid}/balances").json()["owes"] == []
+    assert a.get(f"/api/households/{other}/balances").json()["owes"][0]["from_name"] == "C"
 
 
 def test_splits_edited_after_leaving_are_not_shown():
