@@ -238,7 +238,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E24-05** Account owner picks which household's AI processes a shared account (G-14) — `Review` (Accounts → AI labelling: automatic, a specific household's AI, or off)
 - [x] **E24-07** Saved import profiles: each bank's column layout remembered (G-16) — `Review` (columns/date order you set in the wizard are remembered per person by the file's header row and applied next time, in the wizard and quick import; "Forget the saved layout")
 - [x] **E24-06** Likely trials spotted from £0.00/£1.00 charges (G-15) — `Review` (Bills → "Free trials?": £0.00/£1.00 from a shop in the last 45 days with no real charge since; groceries/eating out/transport ignored; Track trial (end date defaults to 30 days) or Not a trial)
-- [ ] **E24-03** A goal can follow a savings account's balance (G-6)
+- [x] **E24-03** A goal can follow a savings account's balance (G-6) — `Review` (choose "The balance of …" when creating a goal, or "Follow its balance" later; only the account owner can link it, the account must be shared into the household; pace from the balance change over 90 days; switch back to contributions any time)
 - [ ] **E24-01** Leaving a household: the member chooses whether past transactions stay visible; "delete my account and data" (G-9, P-13)
 - [ ] **E24-11** Split payments across categories/people, and settle up; household on/off option (P-3, P-4)
 - [ ] **E24-02** Household option to share product names (never prices) with other households on this server (G-8)

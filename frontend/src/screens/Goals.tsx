@@ -1,12 +1,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { api, Household, money, relDay } from "../api";
+import { api, Household, HouseholdAccount, money, relDay } from "../api";
 
 export interface Goal { id: string; name: string; target: string; currency: string; deadline: string | null; archived: boolean;
   saved: string; remaining: string; progress: string; achieved: boolean; days_left: number | null;
   per_month_needed: string | null; pace_per_month: string; projected_date: string | null; on_track: boolean | null;
   members: { user_id: string; name: string; saved: string; share: string }[];
   recent: { id: string; user_id: string; name: string; amount: string; made_on: string; note: string | null; from_statement: boolean; mine: boolean }[];
-  my_rules: { id: string; label: string }[] }
+  my_rules: { id: string; label: string }[];
+  account_id?: string | null; account_name?: string | null; account_status?: "ok" | "no_balance" | "not_shared" | null }
 
 export function Meter({ value, label }: { value: number; label: string }) {
   return (
@@ -49,7 +50,7 @@ export default function Goals({ household, currency }: { household: Household; c
       </div>
       <button className="btn block" style={{ marginTop: 14 }} onClick={() => setOpen("new")}>+ New goal</button>
       {open === "new" && <NewGoal household={household} currency={currency} onClose={() => setOpen(null)} onDone={(id) => { load(); setOpen(id); }} />}
-      {open && open !== "new" && <GoalSheet id={open} onClose={() => { setOpen(null); load(); }} />}
+      {open && open !== "new" && <GoalSheet id={open} household={household} onClose={() => { setOpen(null); load(); }} />}
     </>
   );
 }
@@ -57,11 +58,12 @@ export default function Goals({ household, currency }: { household: Household; c
 function NewGoal({ household, currency, onClose, onDone }: { household: Household; currency: string; onClose: () => void; onDone: (id: string) => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { ref.current?.showModal(); }, []);
-  const [f, setF] = useState({ name: "", target: "", deadline: "" });
+  const [f, setF] = useState({ name: "", target: "", deadline: "", account_id: "" });
   const [error, setError] = useState("");
+  const accounts = useMyAccounts(household, currency);
   const submit = async (e: FormEvent) => {
     e.preventDefault(); setError("");
-    try { const g = await api.post<Goal>(`/api/households/${household.id}/goals`, { name: f.name, target: f.target, currency, deadline: f.deadline || null }); onDone(g.id); }
+    try { const g = await api.post<Goal>(`/api/households/${household.id}/goals`, { name: f.name, target: f.target, currency, deadline: f.deadline || null, account_id: f.account_id || null }); onDone(g.id); }
     catch (err) { setError((err as Error).message); }
   };
   return (
@@ -74,6 +76,14 @@ function NewGoal({ household, currency, onClose, onDone }: { household: Househol
           <label style={{ flex: 1 }}>Target ({currency})<input value={f.target} onChange={(e) => setF({ ...f, target: e.target.value })} required inputMode="decimal" pattern="\d+(\.\d{1,2})?" /></label>
           <label style={{ flex: 1 }}>By (optional)<input type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} /></label>
         </div>
+        {accounts.length > 0 && (
+          <label>Track progress by
+            <select value={f.account_id} onChange={(e) => setF({ ...f, account_id: e.target.value })}>
+              <option value="">Money members put aside</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>The balance of {a.name}</option>)}
+            </select>
+          </label>
+        )}
         {error && <div className="error" role="alert">{error}</div>}
         <div className="row"><button className="btn primary">Create goal</button><button type="button" className="btn quiet" onClick={() => ref.current?.close()}>Cancel</button></div>
       </form>
@@ -81,7 +91,7 @@ function NewGoal({ household, currency, onClose, onDone }: { household: Househol
   );
 }
 
-function GoalSheet({ id, onClose }: { id: string; onClose: () => void }) {
+function GoalSheet({ id, household, onClose }: { id: string; household: Household; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [g, setG] = useState<Goal | null>(null);
   const [dir, setDir] = useState<"in" | "out">("in");
@@ -101,7 +111,7 @@ function GoalSheet({ id, onClose }: { id: string; onClose: () => void }) {
           <Meter value={Number(g.progress)} label={`${g.name} progress`} />
           <div className="goal-line"><strong>{money(g.saved, g.currency)}</strong> <span className="muted">of {money(g.target, g.currency)}, {money(g.remaining, g.currency)} to go</span></div>
           <div className={"small " + (g.on_track === false ? "flag" : "muted")}>{verdict(g)}</div>
-          {g.members.length > 0 && (
+          {g.members.length > 0 && !g.account_id && (
             <div className="stack" style={{ gap: 6 }}>
               <strong className="small">Who's put in what</strong>
               {g.members.map((m) => (
@@ -111,6 +121,14 @@ function GoalSheet({ id, onClose }: { id: string; onClose: () => void }) {
               ))}
             </div>
           )}
+          {g.account_id ? (
+            <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+              <span className="small">{g.account_status === "not_shared" ? "The account this goal follows is no longer shared with the household."
+                : g.account_status === "no_balance" ? `Following ${g.account_name}. Import a statement with balances to see progress.`
+                : `Following the balance of ${g.account_name}.`}</span>
+              <button className="btn quiet" style={{ alignSelf: "flex-start" }} onClick={() => run(() => api.put<Goal>(`/api/goals/${id}/account`, { account_id: null }))}>Count contributions instead</button>
+            </div>
+          ) : <>
           <form className="stack" onSubmit={add} style={{ gap: 10 }}>
             <div className="seg full" role="group" aria-label="Direction">
               <button type="button" aria-pressed={dir === "in"} onClick={() => setDir("in")}>Put money aside</button>
@@ -127,6 +145,8 @@ function GoalSheet({ id, onClose }: { id: string; onClose: () => void }) {
             <div key={r.id} className="row small muted">Counting your transfers to “{r.label}” automatically.
               <button className="btn quiet" onClick={() => run(() => api.del(`/api/goal-rules/${r.id}`))}>Stop</button></div>
           ))}
+          <FollowAccount goal={g} household={household} onPick={(aid) => run(() => api.put<Goal>(`/api/goals/${id}/account`, { account_id: aid }))} />
+          </>}
           {g.recent.length > 0 && (
             <ul className="list" style={{ background: "var(--bg)" }}>
               {g.recent.map((c) => (
@@ -148,5 +168,29 @@ function GoalSheet({ id, onClose }: { id: string; onClose: () => void }) {
         </>}
       </div>
     </dialog>
+  );
+}
+
+/** Your accounts shared into this household in the goal's currency: the ones a goal can follow (G-6). */
+function useMyAccounts(household: Household, currency: string) {
+  const [list, setList] = useState<HouseholdAccount[]>([]);
+  useEffect(() => {
+    api.get<HouseholdAccount[]>(`/api/households/${household.id}/accounts`)
+      .then((a) => setList(a.filter((x) => x.is_mine && x.currency === currency))).catch(() => setList([]));
+  }, [household.id, currency]);
+  return list;
+}
+
+function FollowAccount({ goal, household, onPick }: { goal: Goal; household: Household; onPick: (accountId: string) => void }) {
+  const list = useMyAccounts(household, goal.currency);
+  const [pick, setPick] = useState("");
+  if (!list.length) return null;
+  return (
+    <div className="row" style={{ flexWrap: "nowrap" }}>
+      <select value={pick || list[0].id} onChange={(e) => setPick(e.target.value)} aria-label="Savings account">
+        {list.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+      </select>
+      <button className="btn" onClick={() => onPick(pick || list[0].id)}>Follow its balance</button>
+    </div>
   );
 }

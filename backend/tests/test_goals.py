@@ -105,3 +105,31 @@ def test_only_creator_or_admin_changes_goal_and_others_savings_are_kept():
     own = new_goal(m, hid, name="Mine")
     m.post(f"/api/goals/{own['id']}/contributions", json={"amount": "5"})
     assert m.delete(f"/api/goals/{own['id']}").status_code == 204                              # only own money in it
+
+
+def test_goal_follows_savings_account_balance():
+    from datetime import date, timedelta
+    from tests.conftest import create_account, create_household, invite_and_join, make_user, upload
+    d = lambda n: (date.today() - timedelta(days=n)).isoformat()   # noqa: E731
+    a, b = make_user("a"), make_user("b")
+    hid = create_household(a)
+    invite_and_join(a, b, hid)
+    sav = create_account(a, "Savings")
+    a.put(f"/api/households/{hid}/accounts/{sav}", json={"attribution": "include"})
+    upload(a, sav, "s.csv", ("Date,Description,Amount,Balance\n"
+                             f"{d(80)},DEPOSIT,1000.00,1000.00\n{d(10)},DEPOSIT,600.00,1600.00\n").encode())
+    # only the owner can link their account; it must be in this household and currency
+    assert b.post(f"/api/households/{hid}/goals", json={"name": "Holiday", "target": "3000", "currency": "GBP", "account_id": sav}).status_code == 403
+    assert a.post(f"/api/households/{hid}/goals", json={"name": "Holiday", "target": "3000", "currency": "EUR", "account_id": sav}).status_code == 422
+    g = a.post(f"/api/households/{hid}/goals", json={"name": "Holiday", "target": "3000", "currency": "GBP", "account_id": sav}).json()
+    assert g["saved"] == "1600.00" and g["account_name"] == "Savings" and g["account_status"] == "ok"
+    assert float(g["pace_per_month"]) > 0 and g["projected_date"]
+    # contributions don't apply; members see the same progress
+    assert b.post(f"/api/goals/{g['id']}/contributions", json={"amount": "10"}).status_code == 409
+    assert b.get(f"/api/goals/{g['id']}").json()["saved"] == "1600.00"
+    # unsharing the account stops the household seeing its balance
+    a.delete(f"/api/households/{hid}/accounts/{sav}")
+    assert b.get(f"/api/goals/{g['id']}").json()["account_status"] == "not_shared"
+    # back to contributions
+    r = a.put(f"/api/goals/{g['id']}/account", json={"account_id": None}).json()
+    assert r["account_id"] is None and r["saved"] == "0.00"

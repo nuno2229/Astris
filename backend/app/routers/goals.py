@@ -23,11 +23,17 @@ class GoalIn(BaseModel):
     target: Decimal = Field(gt=0, lt=Decimal("1e12"), decimal_places=2)
     currency: str = Field(pattern=r"^[A-Z]{3}$")
     deadline: date | None = None
+    account_id: UUID | None = None      # follow this savings account's balance (G-6); yours, shared into the household
+
 
     @field_validator("currency", mode="before")
     @classmethod
     def up(cls, v):
         return v.upper() if isinstance(v, str) else v
+
+
+class GoalAccountIn(BaseModel):
+    account_id: UUID | None = None
 
 
 class GoalUpdate(BaseModel):
@@ -90,6 +96,9 @@ class GoalOut(BaseModel):
     members: list[Member]
     recent: list[Contribution] = []
     my_rules: list[Rule] = []
+    account_id: UUID | None = None        # progress follows this account's balance (G-6)
+    account_name: str | None = None
+    account_status: str | None = None     # "ok" | "no_balance" (no statement with balances yet) | "not_shared"
 
 
 def _goal(db: DB, gid: UUID):
@@ -105,8 +114,77 @@ def _require_manager(db: DB, g, user) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever created this goal, or the household owner or an admin, can change it")
 
 
+def _balance(db: Session, aid: UUID, on: date | None = None) -> Decimal | None:
+    """Account balance (today, or at the end of a past day): cash wallets from their entries, banks from statements."""
+    a = db.execute(text("SELECT type, opening_balance, opening_date FROM accounts WHERE id = :a"), {"a": aid}).first()
+    if a is None:
+        return None
+    if a.type == "cash":
+        if on and a.opening_date and on < a.opening_date:
+            return None
+        return Decimal(a.opening_balance) + Decimal(db.execute(text("""
+            SELECT COALESCE(sum(amount), 0) FROM transactions WHERE account_id = :a
+               AND (CAST(:o AS date) IS NULL OR posted_on >= CAST(:o AS date)) AND (CAST(:d AS date) IS NULL OR posted_on <= CAST(:d AS date))"""),
+            {"a": aid, "o": a.opening_date, "d": on}).scalar())
+    v = db.execute(text("""SELECT running_balance FROM transactions WHERE account_id = :a AND running_balance IS NOT NULL
+                             AND (CAST(:d AS date) IS NULL OR posted_on <= CAST(:d AS date))
+                           ORDER BY posted_on DESC, created_at DESC LIMIT 1"""), {"a": aid, "d": on}).scalar()
+    return Decimal(v) if v is not None else None
+
+
+def _build_account(db: Session, g, today: date) -> GoalOut:
+    acc = db.execute(text("""SELECT a.name, a.owner_user_id, u.display_name FROM accounts a JOIN users u ON u.id = a.owner_user_id
+                              JOIN household_accounts ha ON ha.account_id = a.id AND ha.household_id = :h WHERE a.id = :a"""),
+                     {"a": g.account_id, "h": g.household_id}).first()
+    target = Decimal(g.target)
+    status_ = "ok"
+    saved = Decimal(0)
+    pace = Decimal(0)
+    if acc is None:
+        status_ = "not_shared"
+    else:
+        now = _balance(db, g.account_id)
+        if now is None:
+            status_ = "no_balance"
+        else:
+            saved = now
+            start = max(g.created_at.date() - timedelta(days=PACE_DAYS), today - timedelta(days=PACE_DAYS))
+            then = _balance(db, g.account_id, start)
+            if then is None:   # account history starts inside the window: measure from its first statement line
+                first = db.execute(text("""SELECT posted_on, running_balance - amount AS before FROM transactions
+                                            WHERE account_id = :a AND running_balance IS NOT NULL AND posted_on > :s
+                                            ORDER BY posted_on, created_at LIMIT 1"""), {"a": g.account_id, "s": start}).first()
+                if first is not None:
+                    start, then = first.posted_on, Decimal(first.before)
+            if then is not None:
+                days = max((today - start).days, MIN_PACE_WINDOW_DAYS)
+                pace = ((now - then) / days * Decimal("30.44")).quantize(Q)
+    remaining = max(target - saved, Decimal(0))
+    achieved = saved >= target
+    if achieved and g.achieved_at is None:
+        db.execute(text("UPDATE goals SET achieved_at = now() WHERE id = :g"), {"g": g.id})
+    per_day = pace / Decimal("30.44")
+    projected = today + timedelta(days=int((remaining / per_day).to_integral_value(ROUND_HALF_UP))) \
+        if not achieved and per_day > 0 else None
+    days_left = (g.deadline - today).days if g.deadline else None
+    needed = None
+    if g.deadline and not achieved:
+        needed = (remaining / max(Decimal(max(days_left, 0)) / Decimal("30.44"), Decimal(1))).quantize(Q)
+    on_track = (projected is not None and projected <= g.deadline) if g.deadline and not achieved else None
+    members = [Member(user_id=acc.owner_user_id, name=acc.display_name, saved=saved.quantize(Q), share=Decimal(1))] \
+        if acc is not None and saved > 0 else []
+    return GoalOut(id=g.id, name=g.name, target=target, currency=g.currency, deadline=g.deadline, archived=g.archived,
+                   saved=saved.quantize(Q), remaining=remaining.quantize(Q),
+                   progress=min(saved / target, Decimal(1)).quantize(Decimal("0.001")) if saved > 0 else Decimal(0),
+                   achieved=achieved, days_left=days_left, per_month_needed=needed, pace_per_month=pace,
+                   projected_date=projected, on_track=on_track if not achieved else True, members=members,
+                   account_id=g.account_id, account_name=acc.name if acc else None, account_status=status_)
+
+
 def build(db: Session, g, me: UUID, detail: bool = False) -> GoalOut:
     today = date.today()
+    if g.account_id:
+        return _build_account(db, g, today)
     rows = db.execute(text("""SELECT c.id, c.user_id, u.display_name AS name, c.amount, c.made_on, c.note,
                                      (c.transaction_id IS NOT NULL) AS from_statement
                                 FROM goal_contributions c JOIN users u ON u.id = c.user_id
@@ -186,12 +264,40 @@ def create_goal(hid: UUID, body: GoalIn, user: User, db: DB):
     my_role(db, hid)
     if body.deadline and body.deadline <= date.today():
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Pick a deadline in the future")
-    gid = db.execute(text("""INSERT INTO goals (household_id, created_by, name, target, currency, deadline)
-                             VALUES (:h, :u, :n, :t, :c, :d) RETURNING id"""),
+    if body.account_id:
+        _check_account(db, user, hid, body.account_id, body.currency)
+    gid = db.execute(text("""INSERT INTO goals (household_id, created_by, name, target, currency, deadline, account_id)
+                             VALUES (:h, :u, :n, :t, :c, :d, :a) RETURNING id"""),
                      {"h": hid, "u": user.id, "n": body.name.strip(), "t": body.target, "c": body.currency,
-                      "d": body.deadline}).scalar_one()
+                      "d": body.deadline, "a": body.account_id}).scalar_one()
     audit.log(db, user.id, "goal.create", "goal", f"New goal {body.name.strip()}: {body.target} {body.currency}",
               entity_id=gid, household_id=hid)
+    return build(db, _goal(db, gid), user.id, True)
+
+
+def _check_account(db: DB, user, hid: UUID, aid: UUID, currency: str) -> None:
+    """Only your own account, already shared into this household, in the goal's currency."""
+    a = db.execute(text("""SELECT a.owner_user_id, a.currency FROM accounts a
+                            JOIN household_accounts ha ON ha.account_id = a.id AND ha.household_id = :h WHERE a.id = :a"""),
+                   {"a": aid, "h": hid}).first()
+    if a is None:
+        raise not_found("Account not found in this household")
+    if a.owner_user_id != user.id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can link it to a goal")
+    if a.currency != currency:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"This goal is in {currency}")
+
+
+@router.put("/goals/{gid}/account", response_model=GoalOut)
+def set_goal_account(gid: UUID, body: GoalAccountIn, user: User, db: DB):
+    """Follow a savings account's balance (G-6), or go back to counting contributions (account_id null)."""
+    g = _goal(db, gid)
+    _require_manager(db, g, user)
+    if body.account_id:
+        _check_account(db, user, g.household_id, body.account_id, g.currency)
+    db.execute(text("UPDATE goals SET account_id = :a WHERE id = :g"), {"a": body.account_id, "g": gid})
+    audit.log(db, user.id, "goal.update", "goal", f"{g.name} now {'follows an account balance' if body.account_id else 'counts contributions'}",
+              entity_id=gid, household_id=g.household_id)
     return build(db, _goal(db, gid), user.id, True)
 
 
@@ -235,6 +341,8 @@ def delete_goal(gid: UUID, user: User, db: DB):
 def contribute(gid: UUID, body: ContributionIn, user: User, db: DB):
     """Record money you put aside (or took back out, negative). Always as yourself."""
     g = _goal(db, gid)
+    if g.account_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This goal follows an account balance. Pay into the account instead.")
     if body.amount == 0:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Enter an amount")
     db.execute(text("""INSERT INTO goal_contributions (goal_id, user_id, amount, made_on, note)
