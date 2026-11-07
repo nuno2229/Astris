@@ -80,6 +80,8 @@ def after_import(db: DB, user_id: UUID, account_ids) -> None:
     apply_rules(db, user_id)              # instant offline categories; the LLM refines in the background
     from app.routers.goals import apply_rules as goal_rules
     goal_rules(db, user_id)               # transfers you said count toward a savings goal (E11)
+    from app.transfers import auto_link
+    auto_link(db, user_id)                # current -> savings, card repayments: not spending (P-1)
     for aid in set(account_ids):
         detect_recurring(db, user_id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
     worker.wake()
@@ -401,17 +403,3 @@ def move_to_wallet(tid: UUID, body: MoveToWalletIn, user: User, db: DB):
     audit.log(db, user.id, "tx.move_to_wallet", "transaction", f"Moved {abs(tx.amount)} {tx.account_currency} cash into a wallet",
               entity_id=tid, account_id=tx.account_id, after={"transfer_group": group, "wallet_id": wallet.id})
     return _tx_out(db, tid)
-
-
-@router.delete("/transfers/{group}", status_code=204)
-def unlink_transfer(group: UUID, user: User, db: DB):
-    rows = db.execute(text("""SELECT t.id, t.source, a.owner_user_id FROM transactions t JOIN accounts a ON a.id = t.account_id
-                               WHERE t.transfer_group = :g"""), {"g": group}).all()
-    if not rows:
-        raise not_found("Transfer not found")
-    if any(r.owner_user_id != user.id for r in rows):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the account owner can change this")
-    db.execute(text("DELETE FROM transactions WHERE transfer_group = :g AND source = 'transfer'"), {"g": group})
-    db.execute(text("UPDATE transactions SET transfer_group = NULL WHERE transfer_group = :g"), {"g": group})
-    acct = db.execute(text("SELECT account_id FROM transactions WHERE id = :t"), {"t": rows[0].id}).scalar()
-    audit.log(db, user.id, "tx.unlink", "transaction", "Undid a cash move into a wallet", account_id=acct)

@@ -5,9 +5,9 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.27 |
+| **Backlog version** | 0.28 |
 | **Spec version** | v0.4 (DRAFT) |
-| **Last updated** | 2026-11-05 |
+| **Last updated** | 2026-11-07 |
 | **Owner** | PO |
 
 ## How this document works
@@ -63,7 +63,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | D-1 | Core offline vs online modules | Core offline by default; online modules explicitly gated, toggleable, never auto-on | E18, E17, E14-07 | ✅ **Confirmed 2026-11-05** |
 | D-2 | What/where is "Jev" (LLM model/host on Unraid)? | A llama.cpp server. URL and model are entered by the household owner in **Settings** (PO, 2026-11-05) | — | ✅ **Resolved 2026-11-05** |
 | D-3 | Spec sync between Mac (Claude) and Unraid (PO) | Repo: **github.com/nuno2229/Astris** (public). Image: `ghcr.io/nuno2229/astris`. BACKLOG.md lives in the repo | — | ✅ **Resolved 2026-11-05** |
-| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | **Built as proposed (2026-11-06), PO to confirm:** Unraid's own update check; opt-in in-app "update available" banner; automatic backup before database changes; rollback = pin previous tag + restore; server admin set by ADMIN_EMAIL (else first account) who can close sign-ups; backups stay on the server (never downloadable in the app) | — | 🟡 **Built, awaiting confirmation** |
+| D-4 | How far to go with native Unraid updates + multi-user self-service login/roles | **Built as proposed (2026-11-06), PO to confirm:** Unraid's own update check; opt-in in-app "update available" banner; automatic backup before database changes; rollback = pin previous tag + restore; server admin set by ADMIN_EMAIL (else first account) who can close sign-ups; backups stay on the server (never downloadable in the app) | — | ✅ **Confirmed 2026-11-07** |
 | D-5 | Multi-household sharing is server-local (not cloud SaaS) | Yes. Cross-user visibility is a local scoping concern, never a network sync | E02, E19 | ✅ **Confirmed 2026-11-05** |
 | D-6 | Geography / retailer scope | UK only (PO, 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
 | D-7 | Spending limits and cash wallet alerts are device-local only (no server-side blocking) | Alerts only, never blocking (PO "ahead", 2026-11-06) | — | ✅ **Resolved 2026-11-06** |
@@ -231,6 +231,23 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E22-04** Each alert sent once (dedupe), test-message button, secrets never returned by the API
 - [x] **E22-05** Strict destinations: Discord only discord.com webhooks, Telegram only api.telegram.org; ntfy via the pinned, home-network-checked client
 
+### E24 · PO decisions of 2026-11-07 — `In progress` · G-5…G-17, P-1…P-13
+- [x] **E24-09** Transfers between your own accounts detected (current → savings, card repayments) and left out of spending (P-1) — `Review` (same amount out and in within 4 days; your own accounts with one clear match are linked on import, everything else is asked in Activity; partners' accounts in the same household can be linked by either owner; undo from History or the transaction)
+- [ ] **E24-10** Refunds linked to the original purchase and netted off its category (P-2)
+- [ ] **E24-04** Household-defined categories alongside the built-in list (G-13)
+- [ ] **E24-05** Account owner picks which household's AI processes a shared account (G-14)
+- [ ] **E24-07** Saved import profiles: each bank's column layout remembered (G-16)
+- [ ] **E24-06** Likely trials spotted from £0.00/£1.00 charges (G-15)
+- [ ] **E24-03** A goal can follow a savings account's balance (G-6)
+- [ ] **E24-01** Leaving a household: the member chooses whether past transactions stay visible; "delete my account and data" (G-9, P-13)
+- [ ] **E24-11** Split payments across categories/people, and settle up; household on/off option (P-3, P-4)
+- [ ] **E24-02** Household option to share product names (never prices) with other households on this server (G-8)
+- [ ] **E24-12** Offline product database (Open Food Facts download) and use-by date scanning from a package photo (P-7)
+- [ ] **E24-08** Calendar (iCal) import for scheduled bills and income (G-5)
+- [ ] **E24-13** Local HTTPS so live camera scanning works on phones (P-6, G-4)
+- [ ] **E24-14** Database encryption at rest with key management (P-10, E02-10)
+- [ ] **E24-15** Supermarket website price lookups, opt-in, rate-limited and cached, best effort (G-17)
+
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
 - [ ] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions; deduct/estimate ingredients from stock
@@ -254,19 +271,19 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-2 | NFR "cold parse of 5k-line PDF under ~X s" has no number. | §22 |
 | G-3 | ✅ **Resolved by E22 (2026-11-06).** **Notifications are required** (§7, §11, §15.2, §18) **but there's no delivery channel.** Standard PWA web push goes through Apple/Google push servers, which conflicts with "no data leaves home". | §2 vs §7 |
 | G-4 | **Camera/barcode scanning in a PWA needs HTTPS** (secure context). Plain `http://unraid-ip:port` on the LAN won't allow camera access. A local TLS strategy is needed. | §15.1, §21 |
-| G-5 | "Scheduled income/known bills from calendar or recurring-ofx blocks": which calendar? None is defined as a data source. | §5 |
-| G-6 | Goals are listed as an account type in §25.2 but defined as targets in §6. Is a goal an account or a view over accounts? **Interim (E11):** a goal is a view over contributions (manual, or statement transfers you link; future ones auto-counted). Tracking a savings account's balance directly isn't built. PO to confirm. | §6, §25.2 |
-| G-7 | "Mirror to client device" (§2) implies offline client storage/sync, but §23 says sharing is server-local. What is cached on the device, and is it encrypted? | §2, §23 |
-| G-8 | §3.3 says product/price data "may be shared globally". Globally across households on the same server only, presumably — confirm. | §3.3 |
-| G-9 | No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
+| G-5 | ✅ **PO 2026-11-07: add calendar (iCal) import** → E24-08. — *was:* "Scheduled income/known bills from calendar or recurring-ofx blocks": which calendar? None is defined as a data source. | §5 |
+| G-6 | ✅ **PO 2026-11-07: both** — contributions (built) *and* a goal can follow a savings account's balance → E24-03. — *was:* Goals are listed as an account type in §25.2 but defined as targets in §6. Is a goal an account or a view over accounts? **Interim (E11):** a goal is a view over contributions (manual, or statement transfers you link; future ones auto-counted). Tracking a savings account's balance directly isn't built. PO to confirm. | §6, §25.2 |
+| G-7 | ✅ **PO 2026-11-07: no offline copy on devices** (app shell only, as built). — *was:* "Mirror to client device" (§2) implies offline client storage/sync, but §23 says sharing is server-local. What is cached on the device, and is it encrypted? | §2, §23 |
+| G-8 | ✅ **PO 2026-11-07: a household option** — product data stays per household unless the owner opts in to share product names (never prices) with other households on this server → E24-02. — *was:* §3.3 says product/price data "may be shared globally". Globally across households on the same server only, presumably — confirm. | §3.3 |
+| G-9 | ✅ **PO 2026-11-07: the leaving member chooses** whether their past transactions stay visible to the household or leave with them → E24-01. — *was:* No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
 | G-11 | ✅ **Confirmed by PO 2026-11-05 (interim rules adopted).** **Account visibility and default attribution.** §3.2 says a user's accounts "default to" counting toward the household or being hidden, but doesn't pick one. §3.5 "Hide" keeps an account "visible & usable within that account's own scope" — can other household members see a hidden account's transactions? **M1 interim:** the owner explicitly shares an account into a household and must choose the attribution (no default). Every member of that household can see it; attribution only affects totals. Revisit once the PO decides. | §3.2, §3.5 |
 | G-12 | **Real statements needed for PDF/OCR tuning.** Every bank lays out PDFs differently. The reader handles the common UK "Date / Description / Paid out / Paid in / Balance" shape, but needs a few real (redacted) statements from the banks you use to confirm. Statements are processed locally only. | E03-04/05 |
-| G-13 | **No category list in the spec.** Interim list: Groceries, Eating out, Transport, Bills, Housing, Shopping, Entertainment, Subscriptions, Health, Personal care, Travel, Kids, Pets, Gifts & donations, Cash, Transfers, Income, Fees & charges, Other. The "Transfers" label doesn't change totals (that's P-1). Custom per-household categories are not built. | E05, E07, E12 |
-| G-14 | **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
-| G-15 | **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
-| G-16 | **"Adjust per-account rules" (E09-03) interpretation.** Built as per-file choice of target account, day/month order and CSV column mapping, applied before import. Saved per-bank import profiles (remembering a mapping for next time) aren't built. | E09 |
-| G-17 | **Price sources (E18).** No public UK supermarket price APIs exist and scraping their sites breaches their terms, so prices come from your own receipts (offline) and, opt-in, Open Prices (Open Food Facts, open data, barcode lookups, UK results only). Coverage will be thinner than a scraper's. PO to confirm. | E18 |
-| G-10 | "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). **Interim answer (E10):** the app's database role can only add entries, never edit or delete them, and a hash chain flags any entry altered or removed directly in the database. It does **not** stop someone with full database admin access who also rebuilds the chain; that would need an off-server copy of the chain head. PO to confirm this is enough. | §13 |
+| G-13 | ✅ **PO 2026-11-07: households can add their own categories** → E24-04. — *was:* **No category list in the spec.** Interim list: Groceries, Eating out, Transport, Bills, Housing, Shopping, Entertainment, Subscriptions, Health, Personal care, Travel, Kids, Pets, Gifts & donations, Cash, Transfers, Income, Fees & charges, Other. The "Transfers" label doesn't change totals (that's P-1). Custom per-household categories are not built. | E05, E07, E12 |
+| G-14 | ✅ **PO 2026-11-07: the account owner chooses** which household's AI processes the account → E24-05. — *was:* **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
+| G-15 | ✅ **PO 2026-11-07: also spot likely trials** from £0.00/£1.00 charges on statements → E24-06. — *was:* **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
+| G-16 | ✅ **PO 2026-11-07: remember each bank's column layout** (import profiles) → E24-07. — *was:* **"Adjust per-account rules" (E09-03) interpretation.** Built as per-file choice of target account, day/month order and CSV column mapping, applied before import. Saved per-bank import profiles (remembering a mapping for next time) aren't built. | E09 |
+| G-17 | ✅ **PO 2026-11-07: accepts supermarket website price lookups** despite the sites' terms → E24-15 (opt-in, polite, best effort). — *was:* **Price sources (E18).** No public UK supermarket price APIs exist and scraping their sites breaches their terms, so prices come from your own receipts (offline) and, opt-in, Open Prices (Open Food Facts, open data, barcode lookups, UK results only). Coverage will be thinner than a scraper's. PO to confirm. | E18 |
+| G-10 | ✅ **PO 2026-11-07: current level is enough.** — *was:* "Tamper-evident" audit log has no threat model (tamper-evident against whom: other members, the admin, disk access?). **Interim answer (E10):** the app's database role can only add entries, never edit or delete them, and a hash chain flags any entry altered or removed directly in the database. It does **not** stop someone with full database admin access who also rebuilds the chain; that would need an off-server copy of the chain head. PO to confirm this is enough. | §13 |
 
 ---
 
@@ -276,19 +293,19 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | ID | Proposal | Why | Status |
 |---|---|---|---|
-| P-1 | **Internal transfer detection** between a household's own accounts (e.g. current → savings, card repayment) | Without it, transfers double-count as spend and inflate budgets and analytics | Awaiting approval |
-| P-2 | **Refunds/returns** linked to the original transaction | Otherwise refunds skew category spend and budgets | Awaiting approval |
-| P-3 | **Split transactions** (one payment across several categories or members) | Needed for "who paid for what" (§14) and per-member goal contributions | Awaiting approval |
-| P-4 | **Settle-up between household members** (who owes whom) | Natural follow-on to P-3 for partners/roommates | Awaiting approval |
+| P-1 | **Internal transfer detection** between a household's own accounts (e.g. current → savings, card repayment) | Without it, transfers double-count as spend and inflate budgets and analytics | ✅ **Approved 2026-11-07** → E24-09 |
+| P-2 | **Refunds/returns** linked to the original transaction | Otherwise refunds skew category spend and budgets | ✅ **Approved 2026-11-07** → E24-10 |
+| P-3 | **Split transactions** (one payment across several categories or members) | Needed for "who paid for what" (§14) and per-member goal contributions | ✅ **Approved 2026-11-07** (household can turn it on/off) → E24-11 |
+| P-4 | **Settle-up between household members** (who owes whom) | Natural follow-on to P-3 for partners/roommates | ✅ **Approved 2026-11-07** (household option) → E24-11 |
 | P-5 | **Self-hosted notification channel** (in-app inbox plus optional ntfy/Gotify/Unraid notifications) | Resolves G-3 without breaking privacy | ✅ **Approved 2026-11-06** as E22 (Discord/Telegram/ntfy) |
-| P-6 | **Local TLS** (e.g. reverse proxy with internal CA, or Tailscale/HTTPS cert) | Resolves G-4 so camera scanning works on phones | Awaiting approval |
-| P-7 | **Offline product database seed** (import an Open Food Facts dump locally) | Barcode scans can resolve product names/brands offline without an internet lookup | Awaiting approval |
-| P-8 | **Tenant-isolation test suite as a CI gate** (automated cross-household leakage tests on every query/AI path) | §2 says leakage = defect; this makes it enforceable | Awaiting approval |
-| P-9 | **Scheduled automatic backups** to an Unraid share, with a periodic restore check | §20 has export/restore but no schedule; financial data loss is costly | Awaiting approval |
-| P-10 | **Encryption-key management** (where the at-rest key lives, rotation, recovery) | §23 requires encryption at rest but doesn't say how keys are handled | Awaiting approval |
+| P-6 | **Local TLS** (e.g. reverse proxy with internal CA, or Tailscale/HTTPS cert) | Resolves G-4 so camera scanning works on phones | ✅ **Approved 2026-11-07** → E24-13 |
+| P-7 | **Offline product database seed** (import an Open Food Facts dump locally) | Barcode scans can resolve product names/brands offline without an internet lookup | ✅ **Approved 2026-11-07**, plus use-by date scanning → E24-12 |
+| P-8 | **Tenant-isolation test suite as a CI gate** (automated cross-household leakage tests on every query/AI path) | §2 says leakage = defect; this makes it enforceable | ✅ **Approved 2026-11-07** (already in CI) |
+| P-9 | **Scheduled automatic backups** to an Unraid share, with a periodic restore check | §20 has export/restore but no schedule; financial data loss is costly | ✅ **Approved 2026-11-07** (built in E19) |
+| P-10 | **Encryption-key management** (where the at-rest key lives, rotation, recovery) | §23 requires encryption at rest but doesn't say how keys are handled | ✅ **Approved 2026-11-07** → E24-14 (with E02-10) |
 | P-11 | **MVP slice / milestones** (e.g. M1 = auth + households + CSV/OFX import + ledger + basic dashboard on mobile) | The handoff order is long; an early usable release reduces risk | ✅ **Approved 2026-11-05** → see M1 |
 | P-12 | **Tech-stack ADR** (language, DB, frontend, OCR engine, barcode lib) before E02 | Locks foundational choices with PO sign-off | ✅ **Approved 2026-11-05**: Python/FastAPI + React/Vite PWA + PostgreSQL with row-level security → `docs/architecture.md` |
-| P-13 | **Data deletion / account removal** (GDPR-style "delete my data" for a user leaving) | Pairs with G-9 | Awaiting approval |
+| P-13 | **Data deletion / account removal** (GDPR-style "delete my data" for a user leaving) | Pairs with G-9 | ✅ **Approved 2026-11-07** → E24-01 |
 
 ---
 
@@ -296,6 +313,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-07 | 0.28 | PO decisions: D-4 confirmed; G-5/6/7/8/9/10/13/14/15/16/17 resolved; P-1/2/3/4/6/7/8/9/10/13 approved → new epic E24. G-2 still open. |
 | 2026-11-06 | 0.27 | Quantity trends from receipts (E13-01 complete). v0.1.3 image published. |
 | 2026-11-06 | 0.26 | E18 price comparison (receipts + opt-in Open Prices, UK); cheapest-shop tags on the list. Security: ADMIN_EMAIL only claims admin while none exists; CLI set-admin. G-17. |
 | 2026-11-06 | 0.25 | PO: every section is its own tab (no More page; phone tab bar scrolls). Security: backups no longer downloadable in the app; ADMIN_EMAIL decides the server admin. Released **v0.1.3**. |

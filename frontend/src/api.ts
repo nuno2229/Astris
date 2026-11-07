@@ -95,3 +95,7 @@ export interface Subscription { id: string; provider: string; plan: string | nul
   notes: string | null; alerts: SubAlert[] }
 export interface SubSuggestion { recurring_id: string; name: string; amount: string; currency: string; cadence: string; next_date: string }
 export const CYCLE_LABEL = { weekly: "a week", fortnightly: "every 2 weeks", monthly: "a month", quarterly: "a quarter", yearly: "a year" } as const;
+export interface TransferLeg { id: string; account_id: string; account: string; description: string; posted_on: string }
+export interface TransferSuggestion { out: TransferLeg; into: TransferLeg; amount: string; currency: string }
+/** A wallet move (ATM cash into a wallet, E08-03) vs a transfer between two accounts (P-1). */
+export const isWalletMove = (t: Tx) => t.source === "transfer" || (t.category === "Cash" && !!t.transfer_group);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Account, api, money, Tx } from "../api";
+import { Account, api, isWalletMove, money, TransferSuggestion, Tx } from "../api";
 
 const SOURCE: Record<string, string> = {
   rule: "Matched from the merchant name", llm: "Suggested by your AI assistant",
@@ -87,7 +87,8 @@ function CashActions({ tx, wallets, onDone }: { tx: Tx; wallets: Account[]; onDo
   const isWithdrawal = Number(tx.amount) < 0 && !tx.transfer_group && tx.source !== "transfer" && !wallets.some((w) => w.id === tx.account_id);
   return (
     <>
-      {tx.transfer_group && (
+      <TransferAction tx={tx} run={run} />
+      {tx.transfer_group && isWalletMove(tx) && (
         <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
           <span className="small">{tx.source === "transfer" ? "Cash taken out of your bank account." : "Moved into your cash wallet, so it isn't counted as spending twice."}</span>
           <button className="btn" onClick={() => run(() => api.del(`/api/transfers/${tx.transfer_group}`), "Move undone.")}>Undo the move</button>
@@ -139,6 +140,37 @@ function GoalAction({ tx, goals, onDone }: { tx: Tx; goals: { id: string; name: 
       <label className="check"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} />
         <span>Also count future transfers to {tx.merchant ?? tx.description}</span></label>
       {error && <div className="error" role="alert">{error}</div>}
+    </div>
+  );
+}
+
+function TransferAction({ tx, run }: { tx: Tx; run: (fn: () => Promise<unknown>, m: string) => void }) {
+  const [matches, setMatches] = useState<TransferSuggestion[]>([]);
+  useEffect(() => {
+    if (!tx.transfer_group) api.get<TransferSuggestion[]>(`/api/transfers/suggestions?tx=${tx.id}`).then(setMatches).catch(() => setMatches([]));
+  }, [tx.id, tx.transfer_group]);
+  if (tx.transfer_group) {
+    if (isWalletMove(tx)) return null;
+    return (
+      <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+        <span className="small">Money moved between your accounts, so it isn't counted as spending or income.</span>
+        <button className="btn" onClick={() => run(() => api.del(`/api/transfers/${tx.transfer_group}`), "No longer counted as a transfer.")}>Not a transfer</button>
+      </div>
+    );
+  }
+  if (!matches.length) return null;
+  return (
+    <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+      <strong>Moved between your accounts?</strong>
+      {matches.slice(0, 3).map((m) => {
+        const other = m.out.id === tx.id ? `arrived in ${m.into.account}` : `came from ${m.out.account}`;
+        return (
+          <div key={m.out.id + m.into.id} className="row" style={{ justifyContent: "space-between" }}>
+            <span className="small">The same amount {other} on {new Date((m.out.id === tx.id ? m.into : m.out).posted_on + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" })}.</span>
+            <button className="btn" onClick={() => run(() => api.post("/api/transfers", { out_id: m.out.id, in_id: m.into.id }), "Linked as a transfer. It no longer counts as spending.")}>Link as transfer</button>
+          </div>
+        );
+      })}
     </div>
   );
 }

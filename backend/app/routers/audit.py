@@ -12,7 +12,7 @@ from app.deps import DB, User, not_found
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
 
-REVERSIBLE = {"tx.category", "tx.create", "tx.delete", "tx.move_to_wallet", "cash.count", "account.opening",
+REVERSIBLE = {"tx.category", "tx.create", "tx.delete", "tx.move_to_wallet", "tx.transfer", "cash.count", "account.opening",
               "import.batch", "import.run"}
 
 
@@ -134,6 +134,13 @@ def undo(eid: int, body: UndoIn, user: User, db: DB):
             raise _changed()
         db.execute(text("DELETE FROM transactions WHERE transfer_group = :g AND source = 'transfer'"), {"g": g})
         db.execute(text("UPDATE transactions SET transfer_group = NULL WHERE transfer_group = :g"), {"g": g})
+    elif e.action == "tx.transfer":
+        g = after.get("transfer_group")
+        if not db.execute(text("SELECT 1 FROM transactions WHERE transfer_group = :g"), {"g": g}).first():
+            raise _changed()
+        db.execute(text("SELECT unlink_transfer(:g)"), {"g": g})
+        from app.categorise.service import apply_rules
+        apply_rules(db, user.id)
     elif e.action == "cash.count":
         if not db.execute(text("DELETE FROM transactions WHERE id = :t AND source = 'adjustment'"),
                           {"t": after.get("adjustment_id")}).rowcount:

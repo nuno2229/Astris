@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { money, Tx } from "../api";
+import { isWalletMove, money, Tx } from "../api";
 
 function dayLabel(iso: string): string {
   const d = new Date(iso + "T00:00:00");
@@ -42,7 +42,7 @@ export default function TxList({ txs, accountNames, empty, onOpen }: {
                   <div className={"amt" + (n > 0 ? " in" : "")}>
                     {money(n, t.currency, true)}
                     {t.original_currency && <div className="meta fx">{money(t.original_amount, t.original_currency)}</div>}
-                    {t.transfer_group && <div className="meta fx">{t.source === "transfer" ? "From bank" : "To wallet"}</div>}
+                    {t.transfer_group && <div className="meta fx">{!isWalletMove(t) ? "Transfer" : t.source === "transfer" ? "From bank" : "To wallet"}</div>}
                   </div>
                 </>
               );
