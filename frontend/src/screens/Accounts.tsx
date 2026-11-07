@@ -93,6 +93,7 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>{SHARE_HELP[share]}</p>
       </div>
+      {a.is_mine && <AiChoice account={a} household={household} />}
       {a.type === "cash" ? <CashWallet a={a} onChanged={onChanged} /> : <>
       <a className="btn" href={`#/import/${a.id}`}>Import statements</a>
       <p className="muted small" style={{ marginTop: -6 }}>CSV, OFX, MT940 or PDF from your bank, or a photo of a paper statement.</p>
@@ -126,5 +127,33 @@ function AddAccount({ currency, onDone, onCancel }: { currency: string; onDone: 
       {error && <div className="error" role="alert">{error}</div>}
       <div className="row"><button className="btn primary">Add</button><button type="button" className="btn quiet" onClick={onCancel}>Cancel</button></div>
     </form>
+  );
+}
+
+interface AiChoiceData { mode: "auto" | "household" | "off"; household_id: string | null; options: { household_id: string; name: string; ai_on: boolean }[] }
+
+/** Which household's AI labels this account's transactions (G-14). Only shown when the account is in a household with AI on. */
+function AiChoice({ account: a, household }: { account: Account; household: Household }) {
+  const [c, setC] = useState<AiChoiceData | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => { api.get<AiChoiceData>(`/api/accounts/${a.id}/ai`).then(setC).catch(() => setC(null)); }, [a.id, household.id]);
+  if (!c || !c.options.some((o) => o.ai_on)) return null;
+  const value = c.mode === "household" ? c.household_id! : c.mode;
+  const set = async (v: string) => {
+    setError("");
+    try {
+      setC(await api.put<AiChoiceData>(`/api/accounts/${a.id}/ai`, v === "auto" || v === "off" ? { mode: v } : { mode: "household", household_id: v }));
+    } catch (e) { setError((e as Error).message); }
+  };
+  const first = c.options.find((o) => o.ai_on);
+  return (
+    <label className="small">AI labelling for {a.name}
+      <select value={value} onChange={(e) => set(e.target.value)}>
+        <option value="auto">Automatic ({first?.name}'s AI)</option>
+        {c.options.filter((o) => o.ai_on).map((o) => <option key={o.household_id} value={o.household_id}>{o.name}'s AI</option>)}
+        <option value="off">Off: never sent to an AI</option>
+      </select>
+      {error && <div className="error" role="alert">{error}</div>}
+    </label>
   );
 }

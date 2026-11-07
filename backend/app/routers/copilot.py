@@ -53,6 +53,9 @@ def ask(body: AskIn, user: User, db: DB):
     h = db.execute(text("SELECT name FROM households WHERE id = :h"), {"h": body.household_id}).scalar_one()
     home = db.execute(text("SELECT home_currency FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
     it = None
+    from app.categorise import custom
+    from app.copilot.intent import EXTRA_CATEGORIES
+    EXTRA_CATEGORIES.set(tuple(custom.for_household(db, body.household_id)))
     cfg = db.execute(text("""SELECT llm_base_url, llm_model, llm_allow_internet FROM household_settings
                               WHERE household_id = :h AND llm_enabled AND llm_base_url IS NOT NULL"""), {"h": body.household_id}).first()
     if cfg:

@@ -234,8 +234,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 ### E24 · PO decisions of 2026-11-07 — `In progress` · G-5…G-17, P-1…P-13
 - [x] **E24-09** Transfers between your own accounts detected (current → savings, card repayments) and left out of spending (P-1) — `Review` (same amount out and in within 4 days; your own accounts with one clear match are linked on import, everything else is asked in Activity; partners' accounts in the same household can be linked by either owner; undo from History or the transaction)
 - [x] **E24-10** Refunds linked to the original purchase and netted off its category (P-2) — `Review` (money in from a shop you paid in the last 120 days, no more than you paid; counts as negative spending in that category everywhere: Home, Insights, budgets, assistant, daily summary; "Not a refund" is remembered)
-- [ ] **E24-04** Household-defined categories alongside the built-in list (G-13)
-- [ ] **E24-05** Account owner picks which household's AI processes a shared account (G-14)
+- [x] **E24-04** Household-defined categories alongside the built-in list (G-13) — `Review` (Household → Categories; any member adds, the person who added it or an owner/admin removes; usable on transactions, budgets, the assistant and the AI labeller; up to 60 per household)
+- [x] **E24-05** Account owner picks which household's AI processes a shared account (G-14) — `Review` (Accounts → AI labelling: automatic, a specific household's AI, or off)
 - [ ] **E24-07** Saved import profiles: each bank's column layout remembered (G-16)
 - [ ] **E24-06** Likely trials spotted from £0.00/£1.00 charges (G-15)
 - [ ] **E24-03** A goal can follow a savings account's balance (G-6)

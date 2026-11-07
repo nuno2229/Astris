@@ -15,7 +15,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import audit
-from app.categorise.rules import CATEGORIES
 from app.deps import DB, User, not_found
 from app.routers.fx import convert, rate_table
 from app.routers.households import my_role
@@ -45,7 +44,7 @@ class BudgetIn(BaseModel):
 
     @model_validator(mode="after")
     def target(self):
-        if self.kind == "category" and self.category not in CATEGORIES:
+        if self.kind == "category" and not (self.category or "").strip():
             raise ValueError("Pick a category from the list")
         if self.kind == "merchant" and not self.merchant_key:
             raise ValueError("Pick a shop")
@@ -211,6 +210,9 @@ def list_budgets(hid: UUID, user: User, db: DB):
 @router.post("/households/{hid}/budgets", response_model=BudgetOut, status_code=201)
 def create_budget(hid: UUID, body: BudgetIn, user: User, db: DB):
     my_role(db, hid)
+    from app.categorise import custom
+    if body.kind == "category" and body.category not in custom.for_household(db, hid):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Pick a category from the list")
     if body.kind == "account":
         own = db.execute(text("SELECT 1 FROM accounts WHERE id = :a AND owner_user_id = :u"),
                          {"a": body.account_id, "u": user.id}).first()

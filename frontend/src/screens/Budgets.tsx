@@ -76,7 +76,7 @@ function NewBudget({ household, currency, onClose, onDone }: { household: Househ
   const [error, setError] = useState("");
   useEffect(() => {
     ref.current?.showModal();
-    api.get<string[]>("/api/categories").then(setCats);
+    api.get<string[]>(`/api/categories?household_id=${household.id}`).then(setCats);
     api.get<{ merchant_key: string; name: string }[]>(`/api/households/${household.id}/merchants`).then((s) => { setShops(s); if (s[0]) setF((x) => ({ ...x, merchant_key: s[0].merchant_key })); });
     api.get<Account[]>("/api/accounts").then((a) => { const c = a.filter((x) => x.type !== "cash"); setCards(c); if (c[0]) setF((x) => ({ ...x, account_id: c[0].id })); });
   }, [household.id]);

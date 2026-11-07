@@ -20,7 +20,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
   useEffect(() => {
     api.get<HouseholdAccount[]>(`/api/households/${household.id}/accounts`)
       .then((a) => setNames(Object.fromEntries(a.map((x) => [x.id, x.name]))));
-    api.get<string[]>("/api/categories").then(setCats);
+    api.get<string[]>(`/api/categories?household_id=${household.id}`).then(setCats);
     api.get<Account[]>("/api/accounts").then((a) => setWallets(a.filter((x) => x.type === "cash")));
     api.get<{ id: string; name: string; currency: string }[]>(`/api/households/${household.id}/goals`).then(setGoals);
   }, [household.id]);

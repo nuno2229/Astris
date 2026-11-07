@@ -284,14 +284,20 @@ def household_summary(hid: UUID, user: User, db: DB,
 
 
 @router.get("/categories", response_model=list[str])
-def categories(user: User):
-    return cat_rules.CATEGORIES
+def categories(user: User, db: DB, household_id: UUID | None = None):
+    """Built-in categories plus the household's own (G-13); without a household, those of all your households."""
+    from app.categorise import custom
+    if household_id:
+        my_role(db, household_id)
+        return custom.for_household(db, household_id)
+    return custom.for_user(db)
 
 
 @router.patch("/transactions/{tid}", response_model=TransactionUpdated)
 def update_transaction(tid: UUID, body: TransactionUpdate, user: User, db: DB):
     """Set a category by hand (account owner only). remember=True teaches the app this merchant."""
-    if body.category not in cat_rules.CATEGORIES:
+    from app.categorise import custom
+    if body.category not in custom.for_user(db):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown category")
     row = db.execute(text("""SELECT a.owner_user_id FROM transactions t JOIN accounts a ON a.id = t.account_id
                               WHERE t.id = :t"""), {"t": tid}).first()
@@ -340,7 +346,8 @@ def add_manual(aid: UUID, body: ManualTxIn, user: User, db: DB):
     """Manual entry (cash spend, top-up, anything a statement won't show). Owner only (E08-02)."""
     import uuid as _uuid
     acc = require_own_account(db, user, aid)
-    if body.category is not None and body.category not in cat_rules.CATEGORIES:
+    from app.categorise import custom
+    if body.category is not None and body.category not in custom.for_user(db):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown category")
     if (body.original_amount is None) != (body.original_currency is None):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Give both the foreign amount and its currency")

@@ -107,6 +107,8 @@ class AccountOut(BaseModel):
     balance: Decimal | None = None
     opening_balance: Decimal = Decimal(0)
     opening_date: date | None = None
+    ai_household_id: UUID | None = None
+    ai_off: bool = False
 
 
 class ShareIn(BaseModel):

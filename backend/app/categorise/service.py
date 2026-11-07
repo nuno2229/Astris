@@ -57,15 +57,18 @@ def run_ai_for_owner(db: Session, owner: UUID, limit: int = 60, budget_s: float 
          FOR UPDATE OF t SKIP LOCKED"""), {"u": owner, "l": limit}).all()
     if not rows:
         return 0
-    # LLM config: first household (by share date) the account is shared into with AI turned on
+    # LLM config (G-14): the household the account owner picked; "automatic" = first household (by share date) the
+    # account is shared into with AI turned on; "off" = never sent to any AI.
     cfg_rows = db.execute(text("""
-        SELECT DISTINCT ON (ha.account_id) ha.account_id, hs.llm_base_url, hs.llm_model, hs.llm_allow_internet
+        SELECT DISTINCT ON (ha.account_id) ha.account_id, ha.household_id, hs.llm_base_url, hs.llm_model, hs.llm_allow_internet
           FROM household_accounts ha
+          JOIN accounts a ON a.id = ha.account_id AND NOT a.ai_off
+               AND (a.ai_household_id IS NULL OR a.ai_household_id = ha.household_id)
           JOIN household_settings hs ON hs.household_id = ha.household_id
                AND hs.llm_enabled AND hs.llm_base_url IS NOT NULL
          WHERE ha.account_id = ANY(:ids)
          ORDER BY ha.account_id, ha.shared_at"""), {"ids": list({r.account_id for r in rows})}).all()
-    cfg = {c.account_id: (c.llm_base_url, c.llm_model, c.llm_allow_internet) for c in cfg_rows}
+    cfg = {c.account_id: (c.llm_base_url, c.llm_model, c.llm_allow_internet, c.household_id) for c in cfg_rows}
 
     groups: dict[tuple, list] = defaultdict(list)
     for r in rows:
@@ -75,13 +78,15 @@ def run_ai_for_owner(db: Session, owner: UUID, limit: int = 60, budget_s: float 
         if conf is None:  # no LLM available: keep the rules result
             db.execute(text("UPDATE transactions SET ai_status = 'skipped' WHERE id = ANY(:ids)"), {"ids": ids})
             continue
-        base, model, allow = conf
+        base, model, allow, hid = conf
+        from app.categorise import custom
+        cats = custom.for_household(db, hid)
         for k in range(0, len(items), BATCH):
             chunk = items[k:k + BATCH]
             if time.monotonic() - started > budget_s:
                 break  # rest stays 'pending' for the next round
             try:
-                labels = label_batch(base, model, allow, [(r.description, Decimal(r.amount)) for r in chunk])
+                labels = label_batch(base, model, allow, [(r.description, Decimal(r.amount)) for r in chunk], categories=cats)
             except LlmError as e:
                 log.warning("LLM batch failed for owner %s: %s", owner, e)
                 db.execute(text("UPDATE transactions SET ai_status = 'failed' WHERE id = ANY(:ids)"),

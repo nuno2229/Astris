@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api", tags=["accounts"])
 # every entry since the starting date.
 _ACCOUNT_SELECT = """
 SELECT a.id, a.name, a.type, a.currency, a.institution, a.owner_user_id, u.display_name AS owner_name,
-       (a.owner_user_id = :u) AS is_mine, a.opening_balance, a.opening_date,
+       (a.owner_user_id = :u) AS is_mine, a.opening_balance, a.opening_date, a.ai_household_id, a.ai_off,
        CASE WHEN a.type = 'cash' THEN
             a.opening_balance + COALESCE((SELECT sum(t.amount) FROM transactions t WHERE t.account_id = a.id
                                            AND (a.opening_date IS NULL OR t.posted_on >= a.opening_date)), 0)
@@ -170,3 +170,56 @@ def cash_count(aid: UUID, body: CashCountIn, user: User, db: DB):
         audit.log(db, user.id, "cash.count", "account", f"{acc.name}: counted {body.counted}, adjusted {adj}",
                   entity_id=aid, account_id=aid, after={"adjustment_id": adj_id, "counted": body.counted, "adjustment": adj})
     return CashCountOut(expected=expected, counted=body.counted, adjustment=adj, account=get_account(db, user, aid))
+
+
+# ---------- which household's AI labels this account (G-14) ----------
+
+class AiOption(BaseModel):
+    household_id: UUID
+    name: str
+    ai_on: bool
+
+
+class AiChoice(BaseModel):
+    mode: str                      # "auto" | "household" | "off"
+    household_id: UUID | None = None
+    options: list[AiOption] = []
+
+
+class AiChoiceIn(BaseModel):
+    mode: str = Field(pattern="^(auto|household|off)$")
+    household_id: UUID | None = None
+
+
+def _ai_choice(db: DB, aid: UUID) -> AiChoice:
+    a = db.execute(text("SELECT ai_household_id, ai_off FROM accounts WHERE id = :a"), {"a": aid}).one()
+    opts = [AiOption(**r._mapping) for r in db.execute(text("""
+        SELECT h.id AS household_id, h.name, coalesce(hs.llm_enabled AND hs.llm_base_url IS NOT NULL, false) AS ai_on
+          FROM household_accounts ha JOIN households h ON h.id = ha.household_id
+          LEFT JOIN household_settings hs ON hs.household_id = h.id
+         WHERE ha.account_id = :a ORDER BY ha.shared_at"""), {"a": aid})]
+    mode = "off" if a.ai_off else "household" if a.ai_household_id else "auto"
+    return AiChoice(mode=mode, household_id=a.ai_household_id, options=opts)
+
+
+@router.get("/accounts/{aid}/ai", response_model=AiChoice)
+def get_ai_choice(aid: UUID, user: User, db: DB):
+    require_own_account(db, user, aid)
+    return _ai_choice(db, aid)
+
+
+@router.put("/accounts/{aid}/ai", response_model=AiChoice)
+def set_ai_choice(aid: UUID, body: AiChoiceIn, user: User, db: DB):
+    acc = require_own_account(db, user, aid)
+    hid = None
+    if body.mode == "household":
+        if not body.household_id or not db.execute(text("SELECT 1 FROM household_accounts WHERE account_id = :a AND household_id = :h"),
+                                                   {"a": aid, "h": body.household_id}).first():
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Share the account into that household first")
+        hid = body.household_id
+    db.execute(text("UPDATE accounts SET ai_household_id = :h, ai_off = :off WHERE id = :a"),
+               {"h": hid, "off": body.mode == "off", "a": aid})
+    out = _ai_choice(db, aid)
+    label = {"auto": "automatic", "off": "off"}.get(body.mode) or next((o.name for o in out.options if o.household_id == hid), "a household")
+    audit.log(db, user.id, "account.ai", "account", f"AI labelling for {acc.name}: {label}", entity_id=aid, account_id=aid)
+    return out

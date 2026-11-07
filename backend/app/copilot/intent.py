@@ -2,6 +2,7 @@
 only fills the same small structured Intent. Statement text is never sent to the model here."""
 import json
 import re
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 
 from app.categorise.rules import CATEGORIES
@@ -39,8 +40,16 @@ class Intent:
     extra: dict = field(default_factory=dict)
 
 
+# the household's own categories (G-13) for the request being handled; set by the copilot router
+EXTRA_CATEGORIES: ContextVar[tuple[str, ...]] = ContextVar("extra_categories", default=())
+
+
+def all_categories() -> list[str]:
+    return CATEGORIES + [c for c in EXTRA_CATEGORIES.get() if c not in CATEGORIES]
+
+
 def _category(t: str) -> str | None:
-    for c in sorted(CATEGORIES, key=len, reverse=True):
+    for c in sorted(all_categories(), key=len, reverse=True):
         if re.search(rf"\b{re.escape(c.lower())}\b", t):
             return c
     for k, v in sorted(SYNONYMS.items(), key=lambda kv: -len(kv[0])):
@@ -144,7 +153,7 @@ def rules(text: str) -> Intent:
 def llm_schema() -> dict:
     return {"type": "object", "properties": {
         "tool": {"type": "string", "enum": TOOLS},
-        "category": {"type": ["string", "null"], "enum": CATEGORIES + [None]},
+        "category": {"type": ["string", "null"], "enum": all_categories() + [None]},
         "merchant": {"type": ["string", "null"], "maxLength": 60},
         "period": {"type": "string", "enum": PERIODS},
         "account": {"type": ["string", "null"], "maxLength": 60},
@@ -190,7 +199,7 @@ def from_llm(text: str, base_url: str, model: str | None, allow_internet: bool) 
     for k in ("category", "merchant", "account", "product", "goal", "member"):
         v = d.get(k)
         setattr(it, k, v.strip()[:80] if isinstance(v, str) and v.strip() else None)
-    if it.category not in CATEGORIES:
+    if it.category not in all_categories():
         it.category = None
     it.tool = d["tool"]
     it.period = d.get("period") if d.get("period") in PERIODS else "this_month"

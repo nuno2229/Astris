@@ -94,6 +94,8 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
         </>
       )}
 
+      <Categories household={household} />
+
       <p style={{ marginTop: 18 }}><a href="#/history">Change history</a></p>
 
       <h2>You</h2>
@@ -111,6 +113,44 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
           </button>
         )}
         <button className="btn quiet" onClick={ctx.signOut}>Sign out</button>
+      </div>
+    </>
+  );
+}
+
+interface Category { id: string | null; name: string; built_in: boolean; can_remove: boolean }
+
+/** The household's own categories (G-13), offered alongside the built-in list everywhere a category is picked. */
+function Categories({ household }: { household: Household }) {
+  const [cats, setCats] = useState<Category[]>([]);
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const load = () => api.get<Category[]>(`/api/households/${household.id}/categories`).then(setCats);
+  useEffect(() => { load(); }, [household.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const own = cats.filter((c) => !c.built_in);
+  const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); await load(); } catch (e) { setError((e as Error).message); } };
+  return (
+    <>
+      <h2>Categories</h2>
+      <div className="panel stack">
+        <p className="muted small" style={{ margin: 0 }}>Add your own alongside the built-in ones, such as Allotment or Childcare. Everyone in {household.name} can use them.</p>
+        {own.length > 0 && (
+          <div className="chips">
+            {own.map((c) => (
+              <span key={c.id} className="chip" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                {c.name}
+                {c.can_remove && <button className="linkish" aria-label={`Remove ${c.name}`}
+                  onClick={() => confirm(`Remove “${c.name}”? Transactions keep it, but it won't be offered any more.`) && run(() => api.del(`/api/households/${household.id}/categories/${c.id}`))}>×</button>}
+              </span>
+            ))}
+          </div>
+        )}
+        <form className="row" style={{ flexWrap: "nowrap" }} onSubmit={(e) => { e.preventDefault(); run(async () => { await api.post(`/api/households/${household.id}/categories`, { name }); setName(""); }); }}>
+          <input placeholder="New category" aria-label="New category" value={name} onChange={(e) => setName(e.target.value)} required maxLength={40} />
+          <button className="btn">Add</button>
+        </form>
+        <details className="small muted"><summary>Built-in categories</summary>{cats.filter((c) => c.built_in).map((c) => c.name).join(", ")}</details>
+        {error && <div className="error" role="alert">{error}</div>}
       </div>
     </>
   );
