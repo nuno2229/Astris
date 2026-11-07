@@ -92,7 +92,7 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
                     SELECT t.currency, count(*) AS n, sum(-t.amount) AS spent FROM transactions t
                       JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
                        AND ha.attribution = 'include'
-                     WHERE t.amount < 0 AND t.transfer_group IS NULL AND t.posted_on = :y
+                     WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL AND t.posted_on = :y
                      GROUP BY t.currency ORDER BY spent DESC LIMIT 1"""), {"h": h.id, "y": y}).first()
                 out.append({"key": f"daily:{h.id}:{y}", "minimal": "Yesterday's spending summary is ready in Astris.",
                             "detailed": (f"{h.name} yesterday: {_money(row.spent, row.currency)} across {row.n} payment"

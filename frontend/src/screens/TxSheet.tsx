@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Account, api, isWalletMove, money, TransferSuggestion, Tx } from "../api";
+import { Account, api, isWalletMove, money, RefundCandidate, TransferSuggestion, Tx } from "../api";
 
 const SOURCE: Record<string, string> = {
   rule: "Matched from the merchant name", llm: "Suggested by your AI assistant",
@@ -47,7 +47,8 @@ export default function TxSheet({ tx, categories, wallets = [], goals = [], onCl
         {tx.merchant && <div className="muted small">On your statement: {tx.description}</div>}
         {tx.original_currency && <div className="muted small">Paid {money(tx.original_amount, tx.original_currency)} abroad
           ({(Math.abs(Number(tx.amount)) / Math.abs(Number(tx.original_amount))).toFixed(4)} {tx.currency} per {tx.original_currency})</div>}
-        {tx.category_source && <div className="muted small">{SOURCE[tx.category_source]}{tx.needs_review ? ", but it's a guess" : ""}.</div>}
+        {tx.refund_of ? <div className="muted small">A refund, so it comes off your {tx.category ?? ""} spending.</div>
+          : tx.category_source && <div className="muted small">{SOURCE[tx.category_source]}{tx.needs_review ? ", but it's a guess" : ""}.</div>}
         {tx.editable ? (
           <>
             <div className="chips" role="radiogroup" aria-label="Category">
@@ -88,6 +89,7 @@ function CashActions({ tx, wallets, onDone }: { tx: Tx; wallets: Account[]; onDo
   return (
     <>
       <TransferAction tx={tx} run={run} />
+      <RefundAction tx={tx} run={run} />
       {tx.transfer_group && isWalletMove(tx) && (
         <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
           <span className="small">{tx.source === "transfer" ? "Cash taken out of your bank account." : "Moved into your cash wallet, so it isn't counted as spending twice."}</span>
@@ -171,6 +173,44 @@ function TransferAction({ tx, run }: { tx: Tx; run: (fn: () => Promise<unknown>,
           </div>
         );
       })}
+    </div>
+  );
+}
+
+const shortDay = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+/** Money back from a shop: linked to the purchase, it reduces that category's spending instead of counting as income (P-2). */
+function RefundAction({ tx, run }: { tx: Tx; run: (fn: () => Promise<unknown>, m: string) => void }) {
+  const [cands, setCands] = useState<RefundCandidate[]>([]);
+  const [pick, setPick] = useState("");
+  const moneyIn = Number(tx.amount) > 0 && !tx.transfer_group;
+  useEffect(() => {
+    if (moneyIn) api.get<RefundCandidate[]>(`/api/transactions/${tx.id}/refund-candidates`)
+      .then((c) => { setCands(c); setPick(c[0]?.id ?? ""); }).catch(() => setCands([]));
+  }, [tx.id, moneyIn]);
+  if (!moneyIn) return null;
+  if (tx.refund_of) {
+    const o = cands.find((c) => c.id === tx.refund_of);
+    return (
+      <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+        <span className="small">Refund{o ? ` for ${o.name} on ${shortDay(o.posted_on)} (${money(o.amount, tx.currency)})` : ""}. It lowers your {tx.category ?? ""} spending instead of counting as income.</span>
+        <button className="btn" onClick={() => run(() => api.del(`/api/transactions/${tx.id}/refund`), "Counted as money in, not a refund.")}>Not a refund</button>
+      </div>
+    );
+  }
+  if (!cands.length) return null;
+  return (
+    <div className="panel stack" style={{ background: "var(--bg)", gap: 8 }}>
+      <strong>Money back for a purchase?</strong>
+      <span className="muted small">Link it and it comes off that purchase's category instead of counting as income.</span>
+      <div className="row" style={{ flexWrap: "nowrap" }}>
+        {cands.length > 1 ? (
+          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Original purchase">
+            {cands.map((c) => <option key={c.id} value={c.id}>{c.name}, {shortDay(c.posted_on)}, {money(c.amount, tx.currency)}</option>)}
+          </select>
+        ) : <span className="small" style={{ flex: 1 }}>{cands[0].name}, {shortDay(cands[0].posted_on)}, {money(cands[0].amount, tx.currency)}</span>}
+        <button className="btn" onClick={() => run(() => api.post(`/api/transactions/${tx.id}/refund`, { original_id: pick }), "Linked as a refund.")}>Link refund</button>
+      </div>
     </div>
   );
 }

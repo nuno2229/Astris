@@ -54,7 +54,7 @@ def _included(alias: str = "t") -> str:
 
 def spending(c: Ctx, it: Intent) -> dict:
     s, e, label = window(it.period, c.today)
-    where, params = ["t.amount < 0", "t.transfer_group IS NULL", "t.posted_on >= :s", "t.posted_on < :e", _included()], \
+    where, params = ["(t.amount < 0 OR t.refund_of IS NOT NULL)", "t.transfer_group IS NULL", "t.posted_on >= :s", "t.posted_on < :e", _included()], \
         {"h": c.hid, "s": s, "e": e}
     what = "in total"
     if it.category:
@@ -175,7 +175,7 @@ def by_member(c: Ctx, it: Intent) -> dict:
     s, e, label = window(it.period, c.today)
     rows = c.db.execute(text(f"""SELECT u.display_name AS name, t.currency, sum(-t.amount) AS v, count(*) AS n
                                   FROM transactions t JOIN accounts a ON a.id = t.account_id JOIN users u ON u.id = a.owner_user_id
-                                 WHERE t.amount < 0 AND t.transfer_group IS NULL AND t.posted_on >= :s AND t.posted_on < :e AND {_included()}
+                                 WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL AND t.posted_on >= :s AND t.posted_on < :e AND {_included()}
                                  GROUP BY 1, 2"""), {"h": c.hid, "s": s, "e": e}).all()
     tot: dict = {}
     for r in rows:
@@ -193,7 +193,7 @@ def top_shops(c: Ctx, it: Intent) -> dict:
     s, e, label = window(it.period, c.today)
     rows = c.db.execute(text(f"""SELECT coalesce(t.merchant, initcap(t.merchant_key), t.description) AS name, t.currency,
                                         sum(-t.amount) AS v, count(*) AS n FROM transactions t
-                                 WHERE t.amount < 0 AND t.transfer_group IS NULL AND t.posted_on >= :s AND t.posted_on < :e AND {_included()}
+                                 WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL AND t.posted_on >= :s AND t.posted_on < :e AND {_included()}
                                  GROUP BY 1, 2"""), {"h": c.hid, "s": s, "e": e}).all()
     tot: dict = {}
     for r in rows:

@@ -29,7 +29,7 @@ router = APIRouter(prefix="/api", tags=["ledger"])
 _TX_COLS = "t.id, t.account_id, t.posted_on, t.amount, t.currency, t.description, t.merchant, " \
            "t.counterparty, t.category, t.running_balance, t.category_source, t.category_confidence, " \
            "t.needs_review, (a.owner_user_id = app_uid()) AS editable, t.merchant_key, t.source, " \
-           "t.original_amount, t.original_currency, t.transfer_group"
+           "t.original_amount, t.original_currency, t.transfer_group, t.refund_of"
 
 
 def parse_checked(filename: str, raw: bytes, options: dict | None = None):
@@ -82,6 +82,8 @@ def after_import(db: DB, user_id: UUID, account_ids) -> None:
     goal_rules(db, user_id)               # transfers you said count toward a savings goal (E11)
     from app.transfers import auto_link
     auto_link(db, user_id)                # current -> savings, card repayments: not spending (P-1)
+    from app.refunds import auto_link as refunds
+    refunds(db, user_id)                  # money back from a shop: netted off that purchase's category (P-2)
     for aid in set(account_ids):
         detect_recurring(db, user_id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
     worker.wake()
@@ -209,9 +211,9 @@ def household_summary(hid: UUID, user: User, db: DB,
            else start.replace(month=start.month + 1))
     rows = db.execute(text("""
         SELECT ha.attribution, t.currency,
-               COALESCE(SUM(-t.amount) FILTER (WHERE t.amount < 0), 0) AS spent,
-               COALESCE(SUM(t.amount)  FILTER (WHERE t.amount > 0), 0) AS received,
-               COALESCE(SUM(-t.amount) FILTER (WHERE t.amount < 0 AND t.posted_on = :today), 0) AS spent_today
+               COALESCE(SUM(-t.amount) FILTER (WHERE (t.amount < 0 OR t.refund_of IS NOT NULL)), 0) AS spent,
+               COALESCE(SUM(t.amount)  FILTER (WHERE (t.amount > 0 AND t.refund_of IS NULL)), 0) AS received,
+               COALESCE(SUM(-t.amount) FILTER (WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.posted_on = :today), 0) AS spent_today
           FROM transactions t
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
           JOIN accounts a ON a.id = t.account_id
@@ -230,7 +232,7 @@ def household_summary(hid: UUID, user: User, db: DB,
           JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND ha.attribution = 'include'
           JOIN accounts a ON a.id = t.account_id
           JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
-         WHERE t.posted_on >= :s AND t.posted_on < :e AND t.amount < 0 AND t.transfer_group IS NULL
+         WHERE t.posted_on >= :s AND t.posted_on < :e AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL
          GROUP BY t.currency, t.posted_on ORDER BY t.posted_on"""), {"h": hid, "s": start, "e": end}).all()
     recent = household_transactions(hid, user, db, None, False, None, 12, 0)
     rec = household_recurring(db, hid)

@@ -42,6 +42,7 @@ export default function TxList({ txs, accountNames, empty, onOpen }: {
                   <div className={"amt" + (n > 0 ? " in" : "")}>
                     {money(n, t.currency, true)}
                     {t.original_currency && <div className="meta fx">{money(t.original_amount, t.original_currency)}</div>}
+                    {t.refund_of && <div className="meta fx">Refund</div>}
                     {t.transfer_group && <div className="meta fx">{!isWalletMove(t) ? "Transfer" : t.source === "transfer" ? "From bank" : "To wallet"}</div>}
                   </div>
                 </>

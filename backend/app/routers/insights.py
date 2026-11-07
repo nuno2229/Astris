@@ -107,7 +107,7 @@ def compute(db: Session, hid: UUID, home: str, month: date) -> Insights:
     # one pass over 13 months (+ next month last year for seasonality)
     rows = db.execute(text(f"""
         SELECT date_trunc('month', t.posted_on)::date AS m, coalesce(t.category, 'Uncategorised') AS cat, t.currency,
-               sum(-t.amount) FILTER (WHERE t.amount < 0) AS out_, sum(t.amount) FILTER (WHERE t.amount > 0) AS in_
+               sum(-t.amount) FILTER (WHERE (t.amount < 0 OR t.refund_of IS NOT NULL)) AS out_, sum(t.amount) FILTER (WHERE (t.amount > 0 AND t.refund_of IS NULL)) AS in_
         {_BASE} AND t.posted_on >= :from AND t.posted_on < :to
          GROUP BY 1, 2, 3"""), {"h": hid, "attr": "include", "from": _month_start(month, 13), "to": end}).all()
     by_month_cat: dict = defaultdict(lambda: defaultdict(Decimal))
@@ -132,7 +132,7 @@ def compute(db: Session, hid: UUID, home: str, month: date) -> Insights:
     weekly = defaultdict(Decimal)
     for r in db.execute(text(f"""
             SELECT coalesce(t.category, 'Uncategorised') AS cat, t.currency, sum(-t.amount) AS out_
-            {_BASE} AND t.amount < 0 AND t.posted_on >= :s AND t.posted_on < :e GROUP BY 1, 2"""),
+            {_BASE} AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.posted_on >= :s AND t.posted_on < :e GROUP BY 1, 2"""),
             {"h": hid, "attr": "include", "s": wk_start, "e": wk_end}):
         weekly[r.cat] += conv(r.out_, r.currency) / 12
     cats = []
@@ -148,7 +148,7 @@ def compute(db: Session, hid: UUID, home: str, month: date) -> Insights:
     def ranked(group_sql: str, attr: str = "include", limit: int = 8) -> list[Named]:
         acc: dict = defaultdict(lambda: [Decimal(0), 0])
         for r in db.execute(text(f"""SELECT {group_sql} AS name, t.currency, sum(-t.amount) AS out_, count(*) AS n
-                                     {_BASE} AND t.amount < 0 AND t.posted_on >= :s AND t.posted_on < :e GROUP BY 1, 2"""),
+                                     {_BASE} AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.posted_on >= :s AND t.posted_on < :e GROUP BY 1, 2"""),
                             {"h": hid, "attr": attr, "s": start, "e": end}):
             acc[r.name][0] += conv(r.out_, r.currency)
             acc[r.name][1] += r.n
@@ -160,7 +160,7 @@ def compute(db: Session, hid: UUID, home: str, month: date) -> Insights:
     hist = db.execute(text(f"""
         SELECT date_trunc('month', t.posted_on)::date AS m, coalesce(t.category, 'Uncategorised') AS cat, t.currency,
                sum(-t.amount) AS out_
-        {_BASE} AND t.amount < 0 AND t.posted_on >= :from AND t.posted_on < :to GROUP BY 1, 2, 3"""),
+        {_BASE} AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.posted_on >= :from AND t.posted_on < :to GROUP BY 1, 2, 3"""),
         {"h": hid, "attr": "include", "from": _month_start(month, 24), "to": _month_start(year_ago, -2)}).all()
     hm: dict = defaultdict(lambda: defaultdict(Decimal))
     for r in hist:

@@ -126,7 +126,7 @@ def build(db: Session, b, me: UUID, today: date | None = None) -> BudgetOut:
     rates = rate_table(db, b.household_id)
     rows = db.execute(text(f"""
         SELECT t.currency, sum(-t.amount) AS spent FROM transactions t JOIN accounts a ON a.id = t.account_id
-         WHERE {cond} AND {_accounts_clause(b)} AND t.amount < 0 AND t.transfer_group IS NULL
+         WHERE {cond} AND {_accounts_clause(b)} AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL
            AND t.posted_on >= :s AND t.posted_on < :e
          GROUP BY t.currency"""), {**params, "h": b.household_id, "owner": b.owner_user_id, "s": start, "e": end}).all()
     spent, missing = Decimal(0), []
