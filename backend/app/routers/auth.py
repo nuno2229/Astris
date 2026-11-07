@@ -2,8 +2,9 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
+from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.config import get_settings
 from app.db import bind_user
@@ -81,6 +82,37 @@ def update_me(body: MeUpdate, user: User, db: DB):
         sets = ", ".join(f"{k} = :{k}" for k in fields)  # keys come from the schema, not the client
         db.execute(text(f"UPDATE users SET {sets} WHERE id = :u"), {**fields, "u": user.id})
     return _me(db, user.id)
+
+
+class DeleteMeIn(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+    confirm: str                       # must be "DELETE"
+
+
+@router.post("/me/delete", status_code=204)
+def delete_me(body: DeleteMeIn, user: User, db: DB, response: Response):
+    """Delete my account and data (P-13). Needs your password. Can't be undone."""
+    if body.confirm != "DELETE":
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Type DELETE to confirm")
+    email = db.execute(text("SELECT email FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
+    row = db.execute(text("SELECT * FROM auth_login_lookup(:e)"), {"e": email}).first()
+    if not verify_password(body.password, row.password_hash if row else None):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Wrong password")
+    name = db.execute(text("SELECT display_name FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
+    try:
+        with db.begin_nested():
+            handed = db.execute(text("SELECT * FROM delete_my_account()")).all()
+    except DBAPIError as e:
+        if getattr(e.orig, "sqlstate", "") == "42501":
+            raise HTTPException(status.HTTP_409_CONFLICT,
+                                "You're the only server admin. Make someone else server admin first (see README: admin_cli set-admin).")
+        raise
+    from app import audit
+    for h in handed:
+        heir = db.execute(text("SELECT display_name FROM users WHERE id = :u"), {"u": h.new_owner}).scalar() or "another member"
+        audit.log(db, user.id, "member.deleted", "household", f"{name} deleted their account; {heir} is now the owner",
+                  household_id=h.household_id)
+    response.delete_cookie(SESSION_COOKIE, path="/")
 
 
 @router.get("/me/households", response_model=list[HouseholdOut])
