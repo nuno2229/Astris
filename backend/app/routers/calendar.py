@@ -79,18 +79,23 @@ def _store(db: Session, hid: UUID, feed_id: UUID, raw: bytes, currency: str) -> 
 
 
 def _fetch(url: str) -> bytes:
+    """Calendar links are internet calendars (Google, iCloud, Outlook…): https on the standard port, public addresses
+    only, so a link can't be used to probe the home network. A calendar on your own network: upload its .ics file."""
+    from urllib.parse import urlsplit
     from app.netcheck import pinned_request
     u = url.strip()
     if u.lower().startswith("webcal://"):
         u = "https://" + u[9:]
-    if not u.lower().startswith(("https://", "http://")):
+    parts = urlsplit(u)
+    if parts.scheme != "https" or not parts.hostname or parts.port not in (None, 443) or parts.username or parts.password:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Use the calendar's https:// or webcal:// link")
     try:
-        code, raw = pinned_request(u, timeout=20, max_bytes=MAX_BYTES, headers={"Accept": "text/calendar"}, block_self=True)
-    except Exception as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Couldn't fetch the calendar ({type(e).__name__})")
-    if code != 200:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"The calendar link answered {code}")
+        code, raw = pinned_request(u, timeout=20, max_bytes=MAX_BYTES, headers={"Accept": "text/calendar"},
+                                   block_self=True, public_only=True)
+    except Exception:
+        code, raw = 0, b""
+    if code != 200 or b"BEGIN:VCALENDAR" not in raw[:4000]:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Couldn't read a calendar from that link")   # one message, whatever went wrong
     return raw
 
 

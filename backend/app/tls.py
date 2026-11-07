@@ -45,20 +45,38 @@ def _san(names: list[str]) -> x509.SubjectAlternativeName:
     return x509.SubjectAlternativeName(out)
 
 
+def _constraints(names: list[str]) -> x509.NameConstraints:
+    """The CA can only vouch for this server's own names/addresses: even if its key leaked, it couldn't be used to
+    impersonate any other website to a phone that trusts it."""
+    permitted = []
+    for n in names:
+        try:
+            a = ipaddress.ip_address(n)
+            permitted.append(x509.IPAddress(ipaddress.ip_network(f"{a}/{a.max_prefixlen}")))
+        except ValueError:
+            permitted.append(x509.DNSName(n))
+    return x509.NameConstraints(permitted_subtrees=permitted, excluded_subtrees=None)
+
+
 def ensure(d: Path | None = None, names: list[str] | None = None) -> Path:
     d = d or tls_dir()
     names = names or hostnames()
     d.mkdir(parents=True, exist_ok=True)
     os.chmod(d, 0o700)
     now = datetime.now(UTC)
-    ca_key_p, ca_crt_p = d / "ca.key", d / "ca.crt"
+    ca_key_p, ca_crt_p, ca_names_p = d / "ca.key", d / "ca.crt", d / "ca.names"
+    # the CA is bound to the addresses: a new list means a new CA (install it on the phones again)
+    if ca_names_p.exists() and ca_names_p.read_text().split(",") != names:
+        for p in (ca_key_p, ca_crt_p, d / "server.crt", d / "server.key"):
+            p.unlink(missing_ok=True)
     if not (ca_key_p.exists() and ca_crt_p.exists()):
         key = ec.generate_private_key(ec.SECP256R1())
         subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Astris home server CA")])
         ca = (x509.CertificateBuilder().subject_name(subject).issuer_name(subject).public_key(key.public_key())
               .serial_number(x509.random_serial_number()).not_valid_before(now - timedelta(minutes=5))
-              .not_valid_after(now + timedelta(days=3650))
+              .not_valid_after(now + timedelta(days=5 * 365))
               .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+              .add_extension(_constraints(names), critical=True)
               .add_extension(x509.KeyUsage(digital_signature=True, key_cert_sign=True, crl_sign=True, content_commitment=False,
                                            key_encipherment=False, data_encipherment=False, key_agreement=False,
                                            encipher_only=False, decipher_only=False), critical=True)
@@ -67,6 +85,7 @@ def ensure(d: Path | None = None, names: list[str] | None = None) -> Path:
         _write(ca_key_p, key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                            serialization.NoEncryption()), secret=True)
         _write(ca_crt_p, ca.public_bytes(serialization.Encoding.PEM), secret=False)
+        _write(ca_names_p, ",".join(names).encode(), secret=False)
     ca_key = serialization.load_pem_private_key(ca_key_p.read_bytes(), None)
     ca = x509.load_pem_x509_certificate(ca_crt_p.read_bytes())
     srv_key_p, srv_crt_p = d / "server.key", d / "server.crt"

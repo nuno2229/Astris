@@ -50,6 +50,9 @@ def test_upload_shows_in_coming_up_and_only_owner_removes():
 def test_calendar_link_refuses_the_server_itself():
     a = make_user("a")
     hid = create_household(a)
-    r = a.post(f"/api/households/{hid}/calendar/link", json={"name": "Mine", "url": "http://127.0.0.1:8000/api/health"})
-    assert r.status_code in (422, 502)
+    for url in ("http://127.0.0.1:8000/api/health", "https://127.0.0.1/x.ics", "https://192.168.1.1/x.ics",
+                "https://10.0.0.5/x.ics", "https://[fd00::1]/x.ics", "https://example.com:8443/x.ics", "https://user:pw@example.com/x.ics"):
+        r = a.post(f"/api/households/{hid}/calendar/link", json={"name": "Mine", "url": url})
+        assert r.status_code in (422, 502), url
+        assert "192.168" not in r.text and "Errno" not in r.text
     assert a.post(f"/api/households/{hid}/calendar/link", json={"name": "Mine", "url": "file:///etc/passwd"}).status_code == 422

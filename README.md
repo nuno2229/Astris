@@ -88,4 +88,4 @@ Phones only allow the live camera on a secure (https) address. Taking a photo of
    - **Android:** Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
 3. Use `https://…` from now on.
 
-The certificate files live in the Backups folder under `tls/`; the private key never leaves the server. Prefer a real certificate? Put Astris behind your own reverse proxy (or `tailscale serve`) instead and leave HTTPS off.
+The certificate files live in the Backups folder under `tls/`; the private key never leaves the server. The certificate can only vouch for the addresses you listed, so it can't be misused for other websites. Changing the addresses makes a new one: install it on the phones again. Prefer a real certificate? Put Astris behind your own reverse proxy (or `tailscale serve`) instead and leave HTTPS off.

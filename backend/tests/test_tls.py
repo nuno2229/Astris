@@ -20,8 +20,12 @@ def test_ca_and_server_cert(tmp_path, monkeypatch):
     ctx.load_verify_locations(cafile=str(d / "ca.crt"))
     before = (d / "server.crt").read_bytes()
     assert ensure(d, ["192.168.1.20", "tower.local", "localhost"]) and (d / "server.crt").read_bytes() == before   # kept
-    ensure(d, ["192.168.1.21", "localhost"])
-    assert (d / "server.crt").read_bytes() != before and (d / "ca.crt").read_bytes() == (d / "ca.crt").read_bytes()  # renewed, same CA
+    nc = ca.extensions.get_extension_for_class(x509.NameConstraints)
+    assert nc.critical and "tower.local" in [g.value for g in nc.value.permitted_subtrees if isinstance(g, x509.DNSName)]
+    assert (ca.not_valid_after_utc - ca.not_valid_before_utc).days <= 5 * 365 + 1
+    old_ca = (d / "ca.crt").read_bytes()
+    ensure(d, ["192.168.1.21", "localhost"])          # different addresses: new CA bound to them
+    assert (d / "server.crt").read_bytes() != before and (d / "ca.crt").read_bytes() != old_ca
 
 
 def test_ca_download_only_when_enabled(tmp_path, monkeypatch):

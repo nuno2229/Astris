@@ -108,7 +108,7 @@ def origin_only(url: str) -> str | None:
 
 def pinned_request(url: str, method: str = "GET", body: bytes | None = None, timeout: float = 5,
                    max_bytes: int = 256 * 1024, headers: dict | None = None,
-                   block_self: bool = False) -> tuple[int, bytes]:
+                   block_self: bool = False, public_only: bool = False) -> tuple[int, bytes]:
     """HTTP without DNS-rebinding: resolve ONCE, refuse if any address is blocked, then connect to that
     exact IP (Host header + TLS SNI/cert check still use the hostname). Never follows redirects.
     `timeout` is a TOTAL wall-clock deadline for the whole exchange, not per socket read."""
@@ -132,6 +132,8 @@ def pinned_request(url: str, method: str = "GET", body: bytes | None = None, tim
         raise BlockedAddress(url)
     if block_self and any(is_self_or_loopback(a) for a in addrs):  # same addresses we connect to: no TOCTOU
         raise BlockedAddress(url)
+    if public_only and any(_ip_is_local(a) or _ip_is_local(str(_embedded_v4(ipaddress.ip_address(a)))) for a in addrs):
+        raise BlockedAddress(url)    # internet services only: never the home network (private, loopback, ULA)
     ip = addrs[0]
     port = parts.port or (443 if parts.scheme == "https" else 80)
     path = (parts.path or "/") + (("?" + parts.query) if parts.query else "")
