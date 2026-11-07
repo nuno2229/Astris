@@ -148,7 +148,7 @@ def household_transactions(hid: UUID, user: User, db: DB,
     my_role(db, hid)
     rows = db.execute(text(f"""
         SELECT {_TX_COLS} FROM transactions t
-          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND (ha.frozen_at IS NULL OR (t.posted_on <= ha.until AND t.created_at <= ha.frozen_at))
           JOIN accounts a ON a.id = t.account_id
           JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE (CAST(:q AS text) IS NULL OR t.description ILIKE '%' || CAST(:q AS text) || '%'
@@ -216,7 +216,7 @@ def household_summary(hid: UUID, user: User, db: DB,
                COALESCE(SUM(t.amount)  FILTER (WHERE (t.amount > 0 AND t.refund_of IS NULL)), 0) AS received,
                COALESCE(SUM(-t.amount) FILTER (WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.posted_on = :today), 0) AS spent_today
           FROM transactions t
-          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND (ha.frozen_at IS NULL OR (t.posted_on <= ha.until AND t.created_at <= ha.frozen_at))
           JOIN accounts a ON a.id = t.account_id
           JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE t.posted_on >= :s AND t.posted_on < :e AND t.transfer_group IS NULL
@@ -230,7 +230,7 @@ def household_summary(hid: UUID, user: User, db: DB,
     daily = db.execute(text("""
         SELECT t.currency, t.posted_on AS day, SUM(-t.amount) AS spent
           FROM transactions t
-          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND ha.attribution = 'include'
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND ha.attribution = 'include' AND (ha.frozen_at IS NULL OR (t.posted_on <= ha.until AND t.created_at <= ha.frozen_at))
           JOIN accounts a ON a.id = t.account_id
           JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE t.posted_on >= :s AND t.posted_on < :e AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL
@@ -239,7 +239,7 @@ def household_summary(hid: UUID, user: User, db: DB,
     rec = household_recurring(db, hid)
     review_count = db.execute(text("""
         SELECT count(*) FROM transactions t
-          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND (ha.frozen_at IS NULL OR (t.posted_on <= ha.until AND t.created_at <= ha.frozen_at))
           JOIN accounts a ON a.id = t.account_id
           JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
          WHERE t.needs_review"""), {"h": hid}).scalar_one()

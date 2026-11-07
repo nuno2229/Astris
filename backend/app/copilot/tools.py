@@ -46,10 +46,11 @@ class Ctx:
 
 
 def _included(alias: str = "t") -> str:
-    return f"""{alias}.account_id IN (SELECT ha.account_id FROM household_accounts ha
+    return f"""EXISTS (SELECT 1 FROM household_accounts ha
                  JOIN accounts a2 ON a2.id = ha.account_id
                  JOIN household_people ow ON ow.household_id = ha.household_id AND ow.user_id = a2.owner_user_id
-                WHERE ha.household_id = :h AND ha.attribution = 'include')"""
+                WHERE ha.account_id = {alias}.account_id AND ha.household_id = :h AND ha.attribution = 'include'
+                  AND (ha.frozen_at IS NULL OR ({alias}.posted_on <= ha.until AND {alias}.created_at <= ha.frozen_at)))"""
 
 
 def spending(c: Ctx, it: Intent) -> dict:
@@ -68,7 +69,7 @@ def spending(c: Ctx, it: Intent) -> dict:
         params["mem"] = f"%{it.member}%"
     rows = c.db.execute(text(f"""
         SELECT t.id, t.posted_on, coalesce(t.merchant, t.description) AS name, t.amount, t.currency, a.name AS account
-          FROM transactions t JOIN accounts a ON a.id = t.account_id JOIN users u ON u.id = a.owner_user_id
+          FROM tx_lines t JOIN accounts a ON a.id = t.account_id JOIN users u ON u.id = a.owner_user_id
          WHERE {' AND '.join(where)} ORDER BY t.amount ASC"""), params).all()
     total, missing = Decimal(0), set()
     for r in rows:
@@ -174,7 +175,7 @@ def goals(c: Ctx, it: Intent) -> dict:
 def by_member(c: Ctx, it: Intent) -> dict:
     s, e, label = window(it.period, c.today)
     rows = c.db.execute(text(f"""SELECT u.display_name AS name, t.currency, sum(-t.amount) AS v, count(*) AS n
-                                  FROM transactions t JOIN accounts a ON a.id = t.account_id JOIN users u ON u.id = a.owner_user_id
+                                  FROM tx_lines t JOIN accounts a ON a.id = t.account_id JOIN users u ON u.id = a.owner_user_id
                                  WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL AND t.posted_on >= :s AND t.posted_on < :e AND {_included()}
                                  GROUP BY 1, 2"""), {"h": c.hid, "s": s, "e": e}).all()
     tot: dict = {}
@@ -192,7 +193,7 @@ def by_member(c: Ctx, it: Intent) -> dict:
 def top_shops(c: Ctx, it: Intent) -> dict:
     s, e, label = window(it.period, c.today)
     rows = c.db.execute(text(f"""SELECT coalesce(t.merchant, initcap(t.merchant_key), t.description) AS name, t.currency,
-                                        sum(-t.amount) AS v, count(*) AS n FROM transactions t
+                                        sum(-t.amount) AS v, count(DISTINCT t.id) AS n FROM tx_lines t
                                  WHERE (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL AND t.posted_on >= :s AND t.posted_on < :e AND {_included()}
                                  GROUP BY 1, 2"""), {"h": c.hid, "s": s, "e": e}).all()
     tot: dict = {}

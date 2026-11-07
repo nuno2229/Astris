@@ -104,13 +104,16 @@ def _match(b) -> tuple[str, dict]:
     return "t.account_id = :m", {"m": b.account_id}
 
 
-def _accounts_clause(b) -> str:
+def _accounts_clause(b, alias: str = "t", cutoff: bool = True) -> str:
+    """Household budgets count accounts shared 'in totals'; a former member's kept history only up to when they left."""
     if b.scope == "personal":
         return "a.owner_user_id = :owner"
-    return """t.account_id IN (SELECT ha.account_id FROM household_accounts ha
+    cut = f" AND (ha.frozen_at IS NULL OR ({alias}.posted_on <= ha.until AND {alias}.created_at <= ha.frozen_at))" if cutoff \
+        else " AND ha.frozen_at IS NULL"
+    return f"""EXISTS (SELECT 1 FROM household_accounts ha
                  JOIN accounts a2 ON a2.id = ha.account_id
                  JOIN household_people ow ON ow.household_id = ha.household_id AND ow.user_id = a2.owner_user_id
-                WHERE ha.household_id = :h AND ha.attribution = 'include')"""
+                WHERE ha.account_id = {alias}.account_id AND ha.household_id = :h AND ha.attribution = 'include'{cut})"""
 
 
 def _money(v: Decimal, cur: str) -> str:
@@ -124,7 +127,7 @@ def build(db: Session, b, me: UUID, today: date | None = None) -> BudgetOut:
     cond, params = _match(b)
     rates = rate_table(db, b.household_id)
     rows = db.execute(text(f"""
-        SELECT t.currency, sum(-t.amount) AS spent FROM transactions t JOIN accounts a ON a.id = t.account_id
+        SELECT t.currency, sum(-t.amount) AS spent FROM tx_lines t JOIN accounts a ON a.id = t.account_id
          WHERE {cond} AND {_accounts_clause(b)} AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.transfer_group IS NULL
            AND t.posted_on >= :s AND t.posted_on < :e
          GROUP BY t.currency"""), {**params, "h": b.household_id, "owner": b.owner_user_id, "s": start, "e": end}).all()
@@ -137,7 +140,7 @@ def build(db: Session, b, me: UUID, today: date | None = None) -> BudgetOut:
             spent += c
     # regular payments still to come this period (E12-05)
     rcond = {"category": "rs.category = :m", "merchant": "rs.merchant_key = :m", "account": "rs.account_id = :m"}[b.kind]
-    racc = "a.owner_user_id = :owner" if b.scope == "personal" else _accounts_clause(b).replace("t.account_id", "rs.account_id")
+    racc = "a.owner_user_id = :owner" if b.scope == "personal" else _accounts_clause(b, "rs", cutoff=False)
     committed = Decimal(0)
     for r in db.execute(text(f"""
         SELECT rs.currency, rs.expected_amount FROM recurring_series rs JOIN accounts a ON a.id = rs.account_id

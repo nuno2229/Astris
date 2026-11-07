@@ -20,8 +20,14 @@ router = APIRouter(prefix="/api", tags=["accounts"])
 # Bank/card: latest running balance from statements (NULL if none). Cash wallet (E08): starting balance plus
 # every entry since the starting date.
 _ACCOUNT_SELECT = """
-SELECT a.id, a.name, a.type, a.currency, a.institution, a.owner_user_id, u.display_name AS owner_name,
-       (a.owner_user_id = :u) AS is_mine, a.opening_balance, a.opening_date, a.ai_household_id, a.ai_off,
+SELECT a.id, a.name, a.type, a.currency, a.owner_user_id, u.display_name AS owner_name,
+       (a.owner_user_id = :u) AS is_mine,
+       -- owner-only settings; and for a former member's kept history (G-9), just the label
+       CASE WHEN a.owner_user_id = :u OR a.id IN (SELECT app_visible_account_ids()) THEN a.institution END AS institution,
+       CASE WHEN a.owner_user_id = :u OR a.id IN (SELECT app_visible_account_ids()) THEN a.opening_balance ELSE 0 END AS opening_balance,
+       CASE WHEN a.owner_user_id = :u OR a.id IN (SELECT app_visible_account_ids()) THEN a.opening_date END AS opening_date,
+       CASE WHEN a.owner_user_id = :u THEN a.ai_household_id END AS ai_household_id,
+       (a.owner_user_id = :u AND a.ai_off) AS ai_off,
        CASE WHEN a.type = 'cash' THEN
             a.opening_balance + COALESCE((SELECT sum(t.amount) FROM transactions t WHERE t.account_id = a.id
                                            AND (a.opening_date IS NULL OR t.posted_on >= a.opening_date)), 0)
@@ -250,5 +256,10 @@ def withdraw_history(aid: UUID, hid: UUID, user: User, db: DB):
     if not db.execute(text("DELETE FROM household_accounts WHERE account_id = :a AND household_id = :h AND frozen_at IS NOT NULL"),
                       {"a": aid, "h": hid}).rowcount:
         raise not_found("Nothing kept there")
+    # nothing of yours left there: you're no longer listed as a former member (your name stops being shown)
+    db.execute(text("""DELETE FROM former_members f WHERE f.household_id = :h AND f.user_id = :u AND NOT EXISTS (
+                         SELECT 1 FROM household_accounts ha JOIN accounts a ON a.id = ha.account_id
+                          WHERE ha.household_id = :h AND a.owner_user_id = :u AND ha.frozen_at IS NOT NULL)"""),
+               {"h": hid, "u": user.id})
     audit.log(db, user.id, "account.withdraw_history", "account", f"Took {acc.name}'s history back from a household you left",
               entity_id=aid, account_id=aid)

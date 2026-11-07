@@ -82,8 +82,8 @@ def _key(d: date) -> str:
 
 
 _BASE = """
-  FROM transactions t
-  JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+  FROM tx_lines t
+  JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h AND (ha.frozen_at IS NULL OR (t.posted_on <= ha.until AND t.created_at <= ha.frozen_at))
   JOIN accounts a ON a.id = t.account_id
   JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
   JOIN users u ON u.id = a.owner_user_id
@@ -147,7 +147,7 @@ def compute(db: Session, hid: UUID, home: str, month: date) -> Insights:
 
     def ranked(group_sql: str, attr: str = "include", limit: int = 8) -> list[Named]:
         acc: dict = defaultdict(lambda: [Decimal(0), 0])
-        for r in db.execute(text(f"""SELECT {group_sql} AS name, t.currency, sum(-t.amount) AS out_, count(*) AS n
+        for r in db.execute(text(f"""SELECT {group_sql} AS name, t.currency, sum(-t.amount) AS out_, count(DISTINCT t.id) AS n
                                      {_BASE} AND (t.amount < 0 OR t.refund_of IS NOT NULL) AND t.posted_on >= :s AND t.posted_on < :e GROUP BY 1, 2"""),
                             {"h": hid, "attr": attr, "s": start, "e": end}):
             acc[r.name][0] += conv(r.out_, r.currency)
