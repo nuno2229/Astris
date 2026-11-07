@@ -103,3 +103,31 @@ def test_validation():
     r = a.post(f"/api/subscriptions/{s['id']}/cancel", json={"cancelled_on": T.isoformat(),
                                                              "access_until": (T - timedelta(days=1)).isoformat()})
     assert r.status_code == 422
+
+
+def test_trial_hints_from_card_checks():
+    from datetime import date, timedelta
+    from tests.conftest import create_account, create_household, make_user, upload
+    d = lambda n: (date.today() - timedelta(days=n)).isoformat()   # noqa: E731
+    a, outsider = make_user("a"), make_user("x")
+    hid = create_household(a)
+    acc = create_account(a)
+    a.put(f"/api/households/{hid}/accounts/{acc}", json={"attribution": "include"})
+    upload(a, acc, "s.csv", (
+        "Date,Description,Amount\n"
+        f"{d(3)},DISNEY PLUS,0.00\n"           # free trial card check
+        f"{d(5)},AUDIBLE UK,-1.00\n"           # £1 check
+        f"{d(20)},SPOTIFY P1234,-1.00\n{d(2)},SPOTIFY P1234,-11.99\n"   # already became paid: not a trial hint
+        f"{d(4)},TESCO STORES 2041,-1.00\n"    # groceries: never a trial
+        f"{d(90)},HULU,0.00\n"                 # too long ago
+    ).encode())
+    hints = a.get(f"/api/households/{hid}/subscriptions/trial-hints").json()
+    assert [h["provider"].lower()[:6] for h in hints] == ["disney", "audibl"]
+    assert outsider.get(f"/api/households/{hid}/subscriptions/trial-hints").status_code == 404
+    # confirming one adds a trial that matches its statement lines; dismissing hides the other
+    h = hints[0]
+    r = a.post(f"/api/households/{hid}/subscriptions", json={"provider": "Disney+", "amount": "7.99", "currency": "GBP",
+               "cycle": "monthly", "trial_ends": h["suggested_end"], "merchant_key": h["merchant_key"]})
+    assert r.status_code == 201 and r.json()["status"] == "trial"
+    assert a.post(f"/api/households/{hid}/subscriptions/trial-hints/dismiss", json={"merchant_key": hints[1]["merchant_key"]}).status_code == 204
+    assert a.get(f"/api/households/{hid}/subscriptions/trial-hints").json() == []

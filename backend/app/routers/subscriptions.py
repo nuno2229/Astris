@@ -35,6 +35,7 @@ class SubscriptionIn(BaseModel):
     auto_renew: bool = True
     trial_ends: date | None = None
     notes: str | None = Field(default=None, max_length=500)
+    merchant_key: str | None = Field(default=None, max_length=200)   # from a statement line (trial hints, G-15)
 
     @field_validator("currency", mode="before")
     @classmethod
@@ -208,7 +209,7 @@ def create_subscription(hid: UUID, body: SubscriptionIn, user: User, db: DB):
         {"h": hid, "u": user.id, "p": body.provider.strip(), "plan": body.plan, "a": body.amount, "c": body.currency,
          "cy": body.cycle, "n": body.next_renewal, "ar": body.auto_renew,
          "st": "trial" if body.trial_ends else "active", "te": body.trial_ends,
-         "k": merchant_key(body.provider), "notes": body.notes}).scalar_one()
+         "k": (body.merchant_key or "").strip() or merchant_key(body.provider), "notes": body.notes}).scalar_one()
     audit.log(db, user.id, "subscription.create", "subscription", f"Added subscription {body.provider.strip()}",
               entity_id=sid, household_id=hid)
     return build(db, hid, _get(db, sid), date.today())
@@ -254,6 +255,57 @@ def suggestions(hid: UUID, user: User, db: DB):
                             AND (s.recurring_id = rs.id OR s.merchant_key = rs.merchant_key))
          ORDER BY rs.name"""), {"h": hid, "cats": list(SUGGEST_CATEGORIES)})
     return [Suggestion(**r._mapping) for r in rows]
+
+
+class TrialHint(BaseModel):
+    merchant_key: str
+    provider: str
+    started_on: date
+    amount: Decimal
+    currency: str
+    account: str
+    suggested_end: date
+
+
+TRIAL_AMOUNTS = (Decimal("0"), Decimal("-1.00"))     # card checks when a free trial starts (PO, G-15)
+TRIAL_WINDOW_DAYS = 45
+NOT_TRIAL_CATEGORIES = ["Groceries", "Eating out", "Transport", "Cash", "Fees & charges", "Transfers", "Income"]
+
+
+@router.get("/households/{hid}/subscriptions/trial-hints", response_model=list[TrialHint])
+def trial_hints(hid: UUID, user: User, db: DB):
+    """Likely free trials: a £0.00 or £1.00 charge from a shop in the last 45 days, no real charge from it since,
+    not already in Bills and not dismissed. A guess: you confirm it and set when the trial ends."""
+    my_role(db, hid)
+    rows = db.execute(text("""
+        SELECT DISTINCT ON (t.merchant_key) t.merchant_key, coalesce(t.merchant, initcap(t.merchant_key)) AS provider,
+               t.posted_on AS started_on, -t.amount AS amount, t.currency, a.name AS account
+          FROM transactions t
+          JOIN household_accounts ha ON ha.account_id = t.account_id AND ha.household_id = :h
+          JOIN accounts a ON a.id = t.account_id
+          JOIN memberships ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+         WHERE t.amount = ANY(:amts) AND t.merchant_key IS NOT NULL AND t.transfer_group IS NULL
+           AND t.posted_on >= current_date - :w
+           AND coalesce(t.category, '') <> ALL(:skip)
+           AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.household_id = :h AND s.merchant_key = t.merchant_key)
+           AND NOT EXISTS (SELECT 1 FROM trial_dismissals d WHERE d.household_id = :h AND d.merchant_key = t.merchant_key)
+           AND NOT EXISTS (SELECT 1 FROM transactions p WHERE p.account_id = t.account_id AND p.merchant_key = t.merchant_key
+                            AND p.amount < -1.00 AND p.posted_on >= t.posted_on)
+         ORDER BY t.merchant_key, t.posted_on DESC"""),
+        {"h": hid, "amts": list(TRIAL_AMOUNTS), "w": TRIAL_WINDOW_DAYS, "skip": NOT_TRIAL_CATEGORIES}).all()
+    out = [TrialHint(**r._mapping, suggested_end=r.started_on + timedelta(days=30)) for r in rows]
+    return sorted(out, key=lambda h: h.started_on, reverse=True)
+
+
+class DismissTrialIn(BaseModel):
+    merchant_key: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/households/{hid}/subscriptions/trial-hints/dismiss", status_code=204)
+def dismiss_trial(hid: UUID, body: DismissTrialIn, user: User, db: DB):
+    my_role(db, hid)
+    db.execute(text("INSERT INTO trial_dismissals (household_id, merchant_key) VALUES (:h, :k) ON CONFLICT DO NOTHING"),
+               {"h": hid, "k": body.merchant_key})
 
 
 @router.patch("/subscriptions/{sid}", response_model=SubscriptionOut)

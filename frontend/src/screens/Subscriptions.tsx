@@ -15,10 +15,12 @@ function statusLine(s: Subscription): string {
 export default function Subscriptions({ household, currency }: { household: Household; currency: string }) {
   const [subs, setSubs] = useState<Subscription[] | null>(null);
   const [sugs, setSugs] = useState<SubSuggestion[]>([]);
+  const [trials, setTrials] = useState<TrialHint[]>([]);
   const [open, setOpen] = useState<Subscription | "new" | null>(null);
   const load = () => Promise.all([
     api.get<Subscription[]>(`/api/households/${household.id}/subscriptions`).then(setSubs),
     api.get<SubSuggestion[]>(`/api/households/${household.id}/subscriptions/suggestions`).then(setSugs),
+    api.get<TrialHint[]>(`/api/households/${household.id}/subscriptions/trial-hints`).then(setTrials).catch(() => setTrials([])),
   ]);
   useEffect(() => { load(); }, [household.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -49,6 +51,15 @@ export default function Subscriptions({ household, currency }: { household: Hous
                 <button className="btn" onClick={() => track(g.recurring_id)}>Track</button>
               </li>
             ))}
+          </ul>
+        </>
+      )}
+      {trials.length > 0 && (
+        <>
+          <h2>Free trials?</h2>
+          <p className="muted small" style={{ marginTop: -6 }}>A £0.00 or £1.00 charge often means a free trial has started. Track it to be reminded before it ends.</p>
+          <ul className="list">
+            {trials.map((t) => <TrialRow key={t.merchant_key} household={household} hint={t} onDone={load} />)}
           </ul>
         </>
       )}
@@ -157,5 +168,47 @@ function SubSheet({ household, sub, currency, onClose, onDone }: {
         {sub && <button type="button" className="btn danger" onClick={() => confirm(`Remove ${sub.provider} from the list?`) && run(() => api.del(`/api/subscriptions/${sub.id}`))}>Remove from list</button>}
       </form>
     </dialog>
+  );
+}
+
+interface TrialHint { merchant_key: string; provider: string; started_on: string; amount: string; currency: string; account: string; suggested_end: string }
+
+function TrialRow({ household, hint: t, onDone }: { household: Household; hint: TrialHint; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [ends, setEnds] = useState(t.suggested_end);
+  const [price, setPrice] = useState("");
+  const [error, setError] = useState("");
+  const started = new Date(t.started_on + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const add = async () => {
+    setError("");
+    try {
+      await api.post(`/api/households/${household.id}/subscriptions`, { provider: t.provider, amount: price || "0", currency: t.currency,
+        cycle: "monthly", trial_ends: ends, merchant_key: t.merchant_key });
+      onDone();
+    } catch (e) { setError((e as Error).message); }
+  };
+  return (
+    <li style={{ display: "block" }}>
+      <div className="title">{t.provider}</div>
+      <div className="meta">{money(t.amount, t.currency)} on {started}, {t.account}</div>
+      {!open ? (
+        <div className="row" style={{ marginTop: 10 }}>
+          <button className="btn" onClick={() => setOpen(true)}>Track trial</button>
+          <button className="btn quiet" onClick={async () => { await api.post(`/api/households/${household.id}/subscriptions/trial-hints/dismiss`, { merchant_key: t.merchant_key }); onDone(); }}>Not a trial</button>
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 10, marginTop: 10 }}>
+          <div className="row" style={{ flexWrap: "nowrap" }}>
+            <label style={{ flex: 1, minWidth: 0 }}>Trial ends<input type="date" value={ends} onChange={(e) => setEnds(e.target.value)} required /></label>
+            <label style={{ flex: 1, minWidth: 0 }}>Then a month<input inputMode="decimal" placeholder="0.00" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
+          </div>
+          <div className="row">
+            <button className="btn primary" onClick={add} disabled={!ends}>Track trial</button>
+            <button className="btn quiet" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {error && <div className="error" role="alert">{error}</div>}
+    </li>
   );
 }
