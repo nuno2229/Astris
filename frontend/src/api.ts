@@ -48,7 +48,7 @@ export interface Tx { id: string; account_id: string; posted_on: string; amount:
 export interface Totals { currency: string; spent: string; received: string; spent_today: string }
 export interface Summary { household_id: string; period_start: string; period_end: string; included: Totals[];
   excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number;
-  upcoming: Recurring[]; missed: Recurring[];
+  upcoming: Recurring[]; missed: Recurring[]; scheduled?: CalendarItem[];
   goals: { id: string; name: string; target: string; currency: string; saved: string; progress: string; achieved: boolean;
     deadline: string | null; on_track: boolean | null; projected_date: string | null }[];
   budgets: { id: string; label: string; scope: string; period: "daily" | "weekly" | "monthly"; amount: string; currency: string;
@@ -100,3 +100,5 @@ export interface TransferSuggestion { out: TransferLeg; into: TransferLeg; amoun
 /** A wallet move (ATM cash into a wallet, E08-03) vs a transfer between two accounts (P-1). */
 export const isWalletMove = (t: Tx) => t.source === "transfer" || (t.category === "Cash" && !!t.transfer_group);
 export interface RefundCandidate { id: string; posted_on: string; amount: string; name: string; category: string | null; account: string }
+export interface CalendarItem { id: string; name: string; amount: string | null; currency: string; direction: "in" | "out";
+  cadence: string; every: number; next_date: string | null; calendar: string }

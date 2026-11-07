@@ -196,6 +196,7 @@ class Summary(BaseModel):
     needs_review: int = 0            # transactions whose category is uncertain (E05-03)
     upcoming: list[RecurringOut] = []  # regular payments due in the next 14 days (E06-04)
     missed: list[RecurringOut] = []    # expected but never arrived (E06-03)
+    scheduled: list[dict] = []         # known bills/income from a calendar, next 14 days (G-5)
     converted: Converted | None = None
     subscription_alerts: list[dict] = []
     goals: list[dict] = []          # active savings goals, for the Home widget (E11)
@@ -280,9 +281,15 @@ def household_summary(hid: UUID, user: User, db: DB,
                    daily=[DaySpend(**r._mapping) for r in daily], needs_review=review_count,
                    upcoming=[r for r in rec if r.status == "active" and r.next_date <= today + timedelta(days=14)][:6],
                    missed=[r for r in rec if r.status == "missed"],
+                   scheduled=[i.model_dump(mode="json") for i in _calendar_upcoming(db, hid)][:6],
                    subscription_alerts=[{"subscription_id": str(sub.id), "provider": sub.provider, **a.model_dump()}
                                         for sub in household_subscriptions(db, hid) for a in sub.alerts
                                         if a.kind != "renewing" or (sub.next_renewal and (sub.next_renewal - today).days <= 3)])
+
+
+def _calendar_upcoming(db, hid):
+    from app.routers.calendar import upcoming
+    return upcoming(db, hid)
 
 
 @router.get("/categories", response_model=list[str])

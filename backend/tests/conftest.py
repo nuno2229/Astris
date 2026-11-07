@@ -44,7 +44,7 @@ def clean(owner_engine):
     with owner_engine.begin() as c:
         c.execute(text("UPDATE server_settings SET registration_open = true, update_check = false, latest_version = NULL"))
         c.execute(text("TRUNCATE users, households, sessions, memberships, invitations, accounts, "
-                       "household_accounts, import_batches, transactions, household_settings, merchant_rules, recurring_series, subscriptions, notification_channels, notification_prefs, notification_log, fx_rates, import_previews, import_runs, audit_log, goals, goal_contributions, goal_rules, budgets, products, stock_lots, shop_suggestions, copilot_actions, shopping_lists, shopping_items, favourites, receipts, receipt_items, documents, online_prices, transfer_dismissals, household_categories, import_profiles, trial_dismissals, former_members, transaction_splits, settlements, product_catalog CASCADE"))
+                       "household_accounts, import_batches, transactions, household_settings, merchant_rules, recurring_series, subscriptions, notification_channels, notification_prefs, notification_log, fx_rates, import_previews, import_runs, audit_log, goals, goal_contributions, goal_rules, budgets, products, stock_lots, shop_suggestions, copilot_actions, shopping_lists, shopping_items, favourites, receipts, receipt_items, documents, online_prices, transfer_dismissals, household_categories, import_profiles, trial_dismissals, former_members, transaction_splits, settlements, product_catalog, calendar_feeds, calendar_items CASCADE"))
 
 
 def make_user(name: str = "user") -> TestClient:

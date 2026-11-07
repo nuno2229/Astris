@@ -21,7 +21,8 @@ def lookup(db: Session, codes: list[str]) -> dict[str, dict]:
     if not codes:
         return {}
     return {r.barcode: {"name": r.name, "brand": r.brand, "size_qty": r.size_qty, "size_unit": r.size_unit, "source": r.source}
-            for r in db.execute(text("SELECT * FROM product_catalog WHERE barcode = ANY(:c)"), {"c": list(codes)})}
+            for r in db.execute(text("SELECT barcode, name, brand, size_qty, size_unit, source FROM product_catalog WHERE barcode = ANY(:c)"),
+                                {"c": list(codes)})}
 
 
 def share(db: Session, hid: UUID, barcode: str | None, name: str, brand: str | None, size_qty, size_unit: str | None) -> None:
@@ -55,8 +56,8 @@ def import_off(path: str, country: str = "en:united-kingdom") -> int:
         c.execute(text("""INSERT INTO product_catalog (barcode, name, brand, size_qty, size_unit, source)
                           VALUES (:b, :n, :br, :q, :u, 'open_food_facts')
                           ON CONFLICT (barcode) DO UPDATE SET name = EXCLUDED.name, brand = EXCLUDED.brand,
-                                 size_qty = EXCLUDED.size_qty, size_unit = EXCLUDED.size_unit, updated_at = now()
-                          WHERE product_catalog.source = 'open_food_facts'"""), batch)
+                                 size_qty = EXCLUDED.size_qty, size_unit = EXCLUDED.size_unit, source = 'open_food_facts',
+                                 contributed_by = NULL, updated_at = now()"""), batch)          # Open Food Facts wins
     with eng.begin() as c:
         for code, name, brand, qty in _rows(path, country):
             q, u, _, _ = size_from_name(qty) if qty else (None, None, None, "")

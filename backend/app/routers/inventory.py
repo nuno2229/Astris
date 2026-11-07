@@ -393,6 +393,8 @@ def set_share(hid: UUID, body: ShareIn, user: User, db: DB):
     db.execute(text("""INSERT INTO household_settings (household_id, share_products, updated_by) VALUES (:h, :e, :u)
                        ON CONFLICT (household_id) DO UPDATE SET share_products = EXCLUDED.share_products,
                            updated_by = EXCLUDED.updated_by, updated_at = now()"""), {"h": hid, "e": body.enabled, "u": user.id})
+    if not body.enabled:  # take this household's names back out of the shared list
+        db.execute(text("SELECT catalog_unshare(:h)"), {"h": hid})
     if body.enabled:      # offer the names already in the pantry
         from app import catalog
         for p in db.execute(text("SELECT * FROM products WHERE household_id = :h AND barcode IS NOT NULL"), {"h": hid}).all():

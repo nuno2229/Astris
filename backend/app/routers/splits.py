@@ -232,5 +232,5 @@ def remove_settlement(sid: UUID, user: User, db: DB):
     if s is None:
         raise not_found("Settlement not found")
     if not db.execute(text("DELETE FROM settlements WHERE id = :s"), {"s": sid}).rowcount:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only whoever recorded it, or the person who received it, can remove it")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the payer can remove a confirmed payment; the receiver can reject a pending one")
     audit.log(db, user.id, "settle.remove", "household", f"Removed a settlement of {s.amount:.2f} {s.currency}", household_id=s.household_id)

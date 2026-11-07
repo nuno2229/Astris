@@ -76,3 +76,15 @@ def test_read_date_from_photo():
     r = a.post(f"/api/households/{hid}/read-date", files={"file": ("p.png", buf.getvalue())})
     assert r.status_code == 200 and r.json()["best"] == "2026-12-14"
     assert make_user("x").post(f"/api/households/{hid}/read-date", files={"file": ("p.png", buf.getvalue())}).status_code == 404
+
+
+def test_households_cannot_overwrite_each_others_names():
+    a, b, c = make_user("a"), make_user("b"), make_user("c")
+    ha, hb, hc = create_household(a), create_household(b), create_household(c)
+    for cl, h in ((a, ha), (b, hb)):
+        cl.put(f"/api/households/{h}/share-products", json={"enabled": True})
+    a.post(f"/api/households/{ha}/products", json={"name": "Heinz Baked Beans", "barcode": "5000157024671", "quantity": 1})
+    b.post(f"/api/households/{hb}/products", json={"name": "Totally different", "barcode": "5000157024671", "quantity": 1})
+    assert c.post(f"/api/households/{hc}/scan", json={"codes": ["5000157024671"]}).json()["known_names"]["5000157024671"]["name"] == "Heinz Baked Beans"
+    a.put(f"/api/households/{ha}/share-products", json={"enabled": False})            # turning it off takes them back
+    assert c.post(f"/api/households/{hc}/scan", json={"codes": ["5000157024671"]}).json()["known_names"] == {}

@@ -31,4 +31,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("ALTER TABLE settlements DROP COLUMN IF EXISTS confirmed")
+    op.execute(r"""
+    DROP POLICY IF EXISTS st_confirm ON settlements;
+    DROP POLICY IF EXISTS st_insert ON settlements;
+    DROP POLICY IF EXISTS st_delete ON settlements;
+    ALTER TABLE settlements DROP COLUMN IF EXISTS confirmed;
+    CREATE POLICY st_insert ON settlements FOR INSERT WITH CHECK (
+        household_id IN (SELECT app_my_household_ids()) AND created_by = app_uid() AND app_uid() IN (from_user, to_user));
+    CREATE POLICY st_delete ON settlements FOR DELETE USING (
+        household_id IN (SELECT app_my_household_ids()) AND created_by = app_uid());
+    """)

@@ -67,8 +67,9 @@ def test_settle_up():
     # a split for someone outside the households the account is in is refused
     assert a.put(f"/api/transactions/{tx['id']}/splits", json={"parts": [
         {"amount": "-45", "for_user": a.me["id"]}, {"amount": "-45", "for_user": make_user("y").me["id"]}]}).status_code == 422
-    # removing: the recorder or the receiver
+    # a confirmed payment: only the payer can remove it (the receiver can't revive the debt)
     assert c.delete(f"/api/settlements/{sid}").status_code == 403
+    assert a.delete(f"/api/settlements/{sid}").status_code == 403
     assert b.delete(f"/api/settlements/{sid}").status_code == 204
 
 

@@ -3,7 +3,7 @@ import { api, Household, HouseholdAccount, money, Summary } from "../api";
 import type { Ctx } from "../App";
 import Constellation from "./Constellation";
 import TxList from "./TxList";
-import { RecurringRow } from "./Recurring";
+import { CalendarRow, RecurringRow } from "./Recurring";
 import { Meter } from "./Goals";
 import { BudgetBar } from "./Budgets";
 import { useServer } from "./ServerSettings";
@@ -142,10 +142,13 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
         </a>
       )}
 
-      {s.upcoming.length > 0 && (
+      {(s.upcoming.length > 0 || (s.scheduled ?? []).length > 0) && (
         <>
           <h2>Coming up</h2>
-          <ul className="list">{s.upcoming.map((r) => <RecurringRow key={r.id} r={r} />)}</ul>
+          <ul className="list">
+            {s.upcoming.map((r) => <RecurringRow key={r.id} r={r} />)}
+            {(s.scheduled ?? []).map((c) => <CalendarRow key={c.id} c={c} />)}
+          </ul>
           <p style={{ marginTop: 12 }}><a href="#/bills/regular">All regular payments</a></p>
         </>
       )}
