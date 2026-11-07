@@ -65,6 +65,7 @@ class PreviewOut(BaseModel):
     warnings: list[str] = []
     mapping: Mapping | None = None
     sample: list[SampleRow] = []
+    profile: str | None = None         # signature of the saved layout that was applied (G-16)
 
 
 class AdjustIn(BaseModel):
@@ -192,7 +193,15 @@ async def preview(aid: UUID, user: User, db: DB, files: Annotated[list[UploadFil
                                 "These files are too large together. Import them in smaller groups.")
         pid = db.execute(text("INSERT INTO import_previews (user_id, account_id, filename, raw) VALUES (:u, :a, :f, :r) RETURNING id"),
                          {"u": user.id, "a": aid, "f": name, "r": raw}).scalar_one()
-        out.append(await run_in_threadpool(_analyse, db, user, pid, name, aid, raw, {}, seen))
+        from app.importers import profiles
+        saved = profiles.find(db, name, raw) or {}
+        if saved:
+            db.execute(text("UPDATE import_previews SET options = CAST(:o AS jsonb) WHERE id = :id"), {"o": json.dumps(saved), "id": pid})
+        res = await run_in_threadpool(_analyse, db, user, pid, name, aid, raw, saved, seen)
+        if saved and res.ok and res.mapping:
+            res.profile = profiles.signature(res.mapping.headers)
+            res.warnings = ["Used the column layout you saved for this bank."] + res.warnings
+        out.append(res)
     return out
 
 
@@ -206,7 +215,9 @@ async def adjust(pid: UUID, body: AdjustIn, user: User, db: DB):
     opts = dict(r.options or {})
     if body.day_first is not None:
         opts["day_first"] = body.day_first
-    if body.mapping is not None:
+    if body.mapping == {}:          # "forget the saved layout": back to automatic detection
+        opts = {}
+    elif body.mapping is not None:
         allowed = {"date", "description", "amount", "out", "in", "balance"}
         opts["mapping"] = {k: v for k, v in body.mapping.items() if k in allowed}
     db.execute(text("UPDATE import_previews SET account_id = :a, options = CAST(:o AS jsonb) WHERE id = :id"),
@@ -233,8 +244,10 @@ async def commit(body: CommitIn, user: User, db: DB):
     run_id = db.execute(text("INSERT INTO import_runs (user_id, files, rows_new) VALUES (:u, :n, 0) RETURNING id"),
                         {"u": user.id, "n": len(previews)}).scalar_one()
     details, total_new = [], 0
+    from app.importers import profiles
     for p, res in zip(previews, parsed):
         acc = require_own_account(db, user, p.account_id)
+        profiles.remember(db, res.headers, dict(p.options or {}))   # your choices for this layout, for next time (G-16)
         batch_id, total, new = save_parsed(db, user.id, acc, p.filename, res, run_id)
         if body.keep_originals:
             from app.documents import keep
@@ -270,3 +283,23 @@ def rollback(rid: UUID, user: User, db: DB):
     for a in accounts:
         detect_recurring(db, user.id, a)
         audit.log(db, user.id, "import.rollback", "import", "Undid a multi-file import", entity_id=rid, account_id=a)
+
+
+class ProfileOut(BaseModel):
+    signature: str
+    headers: str
+    options: dict
+    updated_at: str
+
+
+@router.get("/import-profiles", response_model=list[ProfileOut])
+def list_profiles(user: User, db: DB):
+    return [ProfileOut(signature=r.signature, headers=r.headers, options=r.options, updated_at=r.updated_at.isoformat())
+            for r in db.execute(text("SELECT * FROM import_profiles ORDER BY updated_at DESC"))]
+
+
+@router.delete("/import-profiles/{sig}", status_code=204)
+def forget_profile(sig: str, user: User, db: DB):
+    from app.importers import profiles
+    if not profiles.forget(db, user.id, sig):
+        raise not_found("Saved layout not found")

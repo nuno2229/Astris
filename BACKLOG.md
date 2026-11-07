@@ -236,7 +236,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E24-10** Refunds linked to the original purchase and netted off its category (P-2) — `Review` (money in from a shop you paid in the last 120 days, no more than you paid; counts as negative spending in that category everywhere: Home, Insights, budgets, assistant, daily summary; "Not a refund" is remembered)
 - [x] **E24-04** Household-defined categories alongside the built-in list (G-13) — `Review` (Household → Categories; any member adds, the person who added it or an owner/admin removes; usable on transactions, budgets, the assistant and the AI labeller; up to 60 per household)
 - [x] **E24-05** Account owner picks which household's AI processes a shared account (G-14) — `Review` (Accounts → AI labelling: automatic, a specific household's AI, or off)
-- [ ] **E24-07** Saved import profiles: each bank's column layout remembered (G-16)
+- [x] **E24-07** Saved import profiles: each bank's column layout remembered (G-16) — `Review` (columns/date order you set in the wizard are remembered per person by the file's header row and applied next time, in the wizard and quick import; "Forget the saved layout")
 - [ ] **E24-06** Likely trials spotted from £0.00/£1.00 charges (G-15)
 - [ ] **E24-03** A goal can follow a savings account's balance (G-6)
 - [ ] **E24-01** Leaving a household: the member chooses whether past transactions stay visible; "delete my account and data" (G-9, P-13)

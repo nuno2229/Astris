@@ -120,3 +120,24 @@ def test_concurrent_uploads_cannot_exceed_quota(monkeypatch):
     [t.start() for t in ts]
     [t.join() for t in ts]
     assert sorted(codes) == [201, 429, 429, 429]
+
+
+def test_saved_layout_is_reused_next_time_and_can_be_forgotten():
+    a, b = make_user("a"), make_user("b")
+    acc = create_account(a, "Main")
+    p = a.post(f"/api/accounts/{acc}/imports/preview", files=files(("w.csv", WEIRD))).json()[0]
+    a.patch(f"/api/import-previews/{p['id']}", json={"mapping": {"date": "When", "description": "What", "amount": "Value"}})
+    assert a.post("/api/import-runs", json={"preview_ids": [p["id"]]}).status_code == 201
+    prof = a.get("/api/import-profiles").json()
+    assert len(prof) == 1 and prof[0]["headers"] == "When, What, Value"
+    # next month's file from the same bank (with a junk line on top) just works, in the wizard and the quick import
+    nxt = b"Exported by MyBank\nWhen,What,Value\n2026-11-03,Other thing,-6.00\n"
+    again = a.post(f"/api/accounts/{acc}/imports/preview", files=files(("w2.csv", nxt))).json()[0]
+    assert again["ok"] and again["profile"] == prof[0]["signature"] and "saved" in again["warnings"][0]
+    assert upload(a, acc, "w3.csv", b"When,What,Value\n2026-11-09,Third,-1.00\n").status_code == 201
+    # profiles are personal
+    other = create_account(b, "Theirs")
+    assert b.post(f"/api/accounts/{other}/imports/preview", files=files(("w.csv", WEIRD))).json()[0]["ok"] is False
+    assert b.delete(f"/api/import-profiles/{prof[0]['signature']}").status_code == 404
+    assert a.delete(f"/api/import-profiles/{prof[0]['signature']}").status_code == 204
+    assert a.post(f"/api/accounts/{acc}/imports/preview", files=files(("w4.csv", nxt))).json()[0]["ok"] is False

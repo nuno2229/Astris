@@ -99,7 +99,8 @@ async def import_statement(aid: UUID, user: User, db: DB, file: Annotated[Upload
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File too large")
     try:
         # parsing can be slow (PDF/OCR): keep it off the event loop so other requests aren't blocked
-        parsed = await run_in_threadpool(parse_checked, file.filename or "upload", raw)
+        from app.importers import profiles
+        parsed = await run_in_threadpool(parse_checked, file.filename or "upload", raw, profiles.find(db, file.filename or "upload", raw))
     except ImportError_ as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
     batch_id, total, new = save_parsed(db, user.id, acc, file.filename or "upload", parsed)

@@ -54,7 +54,8 @@ def test_ai_uses_the_household_the_owner_picked(fake_llm):
     upload(a, acc, "s2.csv", CSV.replace(b"ZORBLAX GADGETS 77", b"QUIBBLE CO 12"))
     worker.run_once()
     body = fake_llm["requests"][-1]
-    assert "Allotment" in body["messages"][0]["content"]
+    assert "Allotment" not in body["messages"][0]["content"]        # names are data, never instruction text
+    assert "Allotment" in json.loads(body["messages"][1]["content"])["categories"]
     assert "Allotment" in body["response_format"]["schema"]["properties"]["results"]["items"]["properties"]["category"]["enum"]
     assert txs_by_desc(a, acc)["QUIBBLE CO 12"]["category"] == "Allotment"
     # can't pick a household the account isn't in; others can't see or change the choice

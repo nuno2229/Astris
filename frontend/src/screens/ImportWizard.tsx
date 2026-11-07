@@ -9,6 +9,7 @@ interface Preview {
   balance: { checked_rows: number; mismatched_rows: number; gap_expected: string | null; gap_found: string | null; gap_before: string | null } | null;
   mapping: { headers: string[]; columns: Record<string, string | null>; day_first: boolean | null } | null;
   sample: { posted_on: string; description: string; amount: string; running_balance: string | null }[];
+  profile?: string | null;
 }
 interface Run { id: string; files: number; rows_new: number; created_at?: string | null; rows_present?: number | null;
   details?: { filename: string; rows_new: number; rows_duplicate: number }[] }
@@ -116,6 +117,11 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
                 </div>
           )}
           {p.warnings.map((w) => <div key={w} className="muted small">{w}</div>)}
+          {p.profile && (
+            <button className="btn quiet" style={{ alignSelf: "flex-start" }}
+              onClick={async () => { await api.del(`/api/import-profiles/${p.profile}`); await adjust(p, { mapping: {} }); }}>
+              Forget the saved layout</button>
+          )}
           {p.ok && p.sample.length > 0 && (
             <details className="table-view">
               <summary>See the first rows</summary>
@@ -139,6 +145,7 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
                 </div>
               )}
               {(p.mapping || (!p.ok && p.error?.includes("Headers seen"))) && <ColumnPicker p={p} onApply={(mapping) => adjust(p, { mapping })} />}
+              {(p.mapping || (!p.ok && p.error?.includes("Headers seen"))) && <p className="muted small" style={{ margin: 0 }}>Changes to columns or date order are remembered for files with the same layout.</p>}
             </div>
           </details>
         </section>
