@@ -137,6 +137,7 @@ function About() {
         <div className="muted small">Server database: {v ? (v.db === "ok" ? "connected" : "unreachable") : "…"}</div>
         <a className="small" href="https://github.com/nuno2229/Astris/releases" target="_blank" rel="noreferrer">Release notes</a>
       </div>
+      <PhoneCamera />
     </>
   );
 }
@@ -206,6 +207,31 @@ function Rates({ household }: { household: Household }) {
           </form>
         )}
         {error && <div className="error" role="alert">{error}</div>}
+      </div>
+    </>
+  );
+}
+
+/** P-6: how to get live camera scanning on phones (needs https). */
+function PhoneCamera() {
+  const [selfSigned, setSelfSigned] = useState(false);
+  useEffect(() => { api.get<{ self_signed: boolean }>("/api/https").then((r) => setSelfSigned(r.self_signed)).catch(() => {}); }, []);
+  const secure = window.isSecureContext;
+  return (
+    <>
+      <h2>Camera scanning on phones</h2>
+      <div className="panel stack" style={{ gap: 8 }}>
+        {secure && !selfSigned && <span className="small">This address is secure, so live barcode scanning works here.</span>}
+        {selfSigned && (
+          <>
+            <span className="small">This server makes its own certificate. Install it once on each phone so it trusts this address.</span>
+            <a className="btn" style={{ alignSelf: "flex-start" }} href="/ca.crt">Download the certificate</a>
+            <span className="muted small">iPhone: open it from Settings, install, then General → About → Certificate Trust Settings → turn it on.
+              Android: Settings → Security → Encryption &amp; credentials → Install a certificate → CA certificate.</span>
+          </>
+        )}
+        {!secure && !selfSigned && <span className="muted small">Live scanning needs a secure (https) address. Taking a photo of a barcode works anyway.
+          Your server admin can turn on HTTPS in the Unraid template (see README).</span>}
       </div>
     </>
   );

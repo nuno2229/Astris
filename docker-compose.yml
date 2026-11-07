@@ -30,6 +30,8 @@ services:
       DB_ADMIN_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
       DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD}
       DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD}
+      HTTPS: ${HTTPS:-off}
+      TLS_HOSTNAMES: ${TLS_HOSTNAMES:-}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}                   # this account becomes server admin (recommended)
       TZ: ${TZ:-Europe/London}

@@ -62,6 +62,25 @@ def health():
     return {"status": "ok", "db": db, "version": app_version()}
 
 
+@app.get("/ca.crt", include_in_schema=False)
+def ca_certificate():
+    """The public certificate of this server's own small CA (P-6), to install on phones. 404 when HTTPS isn't self-signed."""
+    import os
+    from fastapi.responses import Response
+    from app.tls import tls_dir
+    p = tls_dir() / "ca.crt"
+    if os.environ.get("HTTPS", "off") != "self-signed" or not p.is_file():
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+    return Response(p.read_bytes(), media_type="application/x-x509-ca-cert",
+                    headers={"Content-Disposition": 'attachment; filename="astris-home-ca.crt"'})
+
+
+@app.get("/api/https")
+def https_status():
+    import os
+    return {"self_signed": os.environ.get("HTTPS", "off") == "self-signed"}
+
+
 # Serve the built PWA (frontend/dist) when present; SPA fallback to index.html.
 _DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 if _DIST.is_dir():

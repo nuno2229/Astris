@@ -77,3 +77,15 @@ Scanned barcodes can be named automatically without the internet. Load the UK pa
 3. Delete the download afterwards if you like. Run it again now and then to refresh.
 
 Households can also choose to share the names they give products (Shopping → Pantry → "Share product names"). Only barcode, name and size are shared, never prices or who bought it.
+
+## Live camera scanning on phones (HTTPS)
+
+Phones only allow the live camera on a secure (https) address. Taking a photo of a barcode works without it.
+
+1. In the Unraid template set **HTTPS** to `self-signed` and **HTTPS addresses** to how you open Astris (e.g. `192.168.1.20,tower.local`). Apply.
+2. Open `https://192.168.1.20:8484/ca.crt` on each phone and install it:
+   - **iPhone:** open the downloaded profile in Settings, install it, then Settings → General → About → Certificate Trust Settings → turn on "Astris home server CA".
+   - **Android:** Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
+3. Use `https://…` from now on.
+
+The certificate files live in the Backups folder under `tls/`; the private key never leaves the server. Prefer a real certificate? Put Astris behind your own reverse proxy (or `tailscale serve`) instead and leave HTTPS off.
