@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import documents
-from app.routers import accounts, admin, audit, auth, budgets, copilot, fx, prices, transfers, categories, receipts, shopping, goals, households, insights, inventory, import_wizard, ledger, notifications, recurring, settings, subscriptions
+from app.routers import accounts, admin, audit, auth, budgets, copilot, fx, prices, transfers, categories, splits, receipts, shopping, goals, households, insights, inventory, import_wizard, ledger, notifications, recurring, settings, subscriptions
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -44,7 +44,7 @@ for r in (auth.router, households.router, accounts.router, ledger.router, recurr
           subscriptions.router, notifications.router, fx.router, import_wizard.router,
           audit.router, goals.router, budgets.router, insights.router, inventory.router,
           copilot.router, shopping.router, receipts.router, documents.router, admin.router,
-          prices.router, transfers.router, categories.router):
+          prices.router, transfers.router, categories.router, splits.router):
     app.include_router(r)
 
 

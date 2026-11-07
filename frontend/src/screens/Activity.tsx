@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Account, api, Household, HouseholdAccount, TransferSuggestion, Tx } from "../api";
+import { Account, api, Household, HouseholdAccount, HouseholdDetail, TransferSuggestion, Tx } from "../api";
 import { TransferSheet } from "./Transfers";
 import TxList from "./TxList";
 import TxSheet from "./TxSheet";
@@ -16,6 +16,8 @@ export default function Activity({ household, reviewFirst }: { household: Househ
   const [toast, setToast] = useState("");
   const [transfers, setTransfers] = useState<TransferSuggestion[]>([]);
   const [showTransfers, setShowTransfers] = useState(false);
+  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
+  const [splitsOn, setSplitsOn] = useState(false);
 
   useEffect(() => {
     api.get<HouseholdAccount[]>(`/api/households/${household.id}/accounts`)
@@ -23,6 +25,8 @@ export default function Activity({ household, reviewFirst }: { household: Househ
     api.get<string[]>(`/api/categories?household_id=${household.id}`).then(setCats);
     api.get<Account[]>("/api/accounts").then((a) => setWallets(a.filter((x) => x.type === "cash")));
     api.get<{ id: string; name: string; currency: string }[]>(`/api/households/${household.id}/goals`).then(setGoals);
+    api.get<HouseholdDetail>(`/api/households/${household.id}`).then((d) => setPeople(d.members.map((m) => ({ id: m.user_id, name: m.display_name }))));
+    api.get<{ enabled: boolean }>(`/api/households/${household.id}/balances`).then((b) => setSplitsOn(b.enabled)).catch(() => setSplitsOn(false));
   }, [household.id]);
 
   const load = useCallback(() => {
@@ -61,7 +65,7 @@ export default function Activity({ household, reviewFirst }: { household: Househ
           empty={review ? <div className="empty"><strong>All sorted</strong>Every transaction has a category.</div> : undefined} />
       )}
       {open && (
-        <TxSheet tx={open} categories={cats} wallets={wallets} goals={goals} onClose={() => setOpen(null)}
+        <TxSheet tx={open} categories={cats} wallets={wallets} goals={goals} people={people} splitsOn={splitsOn} onClose={() => setOpen(null)}
           onChanged={(m) => { setOpen(null); setToast(m); load(); loadTransfers(); }}
           onSaved={(t, n) => {
             setOpen(null);

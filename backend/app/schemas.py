@@ -141,6 +141,7 @@ class TransactionOut(BaseModel):
     original_currency: str | None = None
     transfer_group: UUID | None = None
     refund_of: UUID | None = None
+    split: bool = False
 
 
 class ManualTxIn(BaseModel):

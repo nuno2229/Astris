@@ -44,7 +44,7 @@ export interface Tx { id: string; account_id: string; posted_on: string; amount:
   running_balance: string | null; category_source: "rule" | "llm" | "user" | "user_rule" | null;
   category_confidence: string | null; needs_review: boolean; editable: boolean; merchant_key: string | null;
   source: "import" | "manual" | "adjustment" | "transfer"; original_amount: string | null; original_currency: string | null;
-  transfer_group: string | null; refund_of?: string | null }
+  transfer_group: string | null; refund_of?: string | null; split?: boolean }
 export interface Totals { currency: string; spent: string; received: string; spent_today: string }
 export interface Summary { household_id: string; period_start: string; period_end: string; included: Totals[];
   excluded: Totals[]; accounts_included: number; accounts_excluded: number; recent: Tx[]; needs_review: number;

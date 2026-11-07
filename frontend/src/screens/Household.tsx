@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { api, Household, HouseholdDetail, Invite } from "../api";
+import { api, Household, HouseholdDetail, Invite, Member, money } from "../api";
 import type { Ctx } from "../App";
 
 export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; household: Household }) {
@@ -95,6 +95,8 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
         </>
       )}
 
+      <SettleUp household={household} me={ctx.me.id} currency={ctx.me.home_currency} members={d?.members ?? []} />
+
       <Categories household={household} />
 
       <p style={{ marginTop: 18 }}><a href="#/history">Change history</a></p>
@@ -159,6 +161,93 @@ function Categories({ household }: { household: Household }) {
           <button className="btn">Add</button>
         </form>
         <details className="small muted"><summary>Built-in categories</summary>{cats.filter((c) => c.built_in).map((c) => c.name).join(", ")}</details>
+        {error && <div className="error" role="alert">{error}</div>}
+      </div>
+    </>
+  );
+}
+
+interface Balances { enabled: boolean; can_change: boolean;
+  owes: { from_user: string; from_name: string; to_user: string; to_name: string; amount: string; currency: string }[];
+  settlements: { id: string; from_name: string | null; to_name: string | null; amount: string; currency: string; settled_on: string; note: string | null; mine: boolean }[] }
+
+/** Who owes whom from split payments, and recording paying it back (P-4). A household option. */
+function SettleUp({ household, me, currency, members }: { household: Household; me: string; currency: string; members: Member[] }) {
+  const [b, setB] = useState<Balances | null>(null);
+  const [pay, setPay] = useState<{ other: string; dir: "paid" | "got"; amount: string } | null>(null);
+  const [error, setError] = useState("");
+  const load = () => api.get<Balances>(`/api/households/${household.id}/balances`).then(setB);
+  useEffect(() => { load(); }, [household.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!b) return null;
+  const others = members.filter((m) => m.user_id !== me);
+  const run = async (fn: () => Promise<unknown>) => { setError(""); try { await fn(); await load(); } catch (e) { setError((e as Error).message); } };
+  if (!b.enabled) {
+    if (!b.can_change || others.length === 0) return null;
+    return (
+      <>
+        <h2>Settle up</h2>
+        <div className="panel stack">
+          <p className="muted small" style={{ margin: 0 }}>Share costs? Turn this on to split payments between people and keep track of who owes whom.</p>
+          <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => run(() => api.put(`/api/households/${household.id}/splits-enabled`, { enabled: true }))}>Turn on settling up</button>
+        </div>
+      </>
+    );
+  }
+  const record = () => run(async () => {
+    const other = pay!.other || others[0]?.user_id;
+    await api.post(`/api/households/${household.id}/settlements`, {
+      from_user: pay!.dir === "paid" ? me : other, to_user: pay!.dir === "paid" ? other : me, amount: pay!.amount, currency });
+    setPay(null);
+  });
+  return (
+    <>
+      <h2>Settle up</h2>
+      <div className="panel stack">
+        {b.owes.length === 0
+          ? <p className="muted small" style={{ margin: 0 }}>All square. Split a payment in Activity and choose who each part was for.</p>
+          : b.owes.map((o) => (
+            <div key={o.from_user + o.to_user + o.currency} className="row" style={{ justifyContent: "space-between" }}>
+              <span>{o.from_user === me ? "You owe" : `${o.from_name} owes`} {o.to_user === me ? "you" : o.to_name}</span>
+              <strong>{money(o.amount, o.currency)}</strong>
+            </div>
+          ))}
+        {pay ? (
+          <div className="stack" style={{ gap: 8 }}>
+            <div className="seg full" role="group" aria-label="Direction">
+              <button aria-pressed={pay.dir === "paid"} onClick={() => setPay({ ...pay, dir: "paid" })}>I paid</button>
+              <button aria-pressed={pay.dir === "got"} onClick={() => setPay({ ...pay, dir: "got" })}>I was paid</button>
+            </div>
+            <div className="row" style={{ flexWrap: "nowrap" }}>
+              {others.length > 1 && (
+                <select aria-label="Who" value={pay.other} onChange={(e) => setPay({ ...pay, other: e.target.value })}>
+                  {others.map((m) => <option key={m.user_id} value={m.user_id}>{m.display_name}</option>)}
+                </select>
+              )}
+              <input aria-label="Amount" inputMode="decimal" placeholder="0.00" value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} />
+            </div>
+            <div className="row">
+              <button className="btn primary" disabled={!Number(pay.amount)} onClick={record}>Record payment</button>
+              <button className="btn quiet" onClick={() => setPay(null)}>Cancel</button>
+            </div>
+          </div>
+        ) : others.length > 0 && (
+          <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => {
+            const mine = b.owes.find((o) => o.from_user === me);
+            setPay({ other: mine?.to_user ?? others[0].user_id, dir: "paid", amount: mine?.amount ?? "" });
+          }}>Record a payment</button>
+        )}
+        {b.settlements.length > 0 && (
+          <details className="small">
+            <summary>Recent payments</summary>
+            {b.settlements.map((s) => (
+              <div key={s.id} className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">{s.from_name ?? "Former member"} paid {s.to_name ?? "Former member"} {money(s.amount, s.currency)}, {new Date(s.settled_on + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
+                {s.mine && <button className="linkish" aria-label="Remove this payment" onClick={() => run(() => api.del(`/api/settlements/${s.id}`))}>×</button>}
+              </div>
+            ))}
+          </details>
+        )}
+        {b.can_change && <button className="btn quiet" style={{ alignSelf: "flex-start" }} onClick={() => confirm("Turn off settling up? Splits stay, but balances are hidden.") && run(() => api.put(`/api/households/${household.id}/splits-enabled`, { enabled: false }))}>Turn off</button>}
         {error && <div className="error" role="alert">{error}</div>}
       </div>
     </>

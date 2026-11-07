@@ -29,7 +29,8 @@ router = APIRouter(prefix="/api", tags=["ledger"])
 _TX_COLS = "t.id, t.account_id, t.posted_on, t.amount, t.currency, t.description, t.merchant, " \
            "t.counterparty, t.category, t.running_balance, t.category_source, t.category_confidence, " \
            "t.needs_review, (a.owner_user_id = app_uid()) AS editable, t.merchant_key, t.source, " \
-           "t.original_amount, t.original_currency, t.transfer_group, t.refund_of"
+           "t.original_amount, t.original_currency, t.transfer_group, t.refund_of, " \
+           "EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id) AS split"
 
 
 def parse_checked(filename: str, raw: bytes, options: dict | None = None):
