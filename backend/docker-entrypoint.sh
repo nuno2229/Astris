@@ -9,11 +9,15 @@ DATA="${DATA_DIR:-/data}"
 # Unraid appdata belongs to nobody:users (99:100). Start as root only to fix ownership, then drop privileges.
 if [ "$(id -u)" = "0" ]; then
   PUID="${PUID:-99}"; PGID="${PGID:-100}"
+  # never follow links here: these files are writable by the app, so a planted link must not redirect a root chown
+  for p in "$DATA/secrets.env" "$DATA/postgres" "${BACKUP_DIR:-$DATA/backups}"; do
+    if [ -L "$p" ]; then echo "[astris] refusing to start: $p is a link" >&2; exit 1; fi
+  done
   mkdir -p "$DATA" "${BACKUP_DIR:-$DATA/backups}"
-  chown "$PUID:$PGID" "$DATA"
-  chown -R "$PUID:$PGID" "${BACKUP_DIR:-$DATA/backups}"
-  [ -d "$DATA/postgres" ] && chown -R "$PUID:$PGID" "$DATA/postgres"
-  [ -f "$DATA/secrets.env" ] && chown "$PUID:$PGID" "$DATA/secrets.env"
+  chown -h "$PUID:$PGID" "$DATA"
+  chown -R -P -h "$PUID:$PGID" "${BACKUP_DIR:-$DATA/backups}"
+  [ -d "$DATA/postgres" ] && chown -R -P -h "$PUID:$PGID" "$DATA/postgres"
+  [ -f "$DATA/secrets.env" ] && chown -h "$PUID:$PGID" "$DATA/secrets.env"
   exec setpriv --reuid="$PUID" --regid="$PGID" --clear-groups env HOME=/tmp "$0" "$@"
 fi
 
