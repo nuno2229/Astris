@@ -64,8 +64,14 @@ class TestOut(BaseModel):
     message: str
 
 
+def _config(r) -> dict:
+    """Channel secrets are encrypted at rest when ASTRIS_KEY is set (P-10)."""
+    from app.crypto import decrypt_json
+    return decrypt_json(r.config, str(r.id))
+
+
 def _out(r) -> ChannelOut:
-    clean = validate(r.kind, r.config, True)
+    clean = validate(r.kind, _config(r), True)
     return ChannelOut(id=r.id, kind=r.kind, label=r.label, hint=clean.hint, uses_internet=clean.uses_internet,
                       include_details=r.include_details, enabled=r.enabled, last_sent_at=r.last_sent_at,
                       last_error=r.last_error)
@@ -111,11 +117,14 @@ def add_channel(body: ChannelIn, user: User, db: DB):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                             "This channel sends alerts over the internet. Confirm that to add it.")
     import json
-    cid = db.execute(text("""
-        INSERT INTO notification_channels (user_id, kind, label, config, include_details, allow_internet)
-        VALUES (:u, :k, :l, CAST(:c AS jsonb), :d, :ai) RETURNING id"""),
-        {"u": user.id, "k": body.kind, "l": (body.label or body.kind.title()).strip()[:60],
-         "c": json.dumps(clean.config), "d": body.include_details, "ai": clean.uses_internet}).scalar_one()
+    import uuid
+    from app.crypto import encrypt_json
+    cid = uuid.uuid4()
+    db.execute(text("""
+        INSERT INTO notification_channels (id, user_id, kind, label, config, include_details, allow_internet)
+        VALUES (:id, :u, :k, :l, CAST(:c AS jsonb), :d, :ai)"""),
+        {"id": cid, "u": user.id, "k": body.kind, "l": (body.label or body.kind.title()).strip()[:60],
+         "c": json.dumps(encrypt_json(clean.config, str(cid))), "d": body.include_details, "ai": clean.uses_internet})
     return _out(_channel(db, cid))
 
 
@@ -154,7 +163,7 @@ def test_channel(cid: UUID, user: User, db: DB):
     r = _channel(db, cid)
     _rate_limit(user.id)
     try:
-        send(r.kind, r.config, "Astris", "Test message. Notifications are working.")
+        send(r.kind, _config(r), "Astris", "Test message. Notifications are working.")
     except ChannelError as e:
         db.execute(text("UPDATE notification_channels SET last_error = :e WHERE id = :id"), {"e": str(e)[:200], "id": cid})
         return TestOut(ok=False, message=str(e))

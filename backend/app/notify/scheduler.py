@@ -120,7 +120,8 @@ def notify_user(db: Session, user: UUID, today: date | None = None) -> int:
         lines = [e["detailed"] if ch.include_details else e["minimal"] for e in events]
         body = "\n".join(f"• {x}" for x in dict.fromkeys(lines))   # minimal lines can repeat: show once
         try:
-            send(ch.kind, ch.config, "Astris", body + "\nOpen Astris for details.")
+            from app.crypto import decrypt_json
+            send(ch.kind, decrypt_json(ch.config, str(ch.id)), "Astris", body + "\nOpen Astris for details.")
             db.execute(text("UPDATE notification_channels SET last_sent_at = now(), last_error = NULL WHERE id = :id"), {"id": ch.id})
             delivered_any = True
             n += 1

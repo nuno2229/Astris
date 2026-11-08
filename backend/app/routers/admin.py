@@ -29,6 +29,7 @@ class ServerOut(BaseModel):
     checked_at: datetime | None
     backups: list[dict] = []
     backups_encrypted: bool = False
+    files_encrypted: bool = False   # ASTRIS_KEY set: kept files and secrets encrypted at rest (P-10)
     backup_location: str = ""   # backups stay on the server: full-database dumps are never served over the app (isolation)
 
 
@@ -64,6 +65,7 @@ def server(user: User, db: DB):
                      latest_version=s.latest_version, latest_url=s.latest_url, checked_at=s.checked_at,
                      update_available=s.update_check and newer(s.latest_version, app_version()),
                      backups=backup.list_backups() if admin else [], backups_encrypted=bool(get_settings().backup_passphrase),
+                     files_encrypted=__import__("app.crypto", fromlist=["enabled"]).enabled(),
                      backup_location=str(backup.backup_dir()) if admin else "")
 
 

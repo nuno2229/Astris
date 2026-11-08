@@ -66,7 +66,8 @@ def ensure(d: Path | None = None, names: list[str] | None = None) -> Path:
     now = datetime.now(UTC)
     ca_key_p, ca_crt_p, ca_names_p = d / "ca.key", d / "ca.crt", d / "ca.names"
     # the CA is bound to the addresses: a new list means a new CA (install it on the phones again)
-    if ca_names_p.exists() and ca_names_p.read_text().split(",") != names:
+    # also when there's no record of the names: a CA from before name constraints existed gets replaced
+    if not ca_names_p.exists() or ca_names_p.read_text().split(",") != names:
         for p in (ca_key_p, ca_crt_p, d / "server.crt", d / "server.key"):
             p.unlink(missing_ok=True)
     if not (ca_key_p.exists() and ca_crt_p.exists()):

@@ -3,7 +3,7 @@ import { api } from "../api";
 
 interface Server { is_admin: boolean; version: string; registration_open: boolean; update_check: boolean; latest_version: string | null;
   latest_url: string | null; update_available: boolean; checked_at: string | null;
-  backups: { name: string; size: number; created_at: string; encrypted: boolean }[]; backups_encrypted: boolean; backup_location: string }
+  backups: { name: string; size: number; created_at: string; encrypted: boolean }[]; backups_encrypted: boolean; files_encrypted?: boolean; backup_location: string }
 
 export function useServer() {
   const [s, setS] = useState<Server | null>(null);
@@ -36,6 +36,9 @@ export default function ServerSettings() {
           <h2>Server</h2>
           <div className="panel stack">
             <span className="muted small">You're the server admin.</span>
+            <span className="small">{s.files_encrypted
+              ? "Kept files, notification secrets and calendar links are encrypted on disk."
+              : "Kept files and notification secrets aren't encrypted on disk yet. Set an encryption key in the Unraid template (see README)."}</span>
             {s.update_available && (
               <div className="callout"><strong>Astris {s.latest_version} is available.</strong> On Unraid, open the Docker tab and apply the
                 update. A backup is taken automatically first. {s.latest_url && <a href={s.latest_url} target="_blank" rel="noreferrer">What's new</a>}</div>

@@ -39,3 +39,11 @@ def test_ca_download_only_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("HTTPS", "self-signed")
     r = c.get("/ca.crt")
     assert r.status_code == 200 and b"BEGIN CERTIFICATE" in r.content and b"PRIVATE" not in r.content
+
+
+def test_old_unconstrained_ca_is_replaced(tmp_path):
+    d = ensure(tmp_path / "t", ["localhost"])
+    (d / "ca.names").unlink()                       # as made by an earlier version
+    old = (d / "ca.crt").read_bytes()
+    ensure(d, ["localhost"])
+    assert (d / "ca.crt").read_bytes() != old

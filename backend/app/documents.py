@@ -40,12 +40,17 @@ def keep(db: Session, user_id: UUID, kind: str, filename: str, raw: bytes, *, ho
     if used + len(raw) > USER_QUOTA:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                             "You've reached the storage limit for kept originals (1 GB). Delete some first.")
-    return db.execute(text("""
-        INSERT INTO documents (kind, owner_user_id, household_id, account_id, receipt_id, import_batch_id, filename,
+    import uuid
+    from app.crypto import encrypt
+    did = uuid.uuid4()
+    db.execute(text("""
+        INSERT INTO documents (id, kind, owner_user_id, household_id, account_id, receipt_id, import_batch_id, filename,
                                content_type, size, data)
-        VALUES (:k, :u, :h, :a, :r, :b, :f, :ct, :s, :d) RETURNING id"""),
-        {"k": kind, "u": user_id, "h": household_id, "a": account_id, "r": receipt_id, "b": import_batch_id,
-         "f": (filename or "upload")[:255], "ct": content_type(raw, filename or ""), "s": len(raw), "d": raw}).scalar_one()
+        VALUES (:id, :k, :u, :h, :a, :r, :b, :f, :ct, :s, :d)"""),
+        {"id": did, "k": kind, "u": user_id, "h": household_id, "a": account_id, "r": receipt_id, "b": import_batch_id,
+         "f": (filename or "upload")[:255], "ct": content_type(raw, filename or ""), "s": len(raw),
+         "d": encrypt(raw, str(did).encode())})          # encrypted at rest when ASTRIS_KEY is set (P-10)
+    return did
 
 
 @router.get("/documents/{did}")
@@ -55,7 +60,8 @@ def download(did: UUID, user: User, db: DB):
         raise not_found("File not found")
     safe = "".join(ch for ch in r.filename if ch.isalnum() or ch in "._- ")[:100] or "file"
     # always a download, never rendered inline: an uploaded file can't run script in the app's origin
-    return Response(bytes(r.data), media_type=r.content_type,
+    from app.crypto import decrypt
+    return Response(decrypt(r.data, str(did).encode()), media_type=r.content_type,
                     headers={"Content-Disposition": f'attachment; filename="{safe}"', "Content-Security-Policy": "sandbox",
                              "Cache-Control": "private, no-store"})
 

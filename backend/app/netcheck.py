@@ -132,7 +132,7 @@ def pinned_request(url: str, method: str = "GET", body: bytes | None = None, tim
         raise BlockedAddress(url)
     if block_self and any(is_self_or_loopback(a) for a in addrs):  # same addresses we connect to: no TOCTOU
         raise BlockedAddress(url)
-    if public_only and any(_ip_is_local(a) or _ip_is_local(str(_embedded_v4(ipaddress.ip_address(a)))) for a in addrs):
+    if public_only and not all(ipaddress.ip_address(a).is_global and _embedded_v4(ipaddress.ip_address(a)).is_global for a in addrs):
         raise BlockedAddress(url)    # internet services only: never the home network (private, loopback, ULA)
     ip = addrs[0]
     port = parts.port or (443 if parts.scheme == "https" else 80)

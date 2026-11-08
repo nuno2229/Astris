@@ -89,3 +89,17 @@ Phones only allow the live camera on a secure (https) address. Taking a photo of
 3. Use `https://…` from now on.
 
 The certificate files live in the Backups folder under `tls/`; the private key never leaves the server. The certificate can only vouch for the addresses you listed, so it can't be misused for other websites. Changing the addresses makes a new one: install it on the phones again. Prefer a real certificate? Put Astris behind your own reverse proxy (or `tailscale serve`) instead and leave HTTPS off.
+
+## Encryption at rest
+
+Two layers, because Postgres itself doesn't encrypt its files:
+
+1. **The whole database: encrypt the disk.** Put the appdata share (Postgres data and backups) on an encrypted Unraid array or pool (XFS/BTRFS-encrypted). The key is your Unraid passphrase or keyfile, entered when the array starts.
+2. **The most sensitive things Astris stores: encrypted by the app.** Kept statement/receipt files, notification webhook URLs and bot tokens, and calendar links are encrypted with AES-256 using your **Encryption key**:
+   ```sh
+   docker exec astris python -m app.crypto new-key      # put the output in the template's "Encryption key", apply
+   docker exec astris python -m app.crypto rewrap       # encrypt anything stored before the key was set
+   docker exec astris python -m app.crypto status
+   ```
+   **Rotating:** put the old key in `ASTRIS_OLD_KEYS`, the new one in "Encryption key", restart, run `rewrap`, then clear `ASTRIS_OLD_KEYS`.
+   **Recovery:** the key never goes in the database or backups. Without it, those files and secrets can't be read, even from a backup. Keep it in your password manager next to the backup passphrase.

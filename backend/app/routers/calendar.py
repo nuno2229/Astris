@@ -123,10 +123,11 @@ def calendar_items(db: Session, hid: UUID) -> list[ItemOut]:
 async def get_calendar(hid: UUID, user: User, db: DB):
     my_role(db, hid)
     # your own calendar links are refreshed when you look, at most once a day
+    from app.crypto import decrypt_text
     for f in db.execute(text("""SELECT id, url FROM calendar_feeds WHERE household_id = :h AND created_by = :u AND url IS NOT NULL
                                   AND (fetched_at IS NULL OR fetched_at < now() - interval '24 hours')"""), {"h": hid, "u": user.id}).all():
         try:
-            raw = await run_in_threadpool(_fetch, f.url)
+            raw = await run_in_threadpool(_fetch, decrypt_text(f.url, str(f.id)))
             _store(db, hid, f.id, raw, _home(db, user))
             db.execute(text("UPDATE calendar_feeds SET fetched_at = now(), last_error = NULL WHERE id = :f"), {"f": f.id})
         except HTTPException as e:
@@ -157,8 +158,11 @@ async def upload_calendar(hid: UUID, user: User, db: DB, file: Annotated[UploadF
 async def link_calendar(hid: UUID, body: LinkIn, user: User, db: DB):
     my_role(db, hid)
     raw = await run_in_threadpool(_fetch, body.url)
-    fid = db.execute(text("INSERT INTO calendar_feeds (household_id, name, url, fetched_at) VALUES (:h, :n, :u, now()) RETURNING id"),
-                     {"h": hid, "n": body.name.strip(), "u": body.url.strip()}).scalar_one()
+    import uuid
+    from app.crypto import encrypt_text
+    fid = uuid.uuid4()
+    db.execute(text("INSERT INTO calendar_feeds (id, household_id, name, url, fetched_at) VALUES (:id, :h, :n, :u, now())"),
+               {"id": fid, "h": hid, "n": body.name.strip(), "u": encrypt_text(body.url.strip(), str(fid))})
     n = _store(db, hid, fid, raw, _home(db, user))
     audit.log(db, user.id, "calendar.add", "household", f"Added calendar link {body.name.strip()} ({n} items)", household_id=hid)
     return await get_calendar(hid, user, db)
