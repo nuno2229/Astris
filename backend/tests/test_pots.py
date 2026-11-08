@@ -45,3 +45,24 @@ def test_named_saver_account_and_people_are_not_pots():
     upload(a, cur, "s.csv", f"Date,Description,Amount\n{D(3)},To Chase Saver,-1000.00\n".encode())
     names = [x["name"] for x in a.get("/api/accounts").json()]
     assert "Chase Saver" in names
+
+
+def test_pots_follow_the_main_accounts_sharing():
+    from tests.conftest import invite_and_join
+    a, b = make_user("a"), make_user("b")
+    hid = create_household(a)
+    invite_and_join(a, b, hid)
+    cur = create_account(b, "Chase")
+    b.put(f"/api/households/{hid}/accounts/{cur}", json={"attribution": "include"})
+    upload(b, cur, "s.csv", f"Date,Description,Amount\n{D(3)},To Chase Saver,-1000.00\n".encode())
+    names = lambda: {x["name"]: x for x in a.get(f"/api/households/{hid}/accounts").json()}   # noqa: E731
+    assert names()["Chase Saver"]["attribution"] == "include"
+    b.put(f"/api/households/{hid}/accounts/{cur}", json={"attribution": "hide"})
+    assert names()["Chase Saver"]["attribution"] == "hide"
+    b.delete(f"/api/households/{hid}/accounts/{cur}")
+    assert "Chase Saver" not in names()
+    b.put(f"/api/households/{hid}/accounts/{cur}", json={"attribution": "include"})
+    assert "Chase Saver" in names()
+    b.delete(f"/api/households/{hid}/members/{b.me['id']}?keep_history=true")
+    kept = names()
+    assert kept["Chase Saver"]["until"] and kept["Chase Saver"]["balance"] is None      # history only, no live balance

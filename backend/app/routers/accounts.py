@@ -28,7 +28,8 @@ SELECT a.id, a.name, a.type, a.currency, a.owner_user_id, u.display_name AS owne
        CASE WHEN a.owner_user_id = :u OR a.id IN (SELECT app_visible_account_ids()) THEN a.opening_date END AS opening_date,
        CASE WHEN a.owner_user_id = :u THEN a.ai_household_id END AS ai_household_id,
        (a.owner_user_id = :u AND a.ai_off) AS ai_off,
-       CASE WHEN a.type IN ('cash', 'savings') THEN
+       CASE WHEN a.type IN ('cash', 'savings') AND NOT (a.owner_user_id = :u OR a.id IN (SELECT app_visible_account_ids())) THEN NULL
+            WHEN a.type IN ('cash', 'savings') THEN
             a.opening_balance + COALESCE((SELECT sum(t.amount) FROM transactions t WHERE t.account_id = a.id
                                            AND (a.opening_date IS NULL OR t.posted_on >= a.opening_date)), 0)
        ELSE (SELECT t.running_balance FROM transactions t
