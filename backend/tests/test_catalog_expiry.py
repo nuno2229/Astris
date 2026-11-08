@@ -62,13 +62,18 @@ def test_open_food_facts_import(tmp_path):
 @pytest.mark.skipif(shutil.which("tesseract") is None, reason="tesseract not installed")
 def test_read_date_from_photo():
     from PIL import Image, ImageDraw, ImageFont
-    img = Image.new("RGB", (900, 220), "white")
+    img = Image.new("RGB", (1100, 240), "white")
     d = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 64)
-    except OSError:
-        font = ImageFont.load_default()
-    d.text((30, 60), "BEST BEFORE 14/12/26", fill="black", font=font)
+    font = None
+    for f in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+              "/System/Library/Fonts/Supplemental/Arial.ttf"):
+        try:
+            font = ImageFont.truetype(f, 72)
+            break
+        except OSError:
+            pass
+    font = font or ImageFont.load_default(size=72)          # big and clear: this tests our reading, not OCR on tiny text
+    d.text((30, 60), "BEST BEFORE 14/12/2026", fill="black", font=font)
     buf = io.BytesIO()
     img.save(buf, "PNG")
     a = make_user("a")
