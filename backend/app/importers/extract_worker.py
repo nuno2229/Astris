@@ -8,7 +8,7 @@ import json
 import sys
 import warnings
 
-MAX_PAGES = 40           # text-layer pages
+MAX_PAGES = 250          # text-layer pages: a 5,000-line statement must fit (G-2: under 30 s)
 MAX_OCR_PAGES = 10       # scanned pages (OCR is expensive)
 MAX_CHARS_PER_PAGE = 20_000
 MAX_PIXELS = 40_000_000  # per rendered page / image

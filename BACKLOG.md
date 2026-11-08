@@ -257,7 +257,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [ ] **E20-03** Rate limiting, aggressive caching and opt-in warnings about reverse-engineered APIs
 
 ### E21 · Non-functional targets — `Todo` · §22
-- [ ] **E21-01** Define the cold-parse target for a 5k-line PDF (spec says "~X s") — see G-2
+- [x] **E21-01** Cold parse of a 5,000-line PDF under 30 s (PO 2026-11-08) — `Review` (3.8 s on a Mac; enforced by a CI test; text PDFs up to 250 pages)
 - [ ] **E21-02** Barcode decode under 1 s offline
 - [ ] **E21-03** Receipt scan under 15–20 s per image, perceived (batched, with progress)
 - [ ] **E21-04** Indexing by account / date / store / user; performance holds at multi-year scale
