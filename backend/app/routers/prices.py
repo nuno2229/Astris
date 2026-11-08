@@ -294,12 +294,16 @@ def run_lookups(user_id: UUID, hid: UUID) -> int:
                     except Exception:
                         hit = None
                     price = webprices.to_decimal(hit["price"]) if hit else None
-                    if price:
-                        db.execute(text("""INSERT INTO web_prices (household_id, added_by, source, store, name, query, price)
-                                           VALUES (:h, :u, 'auto', :s, :n, :q, :p)"""),
-                                   {"h": hid, "u": user_id, "s": store, "n": hit["name"], "q": q, "p": price})
-                        n += 1
-            db.execute(text("UPDATE household_settings SET web_lookups_at = now() WHERE household_id = :h"), {"h": hid})
+                    name = " ".join(str(hit.get("name") or "").split())[:160] if hit else ""
+                    if price and name:
+                        try:
+                            with db.begin_nested():       # one bad row can't undo the others
+                                db.execute(text("""INSERT INTO web_prices (household_id, added_by, source, store, name, query, price)
+                                                   VALUES (:h, :u, 'auto', :s, :n, :q, :p)"""),
+                                           {"h": hid, "u": user_id, "s": store, "n": name, "q": q, "p": price})
+                            n += 1
+                        except Exception:
+                            pass
     finally:
         _running.discard(hid)
     return n
@@ -337,6 +341,9 @@ def start_lookups(hid: UUID, user: User, db: DB):
         return {"started": False, "running": True}
     if r.web_lookups_at and db.execute(text("SELECT :t > now() - interval '1 hour'"), {"t": r.web_lookups_at}).scalar():
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Looked up within the last hour. Try again later.")
+    # record the run before it starts, so the hourly limit holds even if the run fails
+    db.execute(text("UPDATE household_settings SET web_lookups_at = now() WHERE household_id = :h"), {"h": hid})
+    db.commit()
     import threading
     _running.add(hid)
     threading.Thread(target=run_lookups, args=(user.id, hid), daemon=True).start()

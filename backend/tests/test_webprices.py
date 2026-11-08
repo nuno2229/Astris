@@ -86,3 +86,17 @@ def test_ai_answer_must_be_on_the_page(monkeypatch):
     assert webprices.extract_ai(MORRISONS, "milk", "http://127.0.0.1:8080", None, False) is None     # £0.10 isn't on the page
     reply["price"] = "1.75"
     assert webprices.extract_ai(MORRISONS, "milk", "http://127.0.0.1:8080", None, False)["price"] == "1.75"
+
+
+def test_run_is_rate_limited_even_if_it_fails(monkeypatch):
+    a = make_user("a")
+    hid = create_household(a)
+    shared = next(l for l in a.get(f"/api/households/{hid}/shopping-lists").json() if l["scope"] == "household")
+    a.post(f"/api/shopping-lists/{shared['id']}/items", json={"name": "Milk"})
+    a.put(f"/api/households/{hid}/web-lookups", json={"enabled": True})
+    from app.routers import prices
+    monkeypatch.setattr(prices, "run_lookups", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    import threading
+    monkeypatch.setattr(threading, "Thread", lambda target, args, daemon: type("T", (), {"start": lambda self: prices._running.discard(args[1])})())
+    assert a.post(f"/api/households/{hid}/web-lookups/run").status_code == 202
+    assert a.post(f"/api/households/{hid}/web-lookups/run").status_code == 429
