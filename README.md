@@ -31,17 +31,22 @@ Production build of the PWA: `cd frontend && npm run build`. The backend then se
 
 ## Install on Unraid
 
-The image is published to GHCR when a `v*` tag is pushed (`.github/workflows/release.yml`).
+Astris is one container with its own database inside its AppData folder: nothing else to install or configure.
 
-**Option A — Docker Compose Manager plugin:** copy `docker-compose.yml` and `.env.docker.example` (renamed to `.env`, real passwords set) into a stack, then *Compose Up*. This runs Postgres and the app together.
+1. Open the Unraid **terminal** and run once:
+   ```sh
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-astris.xml https://raw.githubusercontent.com/nuno2229/Astris/main/unraid/astris.xml
+   ```
+2. **Docker → Add Container → Template: astris.** Put your email in **Admin email**, then **Apply**.
+3. Open `http://<unraid-ip>:8484` and create your account (with that email it becomes the server admin). Turn off sign-ups in Settings once everyone in your home has an account.
 
-**Option B — template + existing Postgres container:**
-1. Copy `unraid/astris.xml` to `/boot/config/plugins/dockerMan/templates-user/my-astris.xml`.
-2. Docker → Add Container → pick *astris*.
-3. Fill in the Postgres host, the admin URL (first run only), two new random passwords and **Admin email** (your address).
-4. Open `http://<unraid-ip>:8484` and create the first account. Turn off *Allow new sign-ups* once everyone has one.
+Everything lives in `/mnt/user/appdata/astris`: the database, `backups/` (daily, plus one before every upgrade) and `secrets.env` (the generated database passwords; keep it with your backups). Optional settings in the template: backup passphrase, encryption key, HTTPS for phone camera scanning. Updates: Unraid's Docker tab shows *update ready*; apply it, a backup is taken first.
 
-On every start the container waits for Postgres, creates roles and the database if needed, applies migrations, then starts. `/api/health` reports the DB state and version.
+**Already running Postgres?** In the template's advanced view set *External database host* and the three external database settings; Astris then uses that instead.
+
+**Docker Compose** (any machine): copy `docker-compose.yml` and `.env.docker.example` (as `.env`), then `docker compose up -d`.
+
+On every start the container prepares the database, applies any updates to it (after a backup), then starts. `/api/health` reports the database state and version.
 
 ## Updating, backups and rolling back (D-4)
 

@@ -18,7 +18,10 @@ LABEL org.opencontainers.image.title="Astris" \
 # tesseract: reading photos of receipts/statements and use-by dates (sandboxed). Chromium (via Playwright): opt-in
 # Morrisons/Aldi price lookups (G-17); stored where the unprivileged app user can read it.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
-RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+# postgresql: the built-in database for the all-in-one setup (no auto-created cluster: Astris makes its own in /data)
+RUN mkdir -p /etc/postgresql-common/createcluster.d \
+    && echo "create_main_cluster = false" > /etc/postgresql-common/createcluster.d/astris.conf \
+    && apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng postgresql \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
 COPY backend/pyproject.toml ./
@@ -27,10 +30,10 @@ RUN pip install --upgrade pip && pip install . \
     && python -m playwright install --with-deps chromium-headless-shell \
     && rm -rf /var/lib/apt/lists/* && chmod -R a+rX /opt/ms-playwright
 COPY --from=web /web/dist /app/frontend/dist
-RUN useradd --system --uid 10001 --home /app ledger && rm -f .env && mkdir -p /data/backups && chown -R ledger /app /data
-ENV BACKUP_DIR=/data/backups
-VOLUME ["/data/backups"]
-USER ledger
+RUN rm -f .env && mkdir -p /data/backups
+ENV BACKUP_DIR=/data/backups DATA_DIR=/data PUID=99 PGID=100
+VOLUME ["/data"]
+# starts as root only to fix /data ownership, then drops to PUID:PGID (docker-entrypoint.sh)
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD python -c "import os,ssl,sys,urllib.request; s=os.environ.get('HTTPS')=='self-signed'; c=ssl._create_unverified_context() if s else None; sys.exit(0 if urllib.request.urlopen(('https' if s else 'http')+'://127.0.0.1:8000/api/health', timeout=4, context=c).status == 200 else 1)"

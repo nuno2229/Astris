@@ -1,40 +1,27 @@
-# Generic / Unraid "Docker Compose Manager" setup: Postgres + Astris.
-# Copy .env.docker.example to .env and set real passwords first.
+# Astris, all-in-one: the app runs its own database inside ./data (or DATA_DIR). Copy .env.docker.example to .env first.
+# Prefer your own PostgreSQL? Set DB_HOST, DB_ADMIN_URL, DB_APP_PASSWORD and DB_OWNER_PASSWORD in .env (README).
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-    volumes:
-      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      retries: 10
-
-  app:
+  astris:
     image: ${IMAGE:-ghcr.io/nuno2229/astris}:${TAG:-latest}
     build: .
     restart: unless-stopped
-    depends_on:
-      db: { condition: service_healthy }
+    stop_grace_period: 60s
     ports:
       - "${PORT:-8484}:8000"
     volumes:
-      - ${DATA_DIR:-./data}/backups:/data/backups
+      - ${DATA_DIR:-./data}:/data
     environment:
-      DB_HOST: db
-      DB_NAME: finance_tracker
-      DB_ADMIN_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
-      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD}
-      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD}
-      HTTPS: ${HTTPS:-off}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
       ASTRIS_KEY: ${ASTRIS_KEY:-}
       ASTRIS_OLD_KEYS: ${ASTRIS_OLD_KEYS:-}
+      HTTPS: ${HTTPS:-off}
       TLS_HOSTNAMES: ${TLS_HOSTNAMES:-}
-      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}                   # this account becomes server admin (recommended)
       TZ: ${TZ:-Europe/London}
-      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}      # set to encrypt backups; keep it safe, it can't be recovered
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      DB_HOST: ${DB_HOST:-}
+      DB_ADMIN_URL: ${DB_ADMIN_URL:-}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:-}

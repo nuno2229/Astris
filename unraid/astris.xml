@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
-<!-- Unraid Docker template. Requires a PostgreSQL container (e.g. official "postgres" from Community Apps).
-     Install: copy to /boot/config/plugins/dockerMan/templates-user/my-astris.xml, then Docker > Add Container > select "astris". -->
+<!-- Astris for Unraid. All-in-one: the app runs its own database inside the AppData folder, nothing else to set up.
+     Install (Unraid terminal, once):
+       wget -O /boot/config/plugins/dockerMan/templates-user/my-astris.xml https://raw.githubusercontent.com/nuno2229/Astris/main/unraid/astris.xml
+     then Docker > Add Container > Template: astris > Apply. -->
 <Container version="2">
   <Name>astris</Name>
   <Repository>ghcr.io/nuno2229/astris:latest</Repository>
@@ -10,23 +12,25 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/nuno2229/Astris/issues</Support>
   <Project>https://github.com/nuno2229/Astris</Project>
-  <Overview>Private, self-hosted household finance hub. Import bank statements, share accounts within households, everything stays on your server. Needs a PostgreSQL container.</Overview>
+  <TemplateURL>https://raw.githubusercontent.com/nuno2229/Astris/main/unraid/astris.xml</TemplateURL>
+  <Overview>Private, self-hosted household money and shopping hub. Import bank statements, budgets, bills, savings goals, pantry and shopping lists, shared within your household. Everything stays on your server. All-in-one: includes its own database.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
   <Icon>https://raw.githubusercontent.com/nuno2229/Astris/main/frontend/public/icon.svg</Icon>
+  <ExtraParams>--stop-timeout 60</ExtraParams>
   <Config Name="Web UI port" Target="8000" Default="8484" Mode="tcp" Description="Port for the web app" Type="Port" Display="always" Required="true">8484</Config>
-  <Config Name="Postgres host" Target="DB_HOST" Default="" Description="IP or container name of your PostgreSQL server" Type="Variable" Display="always" Required="true"/>
-  <Config Name="Postgres port" Target="DB_PORT" Default="5432" Type="Variable" Display="advanced" Required="true">5432</Config>
-  <Config Name="Database name" Target="DB_NAME" Default="finance_tracker" Type="Variable" Display="advanced" Required="true">finance_tracker</Config>
-  <Config Name="Postgres admin URL (first run)" Target="DB_ADMIN_URL" Default="" Description="postgresql://postgres:PASSWORD@HOST:5432/postgres. Used only at startup to create the app's roles and database. Can be removed after the first successful start." Type="Variable" Display="always" Required="false" Mask="true"/>
-  <Config Name="App DB password" Target="DB_APP_PASSWORD" Default="" Description="Password for the ft_app role (long random string)" Type="Variable" Display="always" Required="true" Mask="true"/>
-  <Config Name="Owner DB password" Target="DB_OWNER_PASSWORD" Default="" Description="Password for the ft_owner role (long random string)" Type="Variable" Display="always" Required="true" Mask="true"/>
-  <Config Name="Admin email" Target="ADMIN_EMAIL" Default="" Description="Your email: the account you register with this address becomes the server admin. If empty, the first account registered does." Type="Variable" Display="always" Required="false"/>
-  <Config Name="Allow new sign-ups" Target="ALLOW_REGISTRATION" Default="true|false" Description="Turn off once everyone in your home has an account" Type="Variable" Display="always" Required="false">true</Config>
-  <Config Name="Backups" Target="/data/backups" Default="/mnt/user/appdata/astris/backups" Mode="rw" Description="Daily backups and a backup before every upgrade" Type="Path" Display="always" Required="true">/mnt/user/appdata/astris/backups</Config>
+  <Config Name="AppData" Target="/data" Default="/mnt/user/appdata/astris" Mode="rw" Description="Everything Astris keeps: its database, daily backups (backups/), generated passwords (secrets.env)" Type="Path" Display="always" Required="true">/mnt/user/appdata/astris</Config>
+  <Config Name="Admin email" Target="ADMIN_EMAIL" Default="" Description="Your email: the account you register with this address becomes the server admin" Type="Variable" Display="always" Required="false"/>
   <Config Name="Backup passphrase" Target="BACKUP_PASSPHRASE" Default="" Description="Optional: encrypts backups. Keep it safe; without it a backup can't be restored." Type="Variable" Display="always" Required="false" Mask="true"/>
-  <Config Name="Encryption key" Target="ASTRIS_KEY" Default="" Description="Optional: encrypts kept statement/receipt files, notification secrets and calendar links. Make one with: docker exec astris python -m app.crypto new-key. Keep a copy in your password manager: without it those files can't be read, even from backups." Type="Variable" Display="always" Required="false" Mask="true"/>
-  <Config Name="HTTPS" Target="HTTPS" Default="off|self-signed" Description="self-signed: serve https with the server's own certificate so phones can scan barcodes with the live camera. Install https://YOUR-SERVER:PORT/ca.crt on each phone once." Type="Variable" Display="always" Required="false">off</Config>
+  <Config Name="Encryption key" Target="ASTRIS_KEY" Default="" Description="Optional: encrypts kept statement/receipt files, notification secrets and calendar links. Make one with: docker exec astris python -m app.crypto new-key. Keep a copy in your password manager." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="HTTPS" Target="HTTPS" Default="off|self-signed" Description="self-signed: https with the server's own certificate so phones can scan barcodes with the live camera. Install https://YOUR-SERVER:PORT/ca.crt on each phone once." Type="Variable" Display="always" Required="false">off</Config>
   <Config Name="HTTPS addresses" Target="TLS_HOSTNAMES" Default="" Description="With HTTPS on: the address(es) you open Astris with, comma-separated, e.g. 192.168.1.20,tower.local" Type="Variable" Display="always" Required="false"/>
   <Config Name="Timezone" Target="TZ" Default="Europe/London" Type="Variable" Display="advanced" Required="false">Europe/London</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User the app runs as (Unraid: 99 = nobody)" Type="Variable" Display="advanced" Required="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group the app runs as (Unraid: 100 = users)" Type="Variable" Display="advanced" Required="false">100</Config>
+  <Config Name="Allow new sign-ups" Target="ALLOW_REGISTRATION" Default="true|false" Description="Turn off once everyone in your home has an account (also switchable in the app)" Type="Variable" Display="advanced" Required="false">true</Config>
+  <Config Name="External database host (optional)" Target="DB_HOST" Default="" Description="Leave empty for the built-in database. Only if you'd rather use your own PostgreSQL container: its host, plus the three settings below." Type="Variable" Display="advanced" Required="false"/>
+  <Config Name="External database admin URL" Target="DB_ADMIN_URL" Default="" Description="External database only: postgresql://postgres:PASSWORD@HOST:5432/postgres (first start)" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="External database app password" Target="DB_APP_PASSWORD" Default="" Description="External database only" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="External database owner password" Target="DB_OWNER_PASSWORD" Default="" Description="External database only" Type="Variable" Display="advanced" Required="false" Mask="true"/>
 </Container>

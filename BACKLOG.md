@@ -251,6 +251,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 - [x] **E24-16** Pots and savers are savings (PO 2026-11-08) — `Review` ("To Bills pot", "To Chase Saver", "…Savings/ISA" lines become a savings account of yours, shared like the main account, moves linked as transfers so they're never spending/income; a goal can follow it; "Not a transfer" sticks)
 
+- [x] **E19-07** Easier Unraid install (PO 2026-11-08) — `Review` (all-in-one: built-in PostgreSQL in the AppData folder, passwords generated into secrets.env, clean shutdown; one-line template install; runs as Unraid's nobody:users (PUID/PGID); external Postgres still supported. v0.1.4 tag failed CI (OCR test font), released as v0.1.5)
+
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
 - [ ] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions; deduct/estimate ingredients from stock
