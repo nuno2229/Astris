@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -92,6 +92,19 @@ def price_book(db: Session, hid: UUID) -> list[ProductPrices]:
         obs.append((product_key(r.name), r.name, Seen(store=r.store, unit_price=up, basis=basis, price=Decimal(r.price), seen_on=r.observed_on,
                                                      source="Open Prices",
                                                      stale=r.observed_on is None or (date.today() - r.observed_on).days > STALE_DAYS)))
+    for r in db.execute(text("""SELECT store, name, price, size_qty, size_unit, seen_on, source, url FROM web_prices
+                                 WHERE household_id = :h"""), {"h": hid}):
+        from app.receipts.parse import size_from_name
+        qty, unit = r.size_qty, r.size_unit
+        if not unit:
+            q2, u2, pack, _ = size_from_name(r.name)
+            qty, unit = (q2 * (pack or 1), u2) if q2 else (None, None)
+        up, basis = _unit(Decimal(r.price), Decimal(1), qty, unit)
+        if up is None:
+            continue
+        obs.append((product_key(r.name), r.name, Seen(store=r.store, unit_price=up, basis=basis, price=Decimal(r.price), seen_on=r.seen_on,
+                                                     source="shop website" if r.source == "auto" else "shop website (you)",
+                                                     stale=(date.today() - r.seen_on).days > STALE_DAYS)))
     groups: dict[tuple[str, str], dict] = {}
     for key, name, s in obs:
         if not key:
@@ -211,3 +224,120 @@ async def refresh(hid: UUID, user: User, db: DB):
         raise HTTPException(status.HTTP_409_CONFLICT, "Online price lookups are off for this household")
     n = await run_in_threadpool(refresh_online, db, hid)
     return {"updated": n}
+
+
+# ---------- shop websites (G-17, PO 2026-11-08) ----------
+
+class WebPriceIn(BaseModel):
+    url: str = Field(min_length=8, max_length=2000)
+    name: str = Field(min_length=1, max_length=160)
+    price: Decimal = Field(gt=0, lt=10000, decimal_places=2)
+
+
+@router.post("/households/{hid}/web-prices", status_code=201)
+def add_web_price(hid: UUID, body: WebPriceIn, user: User, db: DB):
+    """A price you sent from a shop's product page with the "Send price to Astris" bookmark."""
+    from app.webprices import clean_url, shop_for
+    my_role(db, hid)
+    store = shop_for(body.url)
+    if not store:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "That page isn't from a UK supermarket Astris knows")
+    from app.receipts.parse import size_from_name
+    q, u, pack, _ = size_from_name(body.name)
+    db.execute(text("""INSERT INTO web_prices (household_id, added_by, source, store, name, price, size_qty, size_unit, url)
+                       VALUES (:h, :u, 'you', :s, :n, :p, :q, :unit, :url)"""),
+               {"h": hid, "u": user.id, "s": store, "n": " ".join(body.name.split())[:160], "p": body.price,
+                "q": (q * (pack or 1)) if q else None, "unit": u if q else None, "url": clean_url(body.url)})
+    return {"store": store}
+
+
+class LookupsIn(BaseModel):
+    enabled: bool
+
+
+_running: set = set()
+
+
+def _auto_queries(db: Session, hid: UUID) -> list[str]:
+    """What to look up: the household's shared list and household favourites (never anyone's personal list)."""
+    names = [r[0] for r in db.execute(text("""
+        SELECT i.name FROM shopping_items i JOIN shopping_lists l ON l.id = i.list_id
+         WHERE l.household_id = :h AND l.scope = 'household' AND NOT i.checked
+        UNION SELECT name FROM favourites WHERE household_id = :h AND user_id IS NULL"""), {"h": hid})]
+    out, seen = [], set()
+    for n in names:
+        k = product_key(n)
+        if k and k not in seen:
+            seen.add(k)
+            out.append(n.strip()[:80])
+    return out[:12]
+
+
+def run_lookups(user_id: UUID, hid: UUID) -> int:
+    from sqlalchemy.orm import Session as S
+    from app.db import bind_user, get_engine
+    from app import webprices
+    n = 0
+    try:
+        with S(get_engine()) as db, db.begin():
+            bind_user(db, user_id)
+            cfg = db.execute(text("""SELECT llm_base_url, llm_model, llm_allow_internet FROM household_settings
+                                      WHERE household_id = :h AND llm_enabled AND llm_base_url IS NOT NULL"""), {"h": hid}).first()
+            llm = (cfg.llm_base_url, cfg.llm_model, cfg.llm_allow_internet) if cfg else None
+            for q in _auto_queries(db, hid):
+                for store in webprices.AUTO:
+                    if db.execute(text("""SELECT 1 FROM web_prices WHERE household_id = :h AND source = 'auto' AND store = :s
+                                           AND lower(query) = lower(:q) AND seen_on > current_date - 7"""), {"h": hid, "s": store, "q": q}).first():
+                        continue
+                    try:
+                        hit = webprices.lookup(store, q, llm)
+                    except Exception:
+                        hit = None
+                    price = webprices.to_decimal(hit["price"]) if hit else None
+                    if price:
+                        db.execute(text("""INSERT INTO web_prices (household_id, added_by, source, store, name, query, price)
+                                           VALUES (:h, :u, 'auto', :s, :n, :q, :p)"""),
+                                   {"h": hid, "u": user_id, "s": store, "n": hit["name"], "q": q, "p": price})
+                        n += 1
+            db.execute(text("UPDATE household_settings SET web_lookups_at = now() WHERE household_id = :h"), {"h": hid})
+    finally:
+        _running.discard(hid)
+    return n
+
+
+@router.get("/households/{hid}/web-lookups")
+def get_lookups(hid: UUID, user: User, db: DB):
+    role = my_role(db, hid)
+    r = db.execute(text("SELECT web_lookups, web_lookups_at FROM household_settings WHERE household_id = :h"), {"h": hid}).first()
+    from app import webprices
+    return {"enabled": bool(r and r.web_lookups), "last_run": r.web_lookups_at.isoformat() if r and r.web_lookups_at else None,
+            "running": hid in _running, "can_edit": role == "owner", "shops": list(webprices.AUTO),
+            "searches": _auto_queries(db, hid)}
+
+
+@router.put("/households/{hid}/web-lookups")
+def set_lookups(hid: UUID, body: LookupsIn, user: User, db: DB):
+    if my_role(db, hid) != "owner":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the household owner can change this")
+    db.execute(text("""INSERT INTO household_settings (household_id, web_lookups, updated_by) VALUES (:h, :e, :u)
+                       ON CONFLICT (household_id) DO UPDATE SET web_lookups = EXCLUDED.web_lookups, updated_by = EXCLUDED.updated_by,
+                           updated_at = now()"""), {"h": hid, "e": body.enabled, "u": user.id})
+    from app import audit
+    audit.log(db, user.id, "settings.web_lookups", "household", f"Shop website lookups {'on' if body.enabled else 'off'}", household_id=hid)
+    return get_lookups(hid, user, db)
+
+
+@router.post("/households/{hid}/web-lookups/run", status_code=202)
+def start_lookups(hid: UUID, user: User, db: DB):
+    my_role(db, hid)
+    r = db.execute(text("SELECT web_lookups, web_lookups_at FROM household_settings WHERE household_id = :h"), {"h": hid}).first()
+    if not (r and r.web_lookups):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Shop website lookups are off for this household")
+    if hid in _running:
+        return {"started": False, "running": True}
+    if r.web_lookups_at and db.execute(text("SELECT :t > now() - interval '1 hour'"), {"t": r.web_lookups_at}).scalar():
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Looked up within the last hour. Try again later.")
+    import threading
+    _running.add(hid)
+    threading.Thread(target=run_lookups, args=(user.id, hid), daemon=True).start()
+    return {"started": True, "running": True}
