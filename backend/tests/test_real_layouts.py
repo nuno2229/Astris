@@ -6,11 +6,11 @@ from app.importers.text_statement import parse_statement_lines
 from tests.conftest import create_account, create_household, make_user
 
 AMEX = ('Date,Description,Amount,Extended Details,Appears On Your Statement As,Address,Town/City,Postcode,Country,Reference,Category\n'
-        '09/09/2026,PIZZA PLACE,-5.00,Offer credit,PIZZA PLACE,"1 HIGH ST\nFLOOR 2",LONDON,EC4R 3TE,UNITED KINGDOM,\'AT262530048000000000001\',Entertainment-Restaurants\n'
-        '09/09/2026,PIZZA PLACE               LONDON,23.66,,PIZZA PLACE               LONDON,"1 HIGH ST\nFLOOR 2",LONDON,EC4R 3TE,UNITED KINGDOM,\'AT262530048000000000002\',Entertainment-Restaurants\n'
-        '05/09/2026,ZORBLAX BISTRO,37.00,,ZORBLAX BISTRO,2 LOW RD,LONDON,N1 1AA,UNITED KINGDOM,\'AT262530048000000000003\',Entertainment-Restaurants\n'
-        '05/09/2026,ZORBLAX BISTRO,37.00,,ZORBLAX BISTRO,2 LOW RD,LONDON,N1 1AA,UNITED KINGDOM,\'AT262530048000000000004\',Entertainment-Restaurants\n'
-        '20/08/2026,PAYMENT RECEIVED - THANK YOU,-320.65,,,,,,,\'AT262530048000000000005\',\n').encode()
+        '09/09/2026,PIZZA PLACE,-5.00,Offer credit,PIZZA PLACE,"1 HIGH ST\nFLOOR 2",LONDON,SW1A 1AA,UNITED KINGDOM,\'AT000000000000000000001\',Entertainment-Restaurants\n'
+        '09/09/2026,PIZZA PLACE               LONDON,23.66,,PIZZA PLACE               LONDON,"1 HIGH ST\nFLOOR 2",LONDON,SW1A 1AA,UNITED KINGDOM,\'AT000000000000000000002\',Entertainment-Restaurants\n'
+        '05/09/2026,ZORBLAX BISTRO,37.00,,ZORBLAX BISTRO,2 LOW RD,LONDON,N1 1AA,UNITED KINGDOM,\'AT000000000000000000003\',Entertainment-Restaurants\n'
+        '05/09/2026,ZORBLAX BISTRO,37.00,,ZORBLAX BISTRO,2 LOW RD,LONDON,N1 1AA,UNITED KINGDOM,\'AT000000000000000000004\',Entertainment-Restaurants\n'
+        '20/08/2026,PAYMENT RECEIVED - THANK YOU,-320.65,,,,,,,\'AT000000000000000000005\',\n').encode()
 
 
 def test_amex_csv_signs_quotes_and_categories():

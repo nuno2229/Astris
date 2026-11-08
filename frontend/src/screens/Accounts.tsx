@@ -9,7 +9,7 @@ const SHARE_HELP: Record<Share, string> = {
   include: "Members can see it, and its spending counts in household totals.",
   hide: "Members can see it, but its spending is shown apart from household totals.",
 };
-const TYPE_LABEL = { bank: "Bank account", card: "Card", cash: "Cash" } as const;
+const TYPE_LABEL = { bank: "Bank account", card: "Card", savings: "Savings", cash: "Cash" } as const;
 
 export default function Accounts({ ctx, household }: { ctx: Ctx; household: Household }) {
   const [mine, setMine] = useState<Account[]>([]);

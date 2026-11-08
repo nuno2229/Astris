@@ -82,6 +82,8 @@ def after_import(db: DB, user_id: UUID, account_ids) -> None:
     apply_rules(db, user_id)              # instant offline categories; the LLM refines in the background
     from app.routers.goals import apply_rules as goal_rules
     goal_rules(db, user_id)               # transfers you said count toward a savings goal (E11)
+    from app.pots import link_pots
+    link_pots(db, user_id)                # "To Bills pot": savings, not spending (PO 2026-11-08)
     from app.transfers import auto_link
     auto_link(db, user_id)                # current -> savings, card repayments: not spending (P-1)
     from app.refunds import auto_link as refunds

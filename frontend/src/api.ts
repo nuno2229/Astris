@@ -35,7 +35,7 @@ export interface Member { user_id: string; display_name: string; email: string; 
 export interface HouseholdDetail extends Household { members: Member[] }
 export interface Invite { id: string; email: string | null; role: Role; created_at: string; expires_at: string;
   accepted_at: string | null; revoked_at: string | null; code?: string }
-export interface Account { id: string; name: string; type: "bank" | "card" | "cash"; currency: string;
+export interface Account { id: string; name: string; type: "bank" | "card" | "cash" | "savings"; currency: string;
   institution: string | null; owner_user_id: string; owner_name: string; is_mine: boolean; balance: string | null;
   opening_balance: string; opening_date: string | null }
 export interface HouseholdAccount extends Account { attribution: "include" | "hide"; until?: string | null }

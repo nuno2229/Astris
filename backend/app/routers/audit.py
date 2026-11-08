@@ -138,6 +138,8 @@ def undo(eid: int, body: UndoIn, user: User, db: DB):
         g = after.get("transfer_group")
         if not db.execute(text("SELECT 1 FROM transactions WHERE transfer_group = :g"), {"g": g}).first():
             raise _changed()
+        from app.pots import remember_no
+        remember_no(db, g)
         db.execute(text("SELECT unlink_transfer(:g)"), {"g": g})
         from app.categorise.service import apply_rules
         apply_rules(db, user.id)

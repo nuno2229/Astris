@@ -249,6 +249,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E24-14** Database encryption at rest with key management (P-10, E02-10) — `Review` (two layers: the database files via Unraid's encrypted array/pool (Postgres has no built-in file encryption); kept files, notification secrets and calendar links encrypted by the app with AES-256-GCM, each bound to its row; key in the template (masked), never in the DB or backups; rotation via ASTRIS_OLD_KEYS + `rewrap`; admin sees the status)
 - [ ] **E24-15** Supermarket website price lookups, opt-in, rate-limited and cached, best effort (G-17)
 
+- [x] **E24-16** Pots and savers are savings (PO 2026-11-08) — `Review` ("To Bills pot", "To Chase Saver", "…Savings/ISA" lines become a savings account of yours, shared like the main account, moves linked as transfers so they're never spending/income; a goal can follow it; "Not a transfer" sticks)
+
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
 - [ ] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions; deduct/estimate ingredients from stock
@@ -269,7 +271,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | ID | Gap | Where |
 |---|---|---|
 | G-1 | **Cross-references are stale.** E.g. "§5 isolation" (§5 is now Recurring; isolation is in §3), "§15 attribution" (it's §3.5), "§12 AI scope" (copilot is §14), "§17 data model" (§17 is analytics), "§18 research note" (it's §20), "§21 privacy" (it's §23), and "respects §5 attribution" in §15.3/§17. | Throughout |
-| G-2 | NFR "cold parse of 5k-line PDF under ~X s" has no number. | §22 |
+| G-2 | ✅ **PO 2026-11-08: 30 seconds.** — *was:* NFR "cold parse of 5k-line PDF under ~X s" has no number. | §22 |
 | G-3 | ✅ **Resolved by E22 (2026-11-06).** **Notifications are required** (§7, §11, §15.2, §18) **but there's no delivery channel.** Standard PWA web push goes through Apple/Google push servers, which conflicts with "no data leaves home". | §2 vs §7 |
 | G-4 | ✅ **Resolved by E24-13 (P-6).** **Camera/barcode scanning in a PWA needs HTTPS** (secure context). Plain `http://unraid-ip:port` on the LAN won't allow camera access. A local TLS strategy is needed. | §15.1, §21 |
 | G-5 | ✅ **PO 2026-11-07: add calendar (iCal) import** → E24-08. — *was:* "Scheduled income/known bills from calendar or recurring-ofx blocks": which calendar? None is defined as a data source. | §5 |

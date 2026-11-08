@@ -110,6 +110,7 @@ def parse_statement_lines(lines: list[str], fmt: str) -> ParseResult:
         if sign is None:
             sign = -1
             guessed += 1
+        desc = re.sub(r"\s+[+\-−]$", "", desc).strip() or desc     # a sign that belonged to the amount column
         result.transactions.append(ParsedTx(posted_on=cur_date, amount=sign * amt, description=desc[:500],
                                             running_balance=bal))
         if bal is not None:

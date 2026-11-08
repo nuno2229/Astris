@@ -80,7 +80,7 @@ class AcceptInviteIn(BaseModel):
 
 class AccountIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    type: Literal["bank", "card", "cash"]
+    type: Literal["bank", "card", "cash", "savings"]
     currency: str = Currency
     institution: str | None = Field(default=None, max_length=100)
 

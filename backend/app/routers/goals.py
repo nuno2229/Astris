@@ -119,7 +119,7 @@ def _balance(db: Session, aid: UUID, on: date | None = None) -> Decimal | None:
     a = db.execute(text("SELECT type, opening_balance, opening_date FROM accounts WHERE id = :a"), {"a": aid}).first()
     if a is None:
         return None
-    if a.type == "cash":
+    if a.type in ("cash", "savings"):
         if on and a.opening_date and on < a.opening_date:
             return None
         return Decimal(a.opening_balance) + Decimal(db.execute(text("""

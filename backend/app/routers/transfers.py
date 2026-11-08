@@ -93,6 +93,8 @@ def unlink(group: UUID, user: User, db: DB):
         raise not_found("Transfer not found")
     try:
         with db.begin_nested():
+            from app.pots import remember_no
+            remember_no(db, group)
             db.execute(text("SELECT unlink_transfer(:g)"), {"g": group})
     except DBAPIError as e:
         if getattr(e.orig, "sqlstate", "") == "42501":
