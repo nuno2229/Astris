@@ -46,6 +46,7 @@ class Mapping(BaseModel):
     headers: list[str]
     columns: dict[str, str | None]
     day_first: bool | None
+    negated: bool = False
 
 
 class PreviewOut(BaseModel):
@@ -72,6 +73,7 @@ class AdjustIn(BaseModel):
     account_id: UUID | None = None
     day_first: bool | None = None
     mapping: dict[str, str | None] | None = None
+    negate: bool | None = None         # "amounts are the wrong way round" (card statements)
 
 
 class CommitIn(BaseModel):
@@ -152,7 +154,8 @@ def _analyse(db: DB, user, pid: UUID, filename: str, account_id: UUID, raw: byte
         rows_new=len(new_rows), rows_duplicate=dup_db, rows_duplicate_in_batch=dup_batch,
         date_from=min(t.posted_on for t in txs), date_to=max(t.posted_on for t in txs),
         balance=_balance_check(db, account_id, txs), warnings=parsed.warnings,
-        mapping=Mapping(headers=parsed.headers, columns=parsed.columns, day_first=parsed.day_first) if parsed.headers else None,
+        mapping=Mapping(headers=parsed.headers, columns=parsed.columns, day_first=parsed.day_first, negated=parsed.negated)
+        if parsed.headers else None,
         sample=[SampleRow(posted_on=t.posted_on, description=t.description, amount=t.amount,
                           running_balance=t.running_balance) for t in new_rows[:5]])
 
@@ -215,6 +218,8 @@ async def adjust(pid: UUID, body: AdjustIn, user: User, db: DB):
     opts = dict(r.options or {})
     if body.day_first is not None:
         opts["day_first"] = body.day_first
+    if body.negate is not None:
+        opts["negate"] = body.negate
     if body.mapping == {}:          # "forget the saved layout": back to automatic detection
         opts = {}
     elif body.mapping is not None:

@@ -55,7 +55,7 @@ def save_parsed(db: DB, user_id: UUID, acc, filename: str, parsed, run_id: UUID 
     rows = [{
         "a": acc.id, "b": batch_id, "d": t.posted_on, "amt": t.amount, "c": acc.currency,
         "desc": t.description[:500], "cp": (t.counterparty or None) and t.counterparty[:200],
-        "bal": t.running_balance, "fp": fp,
+        "bal": t.running_balance, "fp": fp, "bc": t.bank_category,
         "oa": t.original_amount if t.original_currency and t.original_currency != acc.currency else None,
         "oc": t.original_currency if t.original_currency and t.original_currency != acc.currency else None,
     } for t, fp in zip(parsed.transactions, assign_fingerprints(parsed.transactions))]
@@ -68,8 +68,9 @@ def save_parsed(db: DB, user_id: UUID, acc, filename: str, parsed, run_id: UUID 
     for r in rows:
         new += db.execute(text("""
             INSERT INTO transactions (account_id, import_batch_id, posted_on, amount, currency, description,
-                                      counterparty, running_balance, fingerprint, original_amount, original_currency, created_at)
-            VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp, :oa, :oc, clock_timestamp())
+                                      counterparty, running_balance, fingerprint, original_amount, original_currency, bank_category,
+                                      created_at)
+            VALUES (:a, :b, :d, :amt, :c, :desc, :cp, :bal, :fp, :oa, :oc, :bc, clock_timestamp())
             ON CONFLICT (account_id, fingerprint) DO NOTHING"""), r).rowcount
     total = len(rows)
     db.execute(text("UPDATE import_batches SET rows_total = :t, rows_new = :n, rows_duplicate = :d WHERE id = :b"),

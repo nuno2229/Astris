@@ -92,13 +92,24 @@ def _date_parser(samples: list[str], force_day_first: bool | None = None):
 ROLES = ("date", "description", "amount", "out", "in", "balance")
 
 
-def parse_csv(raw: bytes, mapping: dict[str, str | None] | None = None, day_first: bool | None = None) -> ParseResult:
-    """mapping: role -> header name chosen by the user (overrides detection). day_first forces date order."""
+def _amex(headers: list[str]) -> bool:
+    """American Express UK export: purchases positive, payments/credits negative."""
+    h = {x.strip().lower() for x in headers}
+    return {"appears on your statement as", "extended details", "date", "amount"} <= h
+
+
+def parse_csv(raw: bytes, mapping: dict[str, str | None] | None = None, day_first: bool | None = None,
+              negate: bool | None = None) -> ParseResult:
+    """mapping: role -> header name chosen by the user (overrides detection). day_first forces date order.
+    negate: flip every amount (card statements that list purchases as positive); None = detect (AMEX)."""
     text_ = decode(raw)
     try:
         dialect = csv.Sniffer().sniff(text_[:4096], delimiters=",;\t|")
     except csv.Error:
         dialect = csv.excel
+    # banks quote with ": the sniffer can be fooled by values like 'AT2625…' (AMEX references) and then split
+    # quoted multi-line addresses into bogus rows
+    dialect.quotechar, dialect.doublequote = '"', True
     rows = [r for r in csv.reader(io.StringIO(text_), dialect) if any(c.strip() for c in r)]
     # Some banks put preamble lines before the header: take the first row that has a date column
     want = (mapping or {}).get("date")
@@ -138,7 +149,10 @@ def parse_csv(raw: bytes, mapping: dict[str, str | None] | None = None, day_firs
 
     parse_date, warn = _date_parser([r[di] for r in body if len(r) > di], day_first)
     hdr = lambda i: headers[i].strip() if i is not None else None  # noqa: E731
-    result = ParseResult(format="csv", transactions=[], headers=[h.strip() for h in headers],
+    amex = _amex(headers)
+    flip = amex if negate is None else bool(negate)
+    cat_i = _find(headers, ("category",)) if amex else None
+    result = ParseResult(format="csv-amex" if amex else "csv", transactions=[], headers=[h.strip() for h in headers], negated=flip,
                          columns={"date": hdr(di), "description": hdr(de), "amount": hdr(ai), "out": hdr(oi),
                                   "in": hdr(ii), "balance": hdr(bi)},
                          day_first=getattr(parse_date, "day_first", None))
@@ -176,8 +190,13 @@ def parse_csv(raw: bytes, mapping: dict[str, str | None] | None = None, day_firs
                 oa = -oa
             if oa is None:
                 oc = None
+        if flip:
+            amt = -amt
+            if oa is not None:
+                oa = -oa
         result.transactions.append(ParsedTx(
             original_amount=oa, original_currency=oc,
+            bank_category=(r[cat_i].strip()[:80] or None) if cat_i is not None and len(r) > cat_i else None,
             posted_on=d, amount=amt, description=r[de].strip() or "(no description)",
             counterparty=(r[ci].strip() or None) if ci is not None else None,
             running_balance=parse_amount(r[bi]) if bi is not None else None,

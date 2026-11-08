@@ -20,6 +20,7 @@ class ParsedTx:
     external_id: str | None = None  # e.g. OFX FITID
     original_amount: Decimal | None = None   # card used abroad: amount in the foreign currency (E08-07)
     original_currency: str | None = None
+    bank_category: str | None = None         # the bank's own category label, a hint for ours
 
 
 @dataclass
@@ -31,6 +32,7 @@ class ParseResult:
     headers: list[str] | None = None          # CSV only: header row, for the mapping preview (E09-02)
     columns: dict[str, str | None] | None = None   # role -> header actually used
     day_first: bool | None = None
+    negated: bool = False                     # amounts were flipped (card statements listing purchases as positive)
 
 
 MAX_ABS = Decimal("1e14")  # numeric(18,4)

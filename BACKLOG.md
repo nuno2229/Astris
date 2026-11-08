@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.28 |
+| **Backlog version** | 0.29 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-07 |
 | **Owner** | PO |
@@ -278,7 +278,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | G-8 | ✅ **PO 2026-11-07: a household option** — product data stays per household unless the owner opts in to share product names (never prices) with other households on this server → E24-02. — *was:* §3.3 says product/price data "may be shared globally". Globally across households on the same server only, presumably — confirm. | §3.3 |
 | G-9 | ✅ **PO 2026-11-07: the leaving member chooses** whether their past transactions stay visible to the household or leave with them → E24-01. — *was:* No defined behaviour when a member leaves or is revoked: do their accounts, contributions and history stay in the household's rollups? | §3.2 |
 | G-11 | ✅ **Confirmed by PO 2026-11-05 (interim rules adopted).** **Account visibility and default attribution.** §3.2 says a user's accounts "default to" counting toward the household or being hidden, but doesn't pick one. §3.5 "Hide" keeps an account "visible & usable within that account's own scope" — can other household members see a hidden account's transactions? **M1 interim:** the owner explicitly shares an account into a household and must choose the attribution (no default). Every member of that household can see it; attribution only affects totals. Revisit once the PO decides. | §3.2, §3.5 |
-| G-12 | **Real statements needed for PDF/OCR tuning.** Every bank lays out PDFs differently. The reader handles the common UK "Date / Description / Paid out / Paid in / Balance" shape, but needs a few real (redacted) statements from the banks you use to confirm. Statements are processed locally only. | E03-04/05 |
+| G-12 | 🟡 **Partly resolved 2026-11-08:** AMEX UK CSV and Chase UK current-account PDF checked against real statements (totals and every running balance reconcile; fixes: AMEX signs flipped, AMEX categories used as hints, quote handling, Chase closing-balance line). Still welcome: other banks you use, a scanned/photo statement. — *was:* **Real statements needed for PDF/OCR tuning.** Every bank lays out PDFs differently. The reader handles the common UK "Date / Description / Paid out / Paid in / Balance" shape, but needs a few real (redacted) statements from the banks you use to confirm. Statements are processed locally only. | E03-04/05 |
 | G-13 | ✅ **PO 2026-11-07: households can add their own categories** → E24-04. — *was:* **No category list in the spec.** Interim list: Groceries, Eating out, Transport, Bills, Housing, Shopping, Entertainment, Subscriptions, Health, Personal care, Travel, Kids, Pets, Gifts & donations, Cash, Transfers, Income, Fees & charges, Other. The "Transfers" label doesn't change totals (that's P-1). Custom per-household categories are not built. | E05, E07, E12 |
 | G-14 | ✅ **PO 2026-11-07: the account owner chooses** which household's AI processes the account → E24-05. — *was:* **Which household's AI processes a shared account?** An account can be shared into several households, each with its own LLM setting. **Interim:** the first household it was shared into that has AI turned on. Nothing is sent if none do. | E05 |
 | G-15 | ✅ **PO 2026-11-07: also spot likely trials** from £0.00/£1.00 charges on statements → E24-06. — *was:* **"Unused trial" interpretation.** Built as: trials you record with an end date → warning before it ends, then "became a paid plan" (charge seen) or "ended quietly". Automatic detection of trials from statements isn't possible (free trials leave no charge). | E07-03 |
@@ -314,6 +314,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-08 | 0.29 | E24 built: P-1, P-2, P-3/4, P-6, P-7, P-10, P-13, G-5, G-6, G-8, G-9, G-13, G-14, G-15, G-16 (all Review). Real AMEX/Chase statements tuned (G-12). G-17 scraping and G-2 still open. |
 | 2026-11-07 | 0.28 | PO decisions: D-4 confirmed; G-5/6/7/8/9/10/13/14/15/16/17 resolved; P-1/2/3/4/6/7/8/9/10/13 approved → new epic E24. G-2 still open. |
 | 2026-11-06 | 0.27 | Quantity trends from receipts (E13-01 complete). v0.1.3 image published. |
 | 2026-11-06 | 0.26 | E18 price comparison (receipts + opt-in Open Prices, UK); cheapest-shop tags on the list. Security: ADMIN_EMAIL only claims admin while none exists; CLI set-admin. G-17. |

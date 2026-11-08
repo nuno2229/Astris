@@ -7,7 +7,7 @@ interface Preview {
   rows_total: number; rows_new: number; rows_duplicate: number; rows_duplicate_in_batch: number;
   date_from: string | null; date_to: string | null; warnings: string[];
   balance: { checked_rows: number; mismatched_rows: number; gap_expected: string | null; gap_found: string | null; gap_before: string | null } | null;
-  mapping: { headers: string[]; columns: Record<string, string | null>; day_first: boolean | null } | null;
+  mapping: { headers: string[]; columns: Record<string, string | null>; day_first: boolean | null; negated?: boolean } | null;
   sample: { posted_on: string; description: string; amount: string; running_balance: string | null }[];
   profile?: string | null;
 }
@@ -117,6 +117,7 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
                 </div>
           )}
           {p.warnings.map((w) => <div key={w} className="muted small">{w}</div>)}
+          {p.format === "csv-amex" && p.mapping?.negated && <div className="muted small">American Express file: purchases are read as money out and payments to the card as money in.</div>}
           {p.profile && (
             <button className="btn quiet" style={{ alignSelf: "flex-start" }}
               onClick={async () => { await api.del(`/api/import-profiles/${p.profile}`); await adjust(p, { mapping: {} }); }}>
@@ -143,6 +144,10 @@ export default function ImportWizard({ accountId }: { accountId?: string }) {
                   <button aria-pressed={p.mapping!.day_first === true} onClick={() => adjust(p, { day_first: true })}>Day/month</button>
                   <button aria-pressed={p.mapping!.day_first === false} onClick={() => adjust(p, { day_first: false })}>Month/day</button>
                 </div>
+              )}
+              {p.mapping && (
+                <label className="check"><input type="checkbox" checked={!!p.mapping.negated} onChange={(e) => adjust(p, { negate: e.target.checked })} />
+                  <span>Amounts are the wrong way round <span className="muted small">(card statements that show purchases as positive)</span></span></label>
               )}
               {(p.mapping || (!p.ok && p.error?.includes("Headers seen"))) && <ColumnPicker p={p} onApply={(mapping) => adjust(p, { mapping })} />}
               {(p.mapping || (!p.ok && p.error?.includes("Headers seen"))) && <p className="muted small" style={{ margin: 0 }}>Changes to columns or date order are remembered for files with the same layout.</p>}

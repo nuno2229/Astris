@@ -113,3 +113,28 @@ def categorise(description: str, amount: Decimal) -> RuleResult:
         conf = Decimal(str(round(0.55 + 0.35 * (best_ratio - 0.8) / 0.2, 3)))
         return RuleResult(name, key, cat, min(conf, Decimal("0.89")))
     return RuleResult(None, key, None, Decimal("0"))
+
+
+# The bank's own category labels (AMEX: "Group-Detail"), used only when we don't recognise the shop.
+_BANK_HINTS = [
+    (r"restaurant|bars? & caf|fast food|takeaway|catering", "Eating out"),
+    (r"grocer|supermarket", "Groceries"),
+    (r"airline|lodging|hotel|travel agenc|car hire|cruise", "Travel"),
+    (r"fuel|petrol|transport|rail|taxi|parking|toll", "Transport"),
+    (r"theatr|cinema|entertainment|sport|music|leisure", "Entertainment"),
+    (r"pharmac|health|medical|dental|optic", "Health"),
+    (r"insurance|utilit|communication|telecom", "Bills"),
+    (r"charit|donation", "Gifts & donations"),
+    (r"online purchase|clothing|department store|general retail|computer|wholesale|electronic|home|furnish|book", "Shopping"),
+]
+
+
+def from_bank_category(label: str | None) -> str | None:
+    if not label:
+        return None
+    detail = label.split("-", 1)[-1].lower()          # the specific part first: "Entertainment-Restaurants" is eating out
+    for text_ in (detail, label.lower()):
+        for pat, cat in _BANK_HINTS:
+            if re.search(pat, text_):
+                return cat
+    return None

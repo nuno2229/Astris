@@ -24,6 +24,7 @@ DATE_RE = re.compile(
 MONEY_RE = re.compile(r"(?<![\w.])(?P<neg>-)?[£$€]?\s?(?P<paren>\()?(?P<num>\d{1,3}(?:,\d{3})*|\d+)\.(?P<dec>\d{2})\)?(?:\s?(?P<crdr>CR|DR)\b)?",
                       re.I)
 SKIP_RE = re.compile(r"\b(total|summary|page \d|statement (date|period)|sort code|account (number|no)|iban|bic)\b", re.I)
+CLOSING_RE = re.compile(r"(closing balance|carried forward|balance c/?f)", re.I)   # a summary line, never a transaction
 OPENING_RE = re.compile(r"(brought forward|opening balance|previous balance|balance b/?f)", re.I)
 YEAR_RE = re.compile(r"\b(20\d{2})\b")
 
@@ -77,7 +78,7 @@ def parse_statement_lines(lines: list[str], fmt: str) -> ParseResult:
         if OPENING_RE.search(ln) and monies:
             prev_bal = _money(monies[-1])[0] * (-1 if _money(monies[-1])[1] else 1)
             continue
-        if SKIP_RE.search(ln) or not monies:
+        if SKIP_RE.search(ln) or CLOSING_RE.search(ln) or not monies:
             continue
         dm = DATE_RE.match(ln)
         if dm:

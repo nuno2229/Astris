@@ -21,7 +21,7 @@ def apply_rules(db: Session, owner: UUID, batch_id: UUID | None = None) -> int:
     learned = {r.merchant_key: r for r in db.execute(
         text("SELECT merchant_key, merchant, category FROM merchant_rules WHERE user_id = :u"), {"u": owner})}
     rows = db.execute(text("""
-        SELECT t.id, t.description, t.amount FROM transactions t JOIN accounts a ON a.id = t.account_id
+        SELECT t.id, t.description, t.amount, t.bank_category FROM transactions t JOIN accounts a ON a.id = t.account_id
          WHERE a.owner_user_id = :u AND t.category_source IS NULL
            AND (CAST(:b AS uuid) IS NULL OR t.import_batch_id = CAST(:b AS uuid))"""),
         {"u": owner, "b": str(batch_id) if batch_id else None}).all()
@@ -33,6 +33,9 @@ def apply_rules(db: Session, owner: UUID, batch_id: UUID | None = None) -> int:
         elif res.category:
             vals = dict(cat=res.category, m=res.merchant, src="rule", conf=res.confidence,
                         st="done" if res.confidence >= rules.CONFIDENT else "pending")
+        elif r.amount < 0 and rules.from_bank_category(r.bank_category):
+            # the bank's own label (e.g. AMEX "Entertainment-Restaurants"): good enough not to nag, AI may refine
+            vals = dict(cat=rules.from_bank_category(r.bank_category), m=res.merchant, src="rule", conf=Decimal("0.75"), st="pending")
         else:
             vals = dict(cat=None, m=None, src=None, conf=None, st="pending")
         db.execute(text("""

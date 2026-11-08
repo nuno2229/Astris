@@ -42,6 +42,8 @@ def clean(options: dict) -> dict:
         out["mapping"] = {k: (str(v)[:80] if v else None) for k, v in m.items() if k in ROLES}
     if isinstance(options.get("day_first"), bool):
         out["day_first"] = options["day_first"]
+    if isinstance(options.get("negate"), bool):
+        out["negate"] = options["negate"]
     return out
 
 
