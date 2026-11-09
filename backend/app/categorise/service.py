@@ -22,7 +22,7 @@ def apply_rules(db: Session, owner: UUID, batch_id: UUID | None = None) -> int:
         text("SELECT merchant_key, merchant, category FROM merchant_rules WHERE user_id = :u"), {"u": owner})}
     rows = db.execute(text("""
         SELECT t.id, t.description, t.amount, t.bank_category FROM transactions t JOIN accounts a ON a.id = t.account_id
-         WHERE a.owner_user_id = :u AND t.category_source IS NULL
+         WHERE a.owner_user_id = :u AND t.category_source IS NULL AND NOT t.rules_checked
            AND (CAST(:b AS uuid) IS NULL OR t.import_batch_id = CAST(:b AS uuid))"""),
         {"u": owner, "b": str(batch_id) if batch_id else None}).all()
     for r in rows:
@@ -41,7 +41,8 @@ def apply_rules(db: Session, owner: UUID, batch_id: UUID | None = None) -> int:
         db.execute(text("""
             UPDATE transactions SET category = :cat, merchant = :m, merchant_key = :k,
                    category_source = CAST(:src AS category_source), category_confidence = CAST(:conf AS numeric),
-                   needs_review = (CAST(:conf AS numeric) IS NULL OR CAST(:conf AS numeric) < :rev), ai_status = :st
+                   needs_review = (CAST(:conf AS numeric) IS NULL OR CAST(:conf AS numeric) < :rev), ai_status = :st,
+                   rules_checked = true
              WHERE id = :id"""), {**vals, "k": res.key, "rev": rules.REVIEW_BELOW, "id": r.id})
     return len(rows)
 
