@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, Household, HouseholdAccount, money, Summary } from "../api";
 import type { Ctx } from "../App";
 import Constellation from "./Constellation";
+import { CookingThisWeek } from "./Meals";
 import TxList from "./TxList";
 import { CalendarRow, RecurringRow } from "./Recurring";
 import { Meter } from "./Goals";
@@ -111,6 +112,7 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
       )}
 
       <ShoppingGlance household={household} />
+      <CookingThisWeek household={household} />
 
       <h2>Budgets</h2>
       {s.budgets.length === 0 ? (

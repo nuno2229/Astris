@@ -195,7 +195,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E15-06** Optional online augmentation only when explicitly enabled
 
 ### E16 · Web UI, mobile shell & PWA — `Review` · §21, §2, §25.16
-- [x] **E16-01** Dashboard grid of widgets: spend today, budget burn, cheapest item, milk trend, list count, upcoming recipes, household selector, low-stock and expiring-soon — `Review` (spend today, budgets, goals, coming up, pantry low/expiring, shopping list + cheapest shop, what-you-go-through trend; upcoming recipes waits for E20)
+- [x] **E16-01** Dashboard grid of widgets: spend today, budget burn, cheapest item, milk trend, list count, upcoming recipes, household selector, low-stock and expiring-soon — `Review` (spend today, budgets, goals, coming up, pantry low/expiring, shopping list + cheapest shop, what-you-go-through trend; upcoming recipes from Mealie)
 - [x] **E16-02** Dark mode by default, plus a light theme — `Done`
 - [x] **E16-03** Separate mobile shell (bottom nav, thumb-sized targets) and desktop shell — `Done` (phone tab bar + desktop sidebar)
 - [x] **E16-04** PWA; no mandatory install — `Done`
@@ -255,7 +255,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
-- [ ] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions; deduct/estimate ingredients from stock
+- [x] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions — `Review` (Settings → Mealie address + API token (kept on the server, encrypted with ASTRIS_KEY, never shown again); Home → Cooking this week: ingredients checked against the pantry, missing ones to the shared list in one tap; read-only towards Mealie; v1 and v2 APIs. Not built: deducting ingredients from stock after cooking (no reliable "cooked" signal from Mealie))
 - [ ] **E20-03** Rate limiting, aggressive caching and opt-in warnings about reverse-engineered APIs
 
 ### E21 · Non-functional targets — `Todo` · §22

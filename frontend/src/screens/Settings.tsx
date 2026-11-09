@@ -1,3 +1,4 @@
+import { MealieSettings } from "./Meals";
 import { FormEvent, useEffect, useState } from "react";
 import { api, Household } from "../api";
 import { getThemePref, setThemePref, ThemePref } from "../theme";
@@ -30,6 +31,7 @@ export default function Settings({ household }: { household: Household }) {
       </div>
       <Notifications />
       <AiSettings household={household} />
+      <MealieSettings household={household} />
       <Rates household={household} />
       <ServerSettings />
       <About />
