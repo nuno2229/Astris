@@ -107,7 +107,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E04-03** Normalised unit price (e.g. per 100 g) across SKUs — `Review` (per 100 g / 100 ml / each, after discounts)
 - [x] **E04-04** Promotions/discounts handled explicitly; loyalty discounts missing from the receipt flagged as a known limitation — `Review`
 - [x] **E04-05** Receipt products reconcile onto the bank transaction (§2) — `Review` (suggested by amount ±5p, ±3 days, shop; one receipt per payment)
-- [ ] **E04-06** Capture expiry date where readable (§15.2) — `Todo` (UK receipts don't print use-by dates; set them in the pantry)
+- [x] **E04-06** Capture expiry date where readable (§15.2) — `Review` (UK receipts don't print use-by dates; the pantry reads them from a photo of the pack instead, E24-12)
 
 ### E23 · Keep original files (opt-in) — `Review` · **PO request 2026-11-06**
 - [x] **E23-01** Optional "keep a copy" for receipt photos (visible to the household) and statement files (owner only) — `Review`
