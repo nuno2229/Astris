@@ -5,7 +5,11 @@ type Kind = "discord" | "telegram" | "ntfy";
 interface Channel { id: string; kind: Kind; label: string; hint: string; uses_internet: boolean; include_details: boolean;
   enabled: boolean; last_sent_at: string | null; last_error: string | null }
 interface Prefs { renew_days: 1 | 3 | 7; renewals: boolean; trials: boolean; cancelled_charges: boolean; missed_payments: boolean;
-  budgets: boolean; daily_summary: boolean; stock: boolean; shopping: boolean }
+  budgets: boolean; daily_summary: boolean; stock: boolean; shopping: boolean;
+  weekly_roundup: boolean; weekly_day: number; weekly_time: string; monthly_roundup: boolean; monthly_day: number; monthly_time: string }
+
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const hhmm = (t: string) => (t || "08:00").slice(0, 5);
 
 const KIND_LABEL: Record<Kind, string> = { discord: "Discord", telegram: "Telegram", ntfy: "ntfy" };
 
@@ -25,7 +29,7 @@ export default function Notifications() {
     setMsg({ ...msg, [id]: r.message }); load();
   };
   if (!prefs) return null;
-  const toggle = (k: keyof Omit<Prefs, "renew_days">, label: string) => (
+  const toggle = (k: "renewals" | "trials" | "cancelled_charges" | "missed_payments" | "budgets" | "daily_summary" | "stock" | "shopping" | "weekly_roundup" | "monthly_roundup", label: string) => (
     <label className="check"><input type="checkbox" checked={prefs[k]} onChange={(e) => savePrefs({ ...prefs, [k]: e.target.checked })} />{label}</label>
   );
 
@@ -74,6 +78,24 @@ export default function Notifications() {
           {toggle("stock", "Pantry items about to expire")}
           {toggle("shopping", "Someone adds to a shopping list")}
           {toggle("daily_summary", "A short summary of yesterday's spending, each morning")}
+          {toggle("weekly_roundup", "Weekly round-up: last week vs usual, biggest changes")}
+          {prefs.weekly_roundup && (
+            <div className="row" style={{ flexWrap: "nowrap", paddingLeft: 32 }}>
+              <select aria-label="Weekly round-up day" value={prefs.weekly_day} onChange={(e) => savePrefs({ ...prefs, weekly_day: Number(e.target.value) })}>
+                {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}s</option>)}
+              </select>
+              <input type="time" aria-label="Weekly round-up time" value={hhmm(prefs.weekly_time)} onChange={(e) => e.target.value && savePrefs({ ...prefs, weekly_time: e.target.value })} />
+            </div>
+          )}
+          {toggle("monthly_roundup", "Monthly round-up: last month vs usual, biggest changes, goals")}
+          {prefs.monthly_roundup && (
+            <div className="row" style={{ flexWrap: "nowrap", paddingLeft: 32 }}>
+              <select aria-label="Monthly round-up day" value={prefs.monthly_day} onChange={(e) => savePrefs({ ...prefs, monthly_day: Number(e.target.value) })}>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d === 31 ? "Last day of the month" : `On the ${d}${[, "st", "nd", "rd"][d % 10 > 3 || [11, 12, 13].includes(d) ? 0 : d % 10] || "th"}`}</option>)}
+              </select>
+              <input type="time" aria-label="Monthly round-up time" value={hhmm(prefs.monthly_time)} onChange={(e) => e.target.value && savePrefs({ ...prefs, monthly_time: e.target.value })} />
+            </div>
+          )}
         </div>
       </div>
     </>

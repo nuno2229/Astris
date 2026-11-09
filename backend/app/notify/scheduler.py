@@ -103,6 +103,9 @@ def events_for(db: Session, user: UUID, today: date | None = None) -> list[dict]
                     out.append({"key": f"missed:{r.id}:{r.next_date}",
                                 "minimal": "A regular payment didn't arrive as expected.",
                                 "detailed": f"{r.name} ({_money(r.expected_amount, r.currency)}) was expected {r.next_date:%-d %b} but didn't arrive ({h.name})."})
+    if p:
+        from app.notify import roundup
+        out += roundup.events(db, user, p)
     return out
 
 

@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.29 |
+| **Backlog version** | 0.30 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-07 |
 | **Owner** | PO |
@@ -253,6 +253,11 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 - [x] **E19-07** Easier Unraid install (PO 2026-11-08) — `Review` (all-in-one: built-in PostgreSQL in the AppData folder, passwords generated into secrets.env, clean shutdown; one-line template install; runs as Unraid's nobody:users (PUID/PGID); external Postgres still supported. v0.1.4 tag failed CI (OCR test font), released as v0.1.5)
 
+### E25 · PO decisions of 2026-11-09 — `In progress`
+- [x] **E25-03** Weekly and monthly round-up messages on the notification channels, each on a day and time you pick (P-18) — `Review` (Settings → Notifications; weekly: the 7 days before vs the 8 weeks before; monthly: last month vs the 3 before, plus goal progress; biggest category changes; sent once, still sent up to 2 days late if the server was off; minimal channels just say it's ready)
+- [ ] **E25-02** Supermarket receipts split their card payment automatically by what was bought (P-16)
+- [ ] **E25-01** Net worth over time: all accounts, savers and pots, month by month (P-15)
+
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17
 - [ ] **E20-01** Cookidoo via `miaucl/cookidoo-api` (OAuth2 PKCE, `.env` creds): meal plan → shopping list; ingredients vs pantry; "cook this week" widget
 - [x] **E20-02** Mealie (opt-in): meal plans → list and stock suggestions — `Review` (Settings → Mealie address + API token (kept on the server, encrypted with ASTRIS_KEY, never shown again); Home → Cooking this week: ingredients checked against the pantry, missing ones to the shared list in one tap; read-only towards Mealie; v1 and v2 APIs. Not built: deducting ingredients from stock after cooking (no reliable "cooked" signal from Mealie))
@@ -311,11 +316,11 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | P-11 | **MVP slice / milestones** (e.g. M1 = auth + households + CSV/OFX import + ledger + basic dashboard on mobile) | The handoff order is long; an early usable release reduces risk | ✅ **Approved 2026-11-05** → see M1 |
 | P-12 | **Tech-stack ADR** (language, DB, frontend, OCR engine, barcode lib) before E02 | Locks foundational choices with PO sign-off | ✅ **Approved 2026-11-05**: Python/FastAPI + React/Vite PWA + PostgreSQL with row-level security → `docs/architecture.md` |
 | P-13 | **Data deletion / account removal** (GDPR-style "delete my data" for a user leaving) | Pairs with G-9 | ✅ **Approved 2026-11-07** → E24-01 |
-| P-14 | **Automatic bank feeds (Open Banking)** via a free UK aggregator (e.g. GoCardless Bank Account Data): transactions arrive daily, no more downloading statements | Biggest time saver; read-only access you grant per bank for 90 days at a time. Uses internet and a third party sees your transactions, so opt-in per account | Awaiting approval |
-| P-15 | **Net worth over time**: all accounts, savers and pots in one line chart, month by month | Shows the big picture that spending screens don't | Awaiting approval |
-| P-16 | **Split supermarket receipts automatically**: when a scanned receipt is matched to a card payment, split that payment by what was bought (food vs household vs toiletries) | Makes Groceries honest without manual splits | Awaiting approval |
+| P-14 | **Automatic bank feeds (Open Banking)** via a free UK aggregator (e.g. GoCardless Bank Account Data): transactions arrive daily, no more downloading statements | Biggest time saver; read-only access you grant per bank for 90 days at a time. Uses internet and a third party sees your transactions, so opt-in per account | ❌ **Rejected 2026-11-09** |
+| P-15 | **Net worth over time**: all accounts, savers and pots in one line chart, month by month | Shows the big picture that spending screens don't | ✅ **Approved 2026-11-09** → E25-01 |
+| P-16 | **Split supermarket receipts automatically**: when a scanned receipt is matched to a card payment, split that payment by what was bought (food vs household vs toiletries) | Makes Groceries honest without manual splits | ✅ **Approved 2026-11-09** → E25-02 |
 | P-17 | **Two-step sign-in (authenticator app)** for accounts, required for the server admin | The app holds a household's finances; a password alone is weak if Astris is reachable from outside | Awaiting approval |
-| P-18 | **Monthly round-up message** (Discord/Telegram/ntfy): last month vs usual, biggest changes, goal progress | Useful without opening the app; uses the existing notification channels | Awaiting approval |
+| P-18 | **Monthly round-up message** (Discord/Telegram/ntfy): last month vs usual, biggest changes, goal progress | Useful without opening the app; uses the existing notification channels | ✅ **Approved 2026-11-09**, weekly too, any day and time → E25-03 |
 
 ---
 
@@ -323,6 +328,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-09 | 0.30 | P-14 rejected; P-15, P-16, P-18 approved (E25). E20-02 Mealie built. All-in-one Unraid fixes. |
 | 2026-11-08 | 0.29 | E24 built: P-1, P-2, P-3/4, P-6, P-7, P-10, P-13, G-5, G-6, G-8, G-9, G-13, G-14, G-15, G-16 (all Review). Real AMEX/Chase statements tuned (G-12). G-17 scraping and G-2 still open. |
 | 2026-11-07 | 0.28 | PO decisions: D-4 confirmed; G-5/6/7/8/9/10/13/14/15/16/17 resolved; P-1/2/3/4/6/7/8/9/10/13 approved → new epic E24. G-2 still open. |
 | 2026-11-06 | 0.27 | Quantity trends from receipts (E13-01 complete). v0.1.3 image published. |

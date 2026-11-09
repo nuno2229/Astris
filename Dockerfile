@@ -21,7 +21,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 # postgresql: the built-in database for the all-in-one setup (no auto-created cluster: Astris makes its own in /data)
 RUN mkdir -p /etc/postgresql-common/createcluster.d \
     && echo "create_main_cluster = false" > /etc/postgresql-common/createcluster.d/astris.conf \
-    && apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng postgresql \
+    && apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng postgresql tzdata \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
 COPY backend/pyproject.toml ./

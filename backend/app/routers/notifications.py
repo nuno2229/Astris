@@ -1,6 +1,6 @@
 """Notification settings (E22). Per user. Secrets (webhook URLs, bot tokens) are write-only: the API
 returns a masked hint, never the stored value."""
-from datetime import datetime
+from datetime import datetime, time
 from typing import Literal
 from uuid import UUID
 
@@ -26,6 +26,12 @@ class Prefs(BaseModel):
     daily_summary: bool = False
     stock: bool = True
     shopping: bool = True
+    weekly_roundup: bool = False
+    weekly_day: int = Field(default=0, ge=0, le=6)          # 0 = Monday
+    weekly_time: time = time(8, 0)
+    monthly_roundup: bool = False
+    monthly_day: int = Field(default=1, ge=1, le=31)        # 31 = last day of the month
+    monthly_time: time = time(8, 0)
 
 
 class ChannelIn(BaseModel):
@@ -96,14 +102,19 @@ def get_notifications(user: User, db: DB):
 def put_prefs(body: Prefs, user: User, db: DB):
     db.execute(text("""
         INSERT INTO notification_prefs (user_id, renew_days, renewals, trials, cancelled_charges, missed_payments,
-                                        budgets, daily_summary, stock, shopping)
-        VALUES (:u, :rd, :r, :t, :c, :m, :b, :ds, :st, :sh)
+                                        budgets, daily_summary, stock, shopping, weekly_roundup, weekly_day, weekly_time,
+                                        monthly_roundup, monthly_day, monthly_time)
+        VALUES (:u, :rd, :r, :t, :c, :m, :b, :ds, :st, :sh, :wr, :wd, :wt, :mr, :md, :mt)
         ON CONFLICT (user_id) DO UPDATE SET renew_days = EXCLUDED.renew_days, renewals = EXCLUDED.renewals,
             trials = EXCLUDED.trials, cancelled_charges = EXCLUDED.cancelled_charges, missed_payments = EXCLUDED.missed_payments,
             budgets = EXCLUDED.budgets, daily_summary = EXCLUDED.daily_summary, stock = EXCLUDED.stock,
-            shopping = EXCLUDED.shopping"""),
+            shopping = EXCLUDED.shopping, weekly_roundup = EXCLUDED.weekly_roundup, weekly_day = EXCLUDED.weekly_day,
+            weekly_time = EXCLUDED.weekly_time, monthly_roundup = EXCLUDED.monthly_roundup, monthly_day = EXCLUDED.monthly_day,
+            monthly_time = EXCLUDED.monthly_time"""),
         {"u": user.id, "rd": body.renew_days, "r": body.renewals, "t": body.trials, "c": body.cancelled_charges,
-         "m": body.missed_payments, "b": body.budgets, "ds": body.daily_summary, "st": body.stock, "sh": body.shopping})
+         "m": body.missed_payments, "b": body.budgets, "ds": body.daily_summary, "st": body.stock, "sh": body.shopping,
+         "wr": body.weekly_roundup, "wd": body.weekly_day, "wt": body.weekly_time, "mr": body.monthly_roundup,
+         "md": body.monthly_day, "mt": body.monthly_time})
     return body
 
 
