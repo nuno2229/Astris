@@ -219,3 +219,13 @@ def test_receipt_scanned_before_the_statement_links_and_splits_later():
     tx = a.get(f"/api/accounts/{acc}/transactions").json()[0]
     assert tx["receipt_id"] == r["id"] and tx["split"] is True       # linked to its payment, then split
     assert Decimal(a.get(f"/api/households/{hid}/summary?month={month}").json()["included"][0]["spent"]) == Decimal("9.10")
+
+
+def test_late_link_never_uses_an_account_not_shared_with_the_household():
+    a = make_user("a")
+    hid = create_household(a)
+    private = create_account(a, "Private")                      # not shared into the household
+    r = send(a, hid, MIXED)[0]
+    a.post(f"/api/receipts/{r['id']}/save", json={})
+    upload(a, private, "s.csv", f"Date,Description,Amount\n{T.isoformat()},TESCO STORES 2041,-9.10\n".encode())
+    assert a.get(f"/api/accounts/{private}/transactions").json()[0]["receipt_id"] is None

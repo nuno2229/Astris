@@ -268,21 +268,25 @@ class NetWorth(BaseModel):
 def _balance_on(db: Session, acc, on: date) -> Decimal | None:
     """Balance at the end of `on`: statements' running balance if the account has them, else start + every line since."""
     cut = acc.until if acc.until and acc.until < on else on
+    frozen = acc.frozen_at                        # a former member's kept history: only what existed when they left
     if acc.has_running:
         v = db.execute(text("""SELECT running_balance FROM transactions WHERE account_id = :a AND running_balance IS NOT NULL
-                                 AND posted_on <= :d ORDER BY posted_on DESC, created_at DESC LIMIT 1"""), {"a": acc.id, "d": cut}).scalar()
+                                 AND posted_on <= :d AND (CAST(:f AS timestamptz) IS NULL OR created_at <= CAST(:f AS timestamptz))
+                               ORDER BY posted_on DESC, created_at DESC LIMIT 1"""), {"a": acc.id, "d": cut, "f": frozen}).scalar()
         if v is None:
             return None
         v = Decimal(v)
         return -abs(v) if acc.type == "card" else v                 # a card's balance is money owed
-    if acc.opening_date and acc.opening_date > cut:
+    opening_bal, opening_date = (acc.opening_balance, acc.opening_date) if not frozen else (0, None)   # later edits never show
+    if opening_date and opening_date > cut:
         return None
     r = db.execute(text("""SELECT count(*) AS n, COALESCE(sum(amount), 0) AS s FROM transactions WHERE account_id = :a
-                             AND posted_on <= :d AND (CAST(:o AS date) IS NULL OR posted_on >= CAST(:o AS date))"""),
-                   {"a": acc.id, "d": cut, "o": acc.opening_date}).one()
-    if r.n == 0 and not acc.opening_date:
+                             AND posted_on <= :d AND (CAST(:o AS date) IS NULL OR posted_on >= CAST(:o AS date))
+                             AND (CAST(:f AS timestamptz) IS NULL OR created_at <= CAST(:f AS timestamptz))"""),
+                   {"a": acc.id, "d": cut, "o": opening_date, "f": frozen}).one()
+    if r.n == 0 and not opening_date:
         return None
-    return Decimal(acc.opening_balance or 0) + Decimal(r.s)
+    return Decimal(opening_bal or 0) + Decimal(r.s)
 
 
 @router.get("/households/{hid}/net-worth", response_model=NetWorth)
@@ -292,7 +296,7 @@ def net_worth(hid: UUID, user: User, db: DB, months: int = Query(24, ge=2, le=12
     home = db.execute(text("SELECT home_currency FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
     rates = rate_table(db, hid)
     accs = db.execute(text("""
-        SELECT a.id, a.name, a.type, a.currency, a.opening_balance, a.opening_date, u.display_name AS owner, ha.until,
+        SELECT a.id, a.name, a.type, a.currency, a.opening_balance, a.opening_date, u.display_name AS owner, ha.until, ha.frozen_at,
                EXISTS (SELECT 1 FROM transactions t WHERE t.account_id = a.id AND t.running_balance IS NOT NULL) AS has_running
           FROM household_accounts ha JOIN accounts a ON a.id = ha.account_id
           JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
