@@ -311,6 +311,9 @@ def save(rid: UUID, body: SaveIn, user: User, db: DB):
         for it in items:
             if it.id in body.to_list:
                 list_add(db, lst, user.id, ListItemIn(name=it.name, quantity=Decimal(it.quantity)))
+    if body.transaction_id:
+        from app.receipts.split import split_payment
+        split_payment(db, rid, user.id)          # P-16: food vs household vs toiletries, from the receipt
     audit.log(db, user.id, "receipt.save", "receipt",
               f"Saved a {rec.store or ''} receipt ({len(items)} items{', ' + str(stocked) + ' into the pantry' if stocked else ''})".replace("  ", " "),
               entity_id=rid, household_id=rec.household_id)

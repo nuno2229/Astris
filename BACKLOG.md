@@ -255,7 +255,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 ### E25 · PO decisions of 2026-11-09 — `In progress`
 - [x] **E25-03** Weekly and monthly round-up messages on the notification channels, each on a day and time you pick (P-18) — `Review` (Settings → Notifications; weekly: the 7 days before vs the 8 weeks before; monthly: last month vs the 3 before, plus goal progress; biggest category changes; sent once, still sent up to 2 days late if the server was off; minimal channels just say it's ready)
-- [ ] **E25-02** Supermarket receipts split their card payment automatically by what was bought (P-16)
+- [x] **E25-02** Supermarket receipts split their card payment automatically by what was bought (P-16) — `Review` (on saving a receipt against your own payment: food stays Groceries, household goods → Shopping, toiletries → Personal care, medicines → Health, pet food → Pets, nappies → Kids; differences such as loyalty savings shared out so parts add up to the payment; only when the receipt has 2+ kinds and is within £5/10% of the payment; undo from the payment)
 - [ ] **E25-01** Net worth over time: all accounts, savers and pots, month by month (P-15)
 
 ### E20 · Recipe integrations — **Low** · `Todo` · §19, §25.17

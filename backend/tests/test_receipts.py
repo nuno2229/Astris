@@ -168,3 +168,37 @@ def test_quota_counts_files_from_households_you_left(monkeypatch):
     monkeypatch.setattr(documents, "USER_QUOTA", len(RECEIPT) + 10)
     r = b.post(f"/api/households/{hid2}/receipts", files=[("files", ("r.txt", RECEIPT))], data={"keep_original": "true"})
     assert r.status_code == 413
+
+
+MIXED = f"""TESCO
+Superstore Holloway
+TESCO SEMI SKIMMED MILK 2L      1.65
+ANDREX TOILET ROLL 9PK           5.00
+COLGATE TOOTHPASTE 75ML          2.00
+PARACETAMOL 16S                  0.45
+TOTAL                            9.10
+VISA CONTACTLESS                 9.10
+{T.strftime('%d/%m/%Y')} 14:32""".encode()
+
+
+def test_saving_a_mixed_receipt_splits_the_payment():
+    from app.receipts.kinds import item_category
+    assert item_category("Andrex Toilet Roll 9pk") == "Shopping" and item_category("Colgate toothpaste") == "Personal care"
+    assert item_category("Whiskas cat food 12x85g") == "Pets" and item_category("Hovis bread") == "Groceries"
+    a, b, hid, acc = setup()
+    upload(a, acc, "s2.csv", f"Date,Description,Amount\n{T.isoformat()},TESCO STORES 2041 HOLLOWAY,-9.00\n".encode())
+    tx = next(t for t in a.get(f"/api/accounts/{acc}/transactions").json() if t["amount"] == "-9.0000")
+    r = send(a, hid, MIXED)[0]
+    a.post(f"/api/receipts/{r['id']}/save", json={"transaction_id": tx["id"]})      # paid £9.00: 10p loyalty saving shared out
+    parts = {p["category"]: p["amount"] for p in a.get(f"/api/transactions/{tx['id']}/splits").json()}
+    assert set(parts) == {"Shopping", "Personal care", "Groceries", "Health"}
+    assert sum(Decimal(v) for v in parts.values()) == Decimal("-9.00")
+    assert Decimal(parts["Shopping"]) == Decimal("-4.95")
+
+
+def test_food_only_or_someone_elses_payment_is_not_split():
+    a, b, hid, acc = setup()
+    tx = a.get(f"/api/accounts/{acc}/transactions").json()[0]
+    r = send(b, hid)[0]
+    b.post(f"/api/receipts/{r['id']}/save", json={"transaction_id": tx["id"]})       # all food, and b doesn't own the account
+    assert a.get(f"/api/transactions/{tx['id']}/splits").json() == []
