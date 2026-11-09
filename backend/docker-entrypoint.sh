@@ -13,6 +13,13 @@ if [ "$(id -u)" = "0" ]; then
   for p in "$DATA/secrets.env" "$DATA/postgres" "${BACKUP_DIR:-$DATA/backups}"; do
     if [ -L "$p" ]; then echo "[astris] refusing to start: $p is a link" >&2; exit 1; fi
   done
+  # PostgreSQL won't run as a user it can't look up: give PUID/PGID (Unraid: 99/100) a name inside the container
+  getent group "$PGID" >/dev/null 2>&1 || groupadd -g "$PGID" astris
+  getent passwd "$PUID" >/dev/null 2>&1 || useradd -u "$PUID" -g "$PGID" -M -d /tmp -s /usr/sbin/nologin astris
+  # a half-made database folder from a failed first start: set it aside and start again
+  if [ -d "$DATA/postgres" ] && [ ! -s "$DATA/postgres/PG_VERSION" ] && [ -n "$(ls -A "$DATA/postgres" 2>/dev/null)" ]; then
+    mv "$DATA/postgres" "$DATA/postgres.incomplete-$(date +%s)"
+  fi
   mkdir -p "$DATA" "${BACKUP_DIR:-$DATA/backups}"
   chown -h "$PUID:$PGID" "$DATA"
   chown -R -P -h "$PUID:$PGID" "${BACKUP_DIR:-$DATA/backups}"
