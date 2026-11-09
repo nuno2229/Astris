@@ -17,6 +17,7 @@ from app.netcheck import is_local_url, origin_only
 from app.routers.households import my_role
 
 router = APIRouter(prefix="/api", tags=["meals"])
+GENERIC = "Couldn't read the meal plan from Mealie. Check the address and API token."
 
 
 class MealieIn(BaseModel):
@@ -72,11 +73,17 @@ def _get(base: str, token: str, path: str, allow_internet: bool) -> dict | list:
         raise RuntimeError("Mealie isn't on your home network; tick 'uses internet' to allow it")
     code, raw = pinned_request(base + path, timeout=15, max_bytes=4 * 1024 * 1024, block_self=True,
                                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
-    if code == 401:
-        raise RuntimeError("Mealie didn't accept the API token")
+    if code == 404:
+        raise LookupError("not found")                      # internal: try the older API path
     if code != 200:
-        raise RuntimeError(f"Mealie answered {code}")
-    return json.loads(raw)
+        raise RuntimeError(GENERIC)                         # one message whatever went wrong: no probing the network
+    try:
+        d = json.loads(raw)
+    except ValueError:
+        raise RuntimeError(GENERIC)
+    if not isinstance(d, (dict, list)):
+        raise RuntimeError(GENERIC)
+    return d
 
 
 def _items(d) -> list:
@@ -89,10 +96,11 @@ def fetch_plan(base: str, token: str, allow_internet: bool, days: int = 7) -> li
     q = f"?start_date={s}&end_date={e}&perPage=100"
     try:
         plan = _items(_get(base, token, "/api/households/mealplans" + q, allow_internet))
-    except RuntimeError as err:
-        if "404" not in str(err):
-            raise
-        plan = _items(_get(base, token, "/api/groups/mealplans" + q, allow_internet))
+    except LookupError:
+        try:
+            plan = _items(_get(base, token, "/api/groups/mealplans" + q, allow_internet))
+        except LookupError:
+            raise RuntimeError(GENERIC)
     out, cache = [], {}
     for p in plan[:60]:
         recipe = p.get("recipe") or {}
@@ -102,7 +110,7 @@ def fetch_plan(base: str, token: str, allow_internet: bool, days: int = 7) -> li
             if slug not in cache:
                 try:
                     cache[slug] = _get(base, token, f"/api/recipes/{slug}", allow_internet).get("recipeIngredient") or []
-                except (RuntimeError, AttributeError):
+                except (RuntimeError, LookupError, AttributeError):
                     cache[slug] = []
             for i in cache[slug][:60]:
                 food = ((i.get("food") or {}).get("name") or i.get("note") or "").strip()
@@ -155,7 +163,7 @@ async def meals(hid: UUID, user: User, db: DB, days: int = 7):
         plan = await run_in_threadpool(fetch_plan, c.mealie_url, decrypt_text(c.mealie_token, str(hid)), c.mealie_allow_internet,
                                        max(1, min(days, 14)))
     except Exception as e:
-        msg = str(e) if isinstance(e, RuntimeError) else "Couldn't reach Mealie"
+        msg = str(e) if isinstance(e, RuntimeError) and "home network" in str(e) else GENERIC
         return MealsOut(configured=True, can_edit=role == "owner", url=c.mealie_url, allow_internet=c.mealie_allow_internet, error=msg)
     keys = _pantry_keys(db, hid)
     return MealsOut(configured=True, can_edit=role == "owner", url=c.mealie_url, allow_internet=c.mealie_allow_internet,
@@ -169,8 +177,13 @@ async def set_mealie(hid: UUID, body: MealieIn, user: User, db: DB):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the household owner can change this")
     from app.crypto import encrypt_text
     c = _cfg(db, hid)
-    token = c.mealie_token if (c and body.token is None) else (encrypt_text(body.token.strip(), str(hid)) if body.token else None)
-    if body.url is None:
+    if body.token:
+        token = encrypt_text(body.token.strip(), str(hid))
+    elif c and c.mealie_url and c.mealie_url == body.url:
+        token = c.mealie_token                              # same server: keep the saved token
+    elif body.url:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Enter the API token for this Mealie address")
+    else:
         token = None
     db.execute(text("""INSERT INTO household_settings (household_id, mealie_url, mealie_token, mealie_allow_internet, updated_by)
                        VALUES (:h, :u, :t, :a, :by)

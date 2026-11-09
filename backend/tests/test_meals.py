@@ -23,12 +23,12 @@ def fake_mealie(monkeypatch):
     def get(base, token, path, allow_internet):
         calls.append((base, token, path))
         if path.startswith("/api/households/mealplans"):
-            raise RuntimeError("Mealie answered 404")          # an older (v1) Mealie: fall back to groups
+            raise LookupError("not found")                     # an older (v1) Mealie: fall back to groups
         if path.startswith("/api/groups/mealplans"):
             return PLAN
         if path == "/api/recipes/spag-bol":
             return RECIPE
-        raise RuntimeError("Mealie answered 404")
+        raise LookupError("not found")
     monkeypatch.setattr(M, "_get", get)
     return calls
 
@@ -60,6 +60,8 @@ def test_meal_plan_pantry_check_and_list(fake_mealie):
     a.put(f"/api/households/{hid}/mealie", json={"url": "http://192.168.1.20:9925", "allow_internet": True})
     b.get(f"/api/households/{hid}/meals")
     assert fake_mealie[-1][1] == "secret-token"
+    # a different address needs its own token: the saved one is never sent elsewhere
+    assert a.put(f"/api/households/{hid}/mealie", json={"url": "http://192.168.1.99:9925"}).status_code == 422
     a.put(f"/api/households/{hid}/mealie", json={"url": None})
     assert a.get(f"/api/households/{hid}/meals").json()["configured"] is False
 
