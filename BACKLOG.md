@@ -311,6 +311,11 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 | P-11 | **MVP slice / milestones** (e.g. M1 = auth + households + CSV/OFX import + ledger + basic dashboard on mobile) | The handoff order is long; an early usable release reduces risk | ✅ **Approved 2026-11-05** → see M1 |
 | P-12 | **Tech-stack ADR** (language, DB, frontend, OCR engine, barcode lib) before E02 | Locks foundational choices with PO sign-off | ✅ **Approved 2026-11-05**: Python/FastAPI + React/Vite PWA + PostgreSQL with row-level security → `docs/architecture.md` |
 | P-13 | **Data deletion / account removal** (GDPR-style "delete my data" for a user leaving) | Pairs with G-9 | ✅ **Approved 2026-11-07** → E24-01 |
+| P-14 | **Automatic bank feeds (Open Banking)** via a free UK aggregator (e.g. GoCardless Bank Account Data): transactions arrive daily, no more downloading statements | Biggest time saver; read-only access you grant per bank for 90 days at a time. Uses internet and a third party sees your transactions, so opt-in per account | Awaiting approval |
+| P-15 | **Net worth over time**: all accounts, savers and pots in one line chart, month by month | Shows the big picture that spending screens don't | Awaiting approval |
+| P-16 | **Split supermarket receipts automatically**: when a scanned receipt is matched to a card payment, split that payment by what was bought (food vs household vs toiletries) | Makes Groceries honest without manual splits | Awaiting approval |
+| P-17 | **Two-step sign-in (authenticator app)** for accounts, required for the server admin | The app holds a household's finances; a password alone is weak if Astris is reachable from outside | Awaiting approval |
+| P-18 | **Monthly round-up message** (Discord/Telegram/ntfy): last month vs usual, biggest changes, goal progress | Useful without opening the app; uses the existing notification channels | Awaiting approval |
 
 ---
 
