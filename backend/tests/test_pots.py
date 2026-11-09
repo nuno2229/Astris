@@ -66,3 +66,13 @@ def test_pots_follow_the_main_accounts_sharing():
     b.delete(f"/api/households/{hid}/members/{b.me['id']}?keep_history=true")
     kept = names()
     assert kept["Chase Saver"]["until"] and kept["Chase Saver"]["balance"] is None      # history only, no live balance
+
+
+def test_saver_starting_balance():
+    a = make_user("a")
+    cur = create_account(a, "Chase")
+    upload(a, cur, "s.csv", f"Date,Description,Amount\n{D(3)},To Chase Saver,-1000.00\n".encode())
+    saver = next(x for x in a.get("/api/accounts").json() if x["name"] == "Chase Saver")
+    assert Decimal(saver["balance"]) == Decimal("1000.00")
+    r = a.put(f"/api/accounts/{saver['id']}/opening", json={"balance": "5000.00", "date": D(10)})
+    assert Decimal(r.json()["balance"]) == Decimal("6000.00")       # 5,000 ten days ago, plus the £1,000 moved in since

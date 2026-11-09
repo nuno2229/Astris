@@ -74,22 +74,22 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 ## E. Epics & stories
 
-### E01 · Scope lock & architecture — `Todo` · §1, §2, §25.1
-- [ ] **E01-01** Architecture diagram: offline core, optional network modules, multi-tenant data model, inventory
-- [ ] **E01-02** Scope lock sign-off by PO (resolve D-1, D-5)
-- [ ] **E01-03** Document golden rules (§2) as checkable architectural constraints
+### E01 · Scope lock & architecture — `Done` · §1, §2, §25.1
+- [x] **E01-01** Architecture diagram: offline core, optional network modules, multi-tenant data model, inventory — `Done` (docs/architecture.md)
+- [x] **E01-02** Scope lock sign-off by PO (resolve D-1, D-5) — `Done` (D-1, D-5 confirmed 2026-11-05)
+- [x] **E01-03** Document golden rules (§2) as checkable architectural constraints — `Done` (enforced by row-level security + the isolation test suite in CI, P-8)
 
-### E02 · Data model, auth & tenant scoping — `Todo` · §3, §23, §25.2
-- [ ] **E02-01** Schema: users, sessions, households, memberships (roles: owner/admin/member)
-- [ ] **E02-02** Schema: accounts (bank / card / cash / subscription / goal) with `owner_user_id`
-- [ ] **E02-03** Schema: ledger, products, stock, budgets, shopping lists, goals
-- [ ] **E02-04** Per-account household attribution: `Include` / `Hide (separate)`. Affects aggregation only, never access (§3.5)
-- [ ] **E02-05** Two-layer scoping (user → household) enforced on every query layer: ledger, products, budgets, shopping list, stats, favourites, stock (§3.3)
-- [ ] **E02-06** Distinct per-user login and sessions; a session never spans users (§2, §3.4)
-- [ ] **E02-07** Invitations: link / email / code; explicit and revocable; revocation takes effect immediately (§3.2)
-- [ ] **E02-08** Per-user preferences and defaults stored under the user only (§3.4)
-- [ ] **E02-09** Product/price data global; user- and household-scoped product notes kept private (§3.3)
-- [ ] **E02-10** Encryption at rest for the local DB (§23)
+### E02 · Data model, auth & tenant scoping — `Done` · §3, §23, §25.2
+- [x] **E02-01** Schema: users, sessions, households, memberships (roles: owner/admin/member) — `Done` (M1)
+- [x] **E02-02** Schema: accounts (bank / card / cash / subscription / goal) with `owner_user_id` — `Done` (M1; bank/card/cash/savings; subscriptions and goals are their own records)
+- [x] **E02-03** Schema: ledger, products, stock, budgets, shopping lists, goals — `Done`
+- [x] **E02-04** Per-account household attribution: `Include` / `Hide (separate)`. Affects aggregation only, never access (§3.5) — `Done` (M1, G-11)
+- [x] **E02-05** Two-layer scoping (user → household) enforced on every query layer: ledger, products, budgets, shopping list, stats, favourites, stock (§3.3) — `Done` (Postgres row-level security on every table, tested)
+- [x] **E02-06** Distinct per-user login and sessions; a session never spans users (§2, §3.4) — `Done` (M1)
+- [x] **E02-07** Invitations: link / email / code; explicit and revocable; revocation takes effect immediately (§3.2) — `Done` (link/code invites, revocable; email sending not built: no mail server)
+- [x] **E02-08** Per-user preferences and defaults stored under the user only (§3.4) — `Done`
+- [x] **E02-09** Product/price data global; user- and household-scoped product notes kept private (§3.3) — `Done` (G-8: product names shareable opt-in, notes private)
+- [x] **E02-10** Encryption at rest for the local DB (§23) — `Review` (see E24-14)
 
 ### E03 · Statement parser — `In progress` · §4.1, §25.3
 - [x] **E03-01** CSV import — `Done` (M1)
@@ -97,8 +97,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E03-03** MT940 import — `Review`
 - [x] **E03-04** PDF (text) import — `Review` (line reader; in/out from running balance. Real bank PDFs needed to tune — see G-12)
 - [x] **E03-05** PDF (scanned) and statement images via OCR — `Review` (Tesseract in Docker/CI; verify on real scans)
-- [ ] **E03-06** Extract: date, merchant, category, amount, counterparty, running balance, currency
-- [ ] **E03-07** Bank import is the master per account; receipts and manual entries reconcile onto it (§2)
+- [x] **E03-06** Extract: date, merchant, category, amount, counterparty, running balance, currency — `Review` (CSV/OFX/MT940/PDF/OCR; currency per account, foreign amounts kept)
+- [x] **E03-07** Bank import is the master per account; receipts and manual entries reconcile onto it (§2) — `Review` (receipts match onto bank lines, cash moves and transfers linked)
 - [x] **E03-08** Prompt-injection guard: document content is data only, with structured JSON output (§23) — `Review` (JSON data payload, schema-constrained reply, allowlist validation, tested)
 
 ### E04 · Receipt scanner & unit price — `Review` · §4.2, §25.4
@@ -194,14 +194,14 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E15-05** Local streaming, < ~2 s typical; graceful fallback (canned answers) when no LLM is available — `Review` (built-in phrase matcher works offline; answers are instant since they come from the database)
 - [x] **E15-06** Optional online augmentation only when explicitly enabled
 
-### E16 · Web UI, mobile shell & PWA — `Todo` · §21, §2, §25.16
-- [ ] **E16-01** Dashboard grid of widgets: spend today, budget burn, cheapest item, milk trend, list count, upcoming recipes, household selector, low-stock and expiring-soon
-- [ ] **E16-02** Dark mode by default, plus a light theme
-- [ ] **E16-03** Separate mobile shell (bottom nav, thumb-sized targets) and desktop shell
-- [ ] **E16-04** PWA; no mandatory install
-- [ ] **E16-05** Household switcher with isolated context per screen
-- [ ] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds
-- [ ] **E16-07** Every flow works on mobile from day one: scanning, barcode, chat, budgets, goals, wallet, import review
+### E16 · Web UI, mobile shell & PWA — `Review` · §21, §2, §25.16
+- [x] **E16-01** Dashboard grid of widgets: spend today, budget burn, cheapest item, milk trend, list count, upcoming recipes, household selector, low-stock and expiring-soon — `Review` (spend today, budgets, goals, coming up, pantry low/expiring, shopping list + cheapest shop, what-you-go-through trend; upcoming recipes waits for E20)
+- [x] **E16-02** Dark mode by default, plus a light theme — `Done`
+- [x] **E16-03** Separate mobile shell (bottom nav, thumb-sized targets) and desktop shell — `Done` (phone tab bar + desktop sidebar)
+- [x] **E16-04** PWA; no mandatory install — `Done`
+- [x] **E16-05** Household switcher with isolated context per screen — `Done`
+- [x] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds — `Review` (contrast-checked palette, keyboard focus, status in words not colour only; no formal audit yet)
+- [x] **E16-07** Every flow works on mobile from day one: scanning, barcode, chat, budgets, goals, wallet, import review — `Review` (every screen checked on a phone-sized browser)
 
 ### E17 · Shopping list & product intelligence — `Review` · §16, §18
 - [x] **E17-01** Household list by default, personal list optional — `Review` (shared list created automatically; personal lists private incl. in History)
@@ -262,7 +262,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E21-01** Cold parse of a 5,000-line PDF under 30 s (PO 2026-11-08) — `Review` (3.8 s on a Mac; enforced by a CI test; text PDFs up to 250 pages)
 - [ ] **E21-02** Barcode decode under 1 s offline
 - [ ] **E21-03** Receipt scan under 15–20 s per image, perceived (batched, with progress)
-- [ ] **E21-04** Indexing by account / date / store / user; performance holds at multi-year scale
+- [x] **E21-04** Indexing by account / date / store / user; performance holds at multi-year scale — `Review` (5 years / 60,000 transactions: every screen under 80 ms; a small import 0.1 s after fixing the rules pass)
 
 ---
 

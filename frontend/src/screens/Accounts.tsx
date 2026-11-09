@@ -97,7 +97,8 @@ function AccountCard({ account: a, household, share, onShare, onChanged }: {
       </div>
       {a.is_mine && <AiChoice account={a} household={household} />}
       {a.is_mine && <KeptHistory account={a} />}
-      {a.type === "cash" ? <CashWallet a={a} onChanged={onChanged} /> : <>
+      {a.type === "savings" && a.is_mine && <SavingsStart a={a} onChanged={onChanged} />}
+      {a.type === "cash" ? <CashWallet a={a} onChanged={onChanged} /> : a.type === "savings" ? null : <>
       <a className="btn" href={`#/import/${a.id}`}>Import statements</a>
       <p className="muted small" style={{ marginTop: -6 }}>CSV, OFX, MT940 or PDF from your bank, or a photo of a paper statement.</p>
       </>}
@@ -176,5 +177,35 @@ function KeptHistory({ account: a }: { account: Account }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** Savings pots/savers are only seen through moves on statements: tell Astris what was in it on a date, once. */
+function SavingsStart({ a, onChanged }: { a: Account; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ balance: a.opening_balance && Number(a.opening_balance) ? String(Number(a.opening_balance)) : "", date: a.opening_date ?? "" });
+  const [error, setError] = useState("");
+  if (!open) {
+    return (
+      <div className="row small" style={{ justifyContent: "space-between" }}>
+        <span className="muted">{a.opening_date ? `Started from ${money(a.opening_balance, a.currency)} on ${new Date(a.opening_date + "T00:00:00").toLocaleDateString()}, plus moves since.`
+          : "The balance counts moves seen on your statements. Set what was in it on a date to make it exact."}</span>
+        <button className="btn quiet" onClick={() => setOpen(true)}>{a.opening_date ? "Change" : "Set balance"}</button>
+      </div>
+    );
+  }
+  return (
+    <form className="stack" style={{ gap: 8 }} onSubmit={async (e) => {
+      e.preventDefault(); setError("");
+      try { await api.put(`/api/accounts/${a.id}/opening`, { balance: f.balance, date: f.date }); setOpen(false); onChanged(); }
+      catch (err) { setError((err as Error).message); }
+    }}>
+      <div className="row" style={{ flexWrap: "nowrap" }}>
+        <label style={{ flex: 1 }}>Balance<input inputMode="decimal" value={f.balance} onChange={(e) => setF({ ...f, balance: e.target.value })} required /></label>
+        <label style={{ flex: 1 }}>On<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required /></label>
+      </div>
+      {error && <div className="error" role="alert">{error}</div>}
+      <div className="row"><button className="btn primary">Save</button><button type="button" className="btn quiet" onClick={() => setOpen(false)}>Cancel</button></div>
+    </form>
   );
 }

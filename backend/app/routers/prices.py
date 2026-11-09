@@ -348,3 +348,27 @@ def start_lookups(hid: UUID, user: User, db: DB):
     _running.add(hid)
     threading.Thread(target=run_lookups, args=(user.id, hid), daemon=True).start()
     return {"started": True, "running": True}
+
+
+# ---------- Home: shopping at a glance (E16-01) ----------
+
+@router.get("/households/{hid}/home-shopping")
+def home_shopping(hid: UUID, user: User, db: DB):
+    """Items on the shared list, the shop that's cheapest for most of them, and the top 'what you go through'."""
+    my_role(db, hid)
+    items = [r[0] for r in db.execute(text("""
+        SELECT i.name FROM shopping_items i JOIN shopping_lists l ON l.id = i.list_id
+         WHERE l.household_id = :h AND l.scope = 'household' AND l.is_default AND NOT i.checked"""), {"h": hid})]
+    book = price_book(db, hid) if items else []
+    wins: dict[str, int] = {}
+    for n in items:
+        c = cheapest_for(book, n)
+        if c:
+            wins[c.store] = wins.get(c.store, 0) + 1
+    best = max(wins.items(), key=lambda kv: kv[1]) if wins else None
+    from app.routers.insights import quantities
+    q = quantities(db, hid, date.today() + timedelta(days=1))
+    top = q[0] if q else None
+    return {"list_items": len(items),
+            "cheapest": {"store": best[0], "items": best[1]} if best else None,
+            "trend": {"product": top.product, "weekly": str(top.weekly_avg), "unit": top.unit, "weeks": [str(w) for w in top.weeks]} if top else None}

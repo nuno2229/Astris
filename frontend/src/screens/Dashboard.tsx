@@ -96,8 +96,8 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
         </div>
       ) : (
         <p className="note">
-          Counts {s.accounts_included} shared account{s.accounts_included === 1 ? "" : "s"}. Transfers between your own accounts
-          currently count as spending.
+          Counts {s.accounts_included} shared account{s.accounts_included === 1 ? "" : "s"}. Money moved between your own accounts
+          isn't counted as spending.
         </p>
       )}
 
@@ -109,6 +109,8 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
           <span aria-hidden="true">›</span>
         </a>
       )}
+
+      <ShoppingGlance household={household} />
 
       <h2>Budgets</h2>
       {s.budgets.length === 0 ? (
@@ -156,6 +158,38 @@ export default function Dashboard({ ctx, household }: { ctx: Ctx; household: Hou
       <h2>Recent</h2>
       <TxList txs={s.recent} accountNames={names} />
       {s.recent.length > 0 && <p style={{ marginTop: 12 }}><a href="#/activity">See all activity</a></p>}
+    </>
+  );
+}
+
+/** E16-01: shopping at a glance: list count, cheapest shop for it, and what you go through (e.g. milk a week). */
+function ShoppingGlance({ household }: { household: Household }) {
+  const [d, setD] = useState<{ list_items: number; cheapest: { store: string; items: number } | null;
+    trend: { product: string; weekly: string; unit: string; weeks: string[] } | null } | null>(null);
+  useEffect(() => { api.get<typeof d>(`/api/households/${household.id}/home-shopping`).then(setD).catch(() => setD(null)); }, [household.id]);
+  if (!d || (!d.list_items && !d.trend)) return null;
+  const unit = (u: string) => (u === "l" ? "L" : u === "kg" ? "kg" : "");
+  const max = d.trend ? Math.max(...d.trend.weeks.map(Number), 0.0001) : 1;
+  return (
+    <>
+      <h2>Shopping</h2>
+      <div className="panel stack" style={{ gap: 10 }}>
+        {d.list_items > 0 && (
+          <a href="#/list" className="row" style={{ justifyContent: "space-between", color: "inherit", textDecoration: "none" }}>
+            <span><strong>{d.list_items}</strong> item{d.list_items === 1 ? "" : "s"} on the list
+              {d.cheapest && <span className="muted">, {d.cheapest.items === d.list_items ? "all" : d.cheapest.items} cheapest at {d.cheapest.store}</span>}</span>
+            <span aria-hidden="true">›</span>
+          </a>
+        )}
+        {d.trend && (
+          <a href="#/insights" className="row" style={{ justifyContent: "space-between", color: "inherit", textDecoration: "none", flexWrap: "nowrap" }}>
+            <span>{d.trend.product}: <strong>{Number(d.trend.weekly).toFixed(1)}{unit(d.trend.unit) ? ` ${unit(d.trend.unit)}` : " items"}</strong> a week</span>
+            <span className="spark" style={{ width: 96, flexShrink: 0 }} role="img" aria-label={`${d.trend.product}, last 12 weeks`}>
+              {d.trend.weeks.map((w, i) => <span key={i} style={{ height: `${Math.max(8, (Number(w) / max) * 100)}%` }} />)}
+            </span>
+          </a>
+        )}
+      </div>
     </>
   );
 }

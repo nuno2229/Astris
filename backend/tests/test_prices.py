@@ -74,3 +74,16 @@ def test_isolation():
     assert x.get(f"/api/households/{hid}/prices").status_code == 404
     xh = create_household(x)
     assert x.get(f"/api/households/{xh}/prices").json()["products"] == []
+
+
+def test_home_shopping_summary():
+    from tests.conftest import create_household, make_user
+    a = make_user("a")
+    hid = create_household(a)
+    lst = next(l for l in a.get(f"/api/households/{hid}/shopping-lists").json() if l["scope"] == "household")
+    a.post(f"/api/shopping-lists/{lst['id']}/items", json={"name": "Semi skimmed milk"})
+    for store, price in (("Tesco", "1.75"), ("Aldi", "1.45")):
+        a.post(f"/api/households/{hid}/web-prices", json={"url": f"https://www.{'tesco.com' if store == 'Tesco' else 'aldi.co.uk'}/p",
+                                                       "name": "Semi Skimmed Milk 4 Pints", "price": price})
+    r = a.get(f"/api/households/{hid}/home-shopping").json()
+    assert r["list_items"] == 1 and r["cheapest"] == {"store": "Aldi", "items": 1} and r["trend"] is None
