@@ -46,6 +46,7 @@ export default function TxSheet({ tx, categories, wallets = [], goals = [], peop
           <div className={"acct-bal" + (n > 0 ? " in" : "")}>{money(n, tx.currency, true)}</div>
         </div>
         {tx.merchant && <div className="muted small">On your statement: {tx.description}</div>}
+        {tx.receipt_id && <a className="small" href="#/receipts">This payment has a scanned receipt{tx.split ? ", split by what was bought" : ""}. See receipts ›</a>}
         {tx.original_currency && <div className="muted small">Paid {money(tx.original_amount, tx.original_currency)} abroad
           ({(Math.abs(Number(tx.amount)) / Math.abs(Number(tx.original_amount))).toFixed(4)} {tx.currency} per {tx.original_currency})</div>}
         {tx.refund_of ? <div className="muted small">A refund, so it comes off your {tx.category ?? ""} spending.</div>

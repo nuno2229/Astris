@@ -44,6 +44,7 @@ export default function TxList({ txs, accountNames, empty, onOpen }: {
                     {t.original_currency && <div className="meta fx">{money(t.original_amount, t.original_currency)}</div>}
                     {t.refund_of && <div className="meta fx">Refund</div>}
                     {t.split && <div className="meta fx">Split</div>}
+                    {t.receipt_id && !t.split && <div className="meta fx">Receipt</div>}
                     {t.transfer_group && <div className="meta fx">{!isWalletMove(t) ? "Transfer" : t.source === "transfer" ? "From bank" : "To wallet"}</div>}
                   </div>
                 </>

@@ -30,7 +30,8 @@ _TX_COLS = "t.id, t.account_id, t.posted_on, t.amount, t.currency, t.description
            "t.counterparty, t.category, t.running_balance, t.category_source, t.category_confidence, " \
            "t.needs_review, (a.owner_user_id = app_uid()) AS editable, t.merchant_key, t.source, " \
            "t.original_amount, t.original_currency, t.transfer_group, t.refund_of, " \
-           "EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id) AS split"
+           "EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id = t.id) AS split, " \
+           "(SELECT r.id FROM receipts r WHERE r.transaction_id = t.id LIMIT 1) AS receipt_id"
 
 
 def parse_checked(filename: str, raw: bytes, options: dict | None = None):
@@ -87,7 +88,9 @@ def after_import(db: DB, user_id: UUID, account_ids) -> None:
     from app.transfers import auto_link
     auto_link(db, user_id)                # current -> savings, card repayments: not spending (P-1)
     from app.refunds import auto_link as refunds
-    refunds(db, user_id)                  # money back from a shop: netted off that purchase's category (P-2)
+    refunds(db, user_id)
+    from app.receipts.autolink import link_waiting_receipts
+    link_waiting_receipts(db, user_id)    # receipts scanned before this statement: link (never double count) and split                  # money back from a shop: netted off that purchase's category (P-2)
     for aid in set(account_ids):
         detect_recurring(db, user_id, aid)  # regular payments, next due dates, missed/changed amounts (E06)
     worker.wake()

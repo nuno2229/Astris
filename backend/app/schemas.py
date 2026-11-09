@@ -142,6 +142,7 @@ class TransactionOut(BaseModel):
     transfer_group: UUID | None = None
     refund_of: UUID | None = None
     split: bool = False
+    receipt_id: UUID | None = None   # the scanned receipt linked to this payment, if any
 
 
 class ManualTxIn(BaseModel):

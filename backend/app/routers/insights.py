@@ -236,3 +236,101 @@ def insights(hid: UUID, user: User, db: DB, month: str | None = Query(None, patt
     home = db.execute(text("SELECT home_currency FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
     m = date.fromisoformat(month + "-01") if month else date.today().replace(day=1)
     return compute(db, hid, home, m)
+
+
+# ---------- net worth over time (P-15) ----------
+
+class NetWorthAccount(BaseModel):
+    id: UUID
+    name: str
+    type: str
+    owner: str
+    balance: Decimal | None        # in the account's currency, at the end of the latest month
+    currency: str
+    in_home: Decimal | None        # converted; None when there's no rate
+
+
+class NetWorthPoint(BaseModel):
+    month: str                     # YYYY-MM (balance at the end of that month, or today for this month)
+    value: Decimal | None
+
+
+class NetWorth(BaseModel):
+    currency: str
+    now: Decimal | None
+    change_month: Decimal | None
+    change_year: Decimal | None
+    points: list[NetWorthPoint]
+    accounts: list[NetWorthAccount]
+    unconverted: list[str]
+
+
+def _balance_on(db: Session, acc, on: date) -> Decimal | None:
+    """Balance at the end of `on`: statements' running balance if the account has them, else start + every line since."""
+    cut = acc.until if acc.until and acc.until < on else on
+    if acc.has_running:
+        v = db.execute(text("""SELECT running_balance FROM transactions WHERE account_id = :a AND running_balance IS NOT NULL
+                                 AND posted_on <= :d ORDER BY posted_on DESC, created_at DESC LIMIT 1"""), {"a": acc.id, "d": cut}).scalar()
+        if v is None:
+            return None
+        v = Decimal(v)
+        return -abs(v) if acc.type == "card" else v                 # a card's balance is money owed
+    if acc.opening_date and acc.opening_date > cut:
+        return None
+    r = db.execute(text("""SELECT count(*) AS n, COALESCE(sum(amount), 0) AS s FROM transactions WHERE account_id = :a
+                             AND posted_on <= :d AND (CAST(:o AS date) IS NULL OR posted_on >= CAST(:o AS date))"""),
+                   {"a": acc.id, "d": cut, "o": acc.opening_date}).one()
+    if r.n == 0 and not acc.opening_date:
+        return None
+    return Decimal(acc.opening_balance or 0) + Decimal(r.s)
+
+
+@router.get("/households/{hid}/net-worth", response_model=NetWorth)
+def net_worth(hid: UUID, user: User, db: DB, months: int = Query(24, ge=2, le=120)):
+    """Accounts counted 'in totals' in this household (yours and others'), month by month."""
+    my_role(db, hid)
+    home = db.execute(text("SELECT home_currency FROM users WHERE id = :u"), {"u": user.id}).scalar_one()
+    rates = rate_table(db, hid)
+    accs = db.execute(text("""
+        SELECT a.id, a.name, a.type, a.currency, a.opening_balance, a.opening_date, u.display_name AS owner, ha.until,
+               EXISTS (SELECT 1 FROM transactions t WHERE t.account_id = a.id AND t.running_balance IS NOT NULL) AS has_running
+          FROM household_accounts ha JOIN accounts a ON a.id = ha.account_id
+          JOIN household_people ow ON ow.household_id = :h AND ow.user_id = a.owner_user_id
+          JOIN users u ON u.id = a.owner_user_id
+         WHERE ha.household_id = :h AND ha.attribution = 'include'
+         ORDER BY a.name"""), {"h": hid}).all()
+    today = date.today()
+    ends = []
+    for k in range(months - 1, -1, -1):
+        m = _month_start(today.replace(day=1), k)
+        ends.append((m, min(_month_start(m, -1) - timedelta(days=1), today)))
+    missing: set[str] = set()
+    points, latest = [], {}
+    for m, end in ends:
+        total, any_value = Decimal(0), False
+        for a in accs:
+            b = _balance_on(db, a, end)
+            if end == ends[-1][1]:
+                latest[a.id] = b
+            if b is None:
+                continue
+            v = convert(b, a.currency, home, rates)
+            if v is None:
+                missing.add(a.currency)
+                continue
+            total += v
+            any_value = True
+        points.append(NetWorthPoint(month=_key(m), value=total.quantize(Q) if any_value else None))
+    vals = [p.value for p in points]
+    now = vals[-1]
+    def diff(back: int):
+        prev = vals[-1 - back] if len(vals) > back else None
+        return (now - prev).quantize(Q) if now is not None and prev is not None else None
+    out_accs = []
+    for a in accs:
+        b = latest.get(a.id)
+        c = convert(b, a.currency, home, rates) if b is not None else None
+        out_accs.append(NetWorthAccount(id=a.id, name=a.name, type=a.type, owner=a.owner, balance=b.quantize(Q) if b is not None else None,
+                                        currency=a.currency, in_home=c.quantize(Q) if c is not None else None))
+    return NetWorth(currency=home, now=now, change_month=diff(1), change_year=diff(12), points=points,
+                    accounts=sorted(out_accs, key=lambda x: -(x.in_home or 0)), unconverted=sorted(missing))

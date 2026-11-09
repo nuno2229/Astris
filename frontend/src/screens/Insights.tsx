@@ -127,6 +127,7 @@ export default function Insights({ household }: { household: Household }) {
         </ul>
       )}
       <p className="muted small" style={{ margin: "6px 4px 0" }}>Last 12 weeks, newest on the right. Same product from different shops is counted together.</p>
+      <NetWorthSection household={household} />
     </>
   );
 }
@@ -146,5 +147,59 @@ function Ranked({ rows, c, empty }: { rows: { name: string; spent: string; count
         </li>
       ))}
     </ul>
+  );
+}
+
+interface NetWorthData { currency: string; now: string | null; change_month: string | null; change_year: string | null;
+  points: { month: string; value: string | null }[];
+  accounts: { id: string; name: string; type: string; owner: string; balance: string | null; currency: string; in_home: string | null }[];
+  unconverted: string[] }
+
+/** P-15: net worth over time. One series: a single line, recessive grid, hover/tap readout, table view. */
+function NetWorthSection({ household }: { household: Household }) {
+  const [d, setD] = useState<NetWorthData | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  useEffect(() => { api.get<NetWorthData>(`/api/households/${household.id}/net-worth?months=24`).then(setD).catch(() => setD(null)); }, [household.id]);
+  if (!d || d.now === null) return null;
+  const pts = d.points.map((p, i) => ({ i, m: p.month, v: p.value === null ? null : Number(p.value) })).filter((p) => p.v !== null) as { i: number; m: string; v: number }[];
+  const W = 320, H = 120, P = 6;
+  const lo = Math.min(0, ...pts.map((p) => p.v)), hi = Math.max(...pts.map((p) => p.v), 1);
+  const x = (i: number) => P + (i / Math.max(d.points.length - 1, 1)) * (W - 2 * P);
+  const y = (v: number) => H - P - ((v - lo) / (hi - lo || 1)) * (H - 2 * P);
+  const path = pts.map((p, k) => `${k ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+  const sel = hover !== null ? pts.find((p) => p.i === hover) : pts[pts.length - 1];
+  const mname = (m: string) => new Date(m + "-01T00:00:00").toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  const change = (v: string | null, label: string) => v === null ? null : <span>{Number(v) >= 0 ? "+" : "−"}{money(Math.abs(Number(v)), d.currency)} {label}</span>;
+  return (
+    <section>
+      <h2>Net worth</h2>
+      <div className="panel stack" style={{ gap: 10 }}>
+        <div>
+          <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "var(--font-display)" }}>{money(sel ? sel.v : d.now, d.currency)}</div>
+          <div className="muted small row" style={{ gap: 12 }}>
+            {hover !== null && sel ? <span>End of {mname(sel.m)}</span> : <>{change(d.change_month, "this month")}{change(d.change_year, "in a year")}</>}
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Net worth over the last ${d.points.length} months`}
+          onMouseLeave={() => setHover(null)} style={{ touchAction: "none", overflow: "visible" }}
+          onPointerMove={(e) => { const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect(); const i = Math.round(((e.clientX - r.left) / r.width * W - P) / (W - 2 * P) * (d.points.length - 1)); setHover(Math.max(0, Math.min(d.points.length - 1, i))); }}>
+          {lo < 0 && <line x1={P} x2={W - P} y1={y(0)} y2={y(0)} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 3" />}
+          <path d={path} fill="none" stroke="var(--chart)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          {sel && <circle cx={x(sel.i)} cy={y(sel.v)} r="4.5" fill="var(--chart)" stroke="var(--surface)" strokeWidth="2" />}
+        </svg>
+        <div className="row muted small" style={{ justifyContent: "space-between" }}><span>{mname(d.points[0].month)}</span><span>Now</span></div>
+        <ul className="list" style={{ background: "var(--bg)" }}>
+          {d.accounts.map((a) => (
+            <li key={a.id}><div className="main"><div className="title">{a.name}</div><div className="meta">{a.owner}'s{a.type === "card" ? ", owed" : ""}</div></div>
+              <div className={"amt" + (a.in_home !== null && Number(a.in_home) < 0 ? "" : " in")}>{a.balance === null ? "—" : money(a.in_home ?? a.balance, a.in_home !== null ? d.currency : a.currency)}</div></li>
+          ))}
+        </ul>
+        <details className="table-view small"><summary>See it as a table</summary>
+          <table><tbody>{d.points.filter((p) => p.value !== null).map((p) => <tr key={p.month}><td>{mname(p.month)}</td><td>{money(p.value, d.currency)}</td></tr>)}</tbody></table>
+        </details>
+        <span className="muted small">Accounts in {household.name}'s totals, at the end of each month. Savings pots and cash use their starting balance plus every move since.
+          {d.unconverted.length > 0 && ` Not counted: ${d.unconverted.join(", ")} (no exchange rate).`}</span>
+      </div>
+    </section>
   );
 }

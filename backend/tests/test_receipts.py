@@ -202,3 +202,20 @@ def test_food_only_or_someone_elses_payment_is_not_split():
     r = send(b, hid)[0]
     b.post(f"/api/receipts/{r['id']}/save", json={"transaction_id": tx["id"]})       # all food, and b doesn't own the account
     assert a.get(f"/api/transactions/{tx['id']}/splits").json() == []
+
+
+def test_receipt_scanned_before_the_statement_links_and_splits_later():
+    a = make_user("a")
+    hid = create_household(a)
+    acc = create_account(a)
+    a.put(f"/api/households/{hid}/accounts/{acc}", json={"attribution": "include"})
+    r = send(a, hid, MIXED)[0]
+    assert r["candidates"] == []                                     # no statement yet
+    a.post(f"/api/receipts/{r['id']}/save", json={})
+    month = T.strftime("%Y-%m")
+    before = a.get(f"/api/households/{hid}/summary?month={month}").json()["included"]
+    assert before == [] or Decimal(before[0]["spent"]) == 0          # a receipt alone is never spending
+    upload(a, acc, "s.csv", f"Date,Description,Amount\n{T.isoformat()},TESCO STORES 2041,-9.10\n".encode())
+    tx = a.get(f"/api/accounts/{acc}/transactions").json()[0]
+    assert tx["receipt_id"] == r["id"] and tx["split"] is True       # linked to its payment, then split
+    assert Decimal(a.get(f"/api/households/{hid}/summary?month={month}").json()["included"][0]["spent"]) == Decimal("9.10")
