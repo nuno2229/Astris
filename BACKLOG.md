@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Backlog version** | 0.30 |
+| **Backlog version** | 0.31 |
 | **Spec version** | v0.4 (DRAFT) |
 | **Last updated** | 2026-11-07 |
 | **Owner** | PO |
@@ -251,7 +251,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 - [x] **E24-16** Pots and savers are savings (PO 2026-11-08) — `Review` ("To Bills pot", "To Chase Saver", "…Savings/ISA" lines become a savings account of yours, shared like the main account, moves linked as transfers so they're never spending/income; a goal can follow it; "Not a transfer" sticks)
 
-- [x] **E19-07** Easier Unraid install (PO 2026-11-08) — `Review` (all-in-one: built-in PostgreSQL in the AppData folder, passwords generated into secrets.env, clean shutdown; one-line template install; runs as Unraid's nobody:users (PUID/PGID); external Postgres still supported. v0.1.4 tag failed CI (OCR test font), released as v0.1.5)
+- [x] **E19-07** Easier Unraid install (PO 2026-11-08) — `Review` (all-in-one: built-in PostgreSQL in the AppData folder, passwords generated into secrets.env, clean shutdown; one-line template install; runs as Unraid's nobody:users (PUID/PGID); external Postgres still supported. ✅ **Confirmed running on the PO's Unraid 2026-11-09 (v0.1.7).** v0.1.4 tag failed CI (OCR test font), released as v0.1.5)
 
 ### E25 · PO decisions of 2026-11-09 — `In progress`
 - [x] **E25-03** Weekly and monthly round-up messages on the notification channels, each on a day and time you pick (P-18) — `Review` (Settings → Notifications; weekly: the 7 days before vs the 8 weeks before; monthly: last month vs the 3 before, plus goal progress; biggest category changes; sent once, still sent up to 2 days late if the server was off; minimal channels just say it's ready)
@@ -329,6 +329,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-11-09 | 0.31 | v0.1.7 confirmed running on Unraid. E25 (net worth, receipt splits, round-ups), receipts never double counted, new logo, README rewrite → v0.1.8. |
 | 2026-11-09 | 0.30 | P-14 rejected; P-15, P-16, P-18 approved (E25). E20-02 Mealie built. All-in-one Unraid fixes. |
 | 2026-11-08 | 0.29 | E24 built: P-1, P-2, P-3/4, P-6, P-7, P-10, P-13, G-5, G-6, G-8, G-9, G-13, G-14, G-15, G-16 (all Review). Real AMEX/Chase statements tuned (G-12). G-17 scraping and G-2 still open. |
 | 2026-11-07 | 0.28 | PO decisions: D-4 confirmed; G-5/6/7/8/9/10/13/14/15/16/17 resolved; P-1/2/3/4/6/7/8/9/10/13 approved → new epic E24. G-2 still open. |
