@@ -1,7 +1,7 @@
 // App-shell cache only. API responses (financial data) are NEVER cached by the service worker.
-const CACHE = "astris-shell-v1";
+const CACHE = "astris-shell-v2";
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icon.svg"])));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/apple-touch-icon.png"])));
   self.skipWaiting();
 });
 self.addEventListener("activate", (e) => {

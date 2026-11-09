@@ -14,7 +14,9 @@ ARG APP_VERSION=dev
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 APP_VERSION=${APP_VERSION}
 LABEL org.opencontainers.image.title="Astris" \
       org.opencontainers.image.description="Private, self-hosted household finance hub" \
-      org.opencontainers.image.version="${APP_VERSION}"
+      org.opencontainers.image.version="${APP_VERSION}" \
+      net.unraid.docker.icon="https://raw.githubusercontent.com/nuno2229/Astris/main/unraid/icon.png" \
+      net.unraid.docker.webui="http://[IP]:[PORT:8000]/"
 # tesseract: reading photos of receipts/statements and use-by dates (sandboxed). Chromium (via Playwright): opt-in
 # Morrisons/Aldi price lookups (G-17); stored where the unprivileged app user can read it.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright

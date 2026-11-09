@@ -16,7 +16,7 @@
   <Overview>Private, self-hosted household money and shopping hub. Import bank statements, budgets, bills, savings goals, pantry and shopping lists, shared within your household. Everything stays on your server. All-in-one: includes its own database.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:8000]/</WebUI>
-  <Icon>https://raw.githubusercontent.com/nuno2229/Astris/main/frontend/public/icon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/nuno2229/Astris/main/unraid/icon.png</Icon>
   <ExtraParams>--stop-timeout 60</ExtraParams>
   <Config Name="Web UI port" Target="8000" Default="8484" Mode="tcp" Description="Port for the web app" Type="Port" Display="always" Required="true">8484</Config>
   <Config Name="AppData" Target="/data" Default="/mnt/user/appdata/astris" Mode="rw" Description="Everything Astris keeps: its database, daily backups (backups/), generated passwords (secrets.env)" Type="Path" Display="always" Required="true">/mnt/user/appdata/astris</Config>

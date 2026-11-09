@@ -1,1 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#121733"/><path d="M128 300 L208 220 L272 268 L384 156" stroke="#f3d58a" stroke-width="40" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="384" cy="156" r="28" fill="#f3d58a"/><rect x="120" y="352" width="272" height="32" rx="16" fill="#2e3666"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#232b5c"/>
+      <stop offset="1" stop-color="#0d1129"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#f3d58a" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#f3d58a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <g fill="#f3d58a" opacity=".45">
+    <circle cx="104" cy="124" r="4"/><circle cx="418" cy="384" r="5"/><circle cx="96" cy="398" r="3"/>
+    <circle cx="150" cy="300" r="2.5"/><circle cx="362" cy="440" r="2.5"/>
+  </g>
+  <circle cx="256" cy="262" r="190" fill="url(#glow)"/>
+  <g transform="translate(32 38) scale(14)">
+    <path fill="#f3d58a" d="M16 2.5l2.6 9.4 9.4 4.1-9.4 4.1L16 29.5l-2.6-9.4L4 16l9.4-4.1z"/>
+    <circle cx="26" cy="6" r="1.6" fill="#f3d58a" opacity=".75"/>
+  </g>
+</svg>
