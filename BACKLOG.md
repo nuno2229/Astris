@@ -266,8 +266,8 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 
 ### E21 · Non-functional targets — `Todo` · §22
 - [x] **E21-01** Cold parse of a 5,000-line PDF under 30 s (PO 2026-11-08) — `Review` (3.8 s on a Mac; enforced by a CI test; text PDFs up to 250 pages)
-- [ ] **E21-02** Barcode decode under 1 s offline
-- [ ] **E21-03** Receipt scan under 15–20 s per image, perceived (batched, with progress)
+- [x] **E21-02** Barcode decode under 1 s offline — `Review` (12 MP photo: ~0.1–0.2 s, ~0.19 s with the CPU slowed 4× like a phone; same decoder iPhones use; still to confirm on the PO's phone)
+- [x] **E21-03** Receipt scan under 15–20 s per image, perceived (batched, with progress) — `Review` (CI test: a 20-line receipt photo through OCR and item reading must finish under 20 s; still to confirm on the PO's Unraid)
 - [x] **E21-04** Indexing by account / date / store / user; performance holds at multi-year scale — `Review` (5 years / 60,000 transactions: every screen under 80 ms; a small import 0.1 s after fixing the rules pass)
 
 ---
