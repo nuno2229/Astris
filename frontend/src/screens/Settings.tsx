@@ -137,7 +137,7 @@ function About() {
           <span className="pill" style={{ fontSize: 14, color: "var(--text)" }} data-testid="version">{v?.version ?? "…"}</span>
         </div>
         <div className="muted small">Server database: {v ? (v.db === "ok" ? "connected" : "unreachable") : "…"}</div>
-        <a className="small" href="https://github.com/nuno2229/Astris/releases" target="_blank" rel="noreferrer">Release notes</a>
+        <a className="small" style={{ display: "inline-block", padding: "4px 0", alignSelf: "flex-start" }} href="https://github.com/nuno2229/Astris/releases" target="_blank" rel="noreferrer">Release notes</a>
       </div>
       <PhoneCamera />
     </>

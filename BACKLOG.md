@@ -200,7 +200,7 @@ Auth + households/invites + accounts + CSV/OFX import + ledger + basic mobile-fi
 - [x] **E16-03** Separate mobile shell (bottom nav, thumb-sized targets) and desktop shell — `Done` (phone tab bar + desktop sidebar)
 - [x] **E16-04** PWA; no mandatory install — `Done`
 - [x] **E16-05** Household switcher with isolated context per screen — `Done`
-- [x] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds — `Review` (contrast-checked palette, keyboard focus, status in words not colour only; no formal audit yet)
+- [x] **E16-06** Accessibility: contrast, keyboard nav, colour-blind-safe thresholds — `Review` (audited 2026-11-14 on every screen and the main sheets, dark and light: text contrast meets WCAG AA everywhere, every field labelled, every control named, tap targets ≥24 px, visible keyboard focus, status in words not colour only; 2 issues found and fixed)
 - [x] **E16-07** Every flow works on mobile from day one: scanning, barcode, chat, budgets, goals, wallet, import review — `Review` (every screen checked on a phone-sized browser)
 
 ### E17 · Shopping list & product intelligence — `Review` · §16, §18

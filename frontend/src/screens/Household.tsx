@@ -106,7 +106,7 @@ export default function HouseholdScreen({ ctx, household }: { ctx: Ctx; househol
         <div><strong>{ctx.me.display_name}</strong> <span className="muted small">{ctx.me.email}</span></div>
         <form className="row" style={{ flexWrap: "nowrap" }} onSubmit={(e) => { e.preventDefault(); act(async () => {
           const h = await api.post<Household>("/api/households", { name: newName }); setNewName(""); await ctx.reloadHouseholds(h.id); }); }}>
-          <input placeholder="New household name" value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
+          <input placeholder="New household name" aria-label="New household name" value={newName} onChange={(e) => setNewName(e.target.value)} required maxLength={100} />
           <button className="btn">Create</button>
         </form>
         {household.role !== "owner" && (leaving ? (
